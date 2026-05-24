@@ -958,3 +958,142 @@ body {
   .matchup-clocks { flex-direction: row; flex-wrap: wrap; justify-content: center; }
   .four-choice { grid-template-columns: 1fr; max-width: 380px; }
 }
+
+/* ============================================================
+   SCREEN TRANSITIONS — clock-themed iris wipe
+   ============================================================ */
+.screen-transition {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  --ox: 50vw;
+  --oy: 50vh;
+  --tone-a: #ffd166;
+  --tone-b: #ff6b9b;
+}
+.screen-transition[data-tone="teal"] { --tone-a: #4ecdc4; --tone-b: #5d72e0; }
+.screen-transition[data-tone="pink"] { --tone-a: #ff6b9b; --tone-b: #ffd166; }
+.screen-transition[data-tone="gold"] { --tone-a: #ffd166; --tone-b: #ff6b9b; }
+
+.screen-transition .st-iris {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at var(--ox) var(--oy),
+    var(--tone-a) 0%, var(--tone-a) 35%, var(--tone-b) 70%, var(--tone-b) 100%);
+  clip-path: circle(0% at var(--ox) var(--oy));
+  opacity: 0;
+  will-change: clip-path, opacity;
+}
+.screen-transition .st-clock {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 140px; height: 140px;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  filter: drop-shadow(0 0 24px rgba(255,209,102,0.7));
+  will-change: transform, opacity;
+}
+.screen-transition .st-clock svg { width: 100%; height: 100%; }
+.screen-transition .st-hand { transform-origin: 50px 50px; }
+
+.screen-transition.in .st-iris {
+  animation: stIrisIn 0.4s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+.screen-transition.in .st-clock {
+  animation: stClockIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.screen-transition.in .st-hour {
+  animation: stSpinHour 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.screen-transition.in .st-minute {
+  animation: stSpinMin 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.screen-transition.out .st-iris {
+  animation: stIrisOut 0.5s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+.screen-transition.out .st-clock {
+  animation: stClockOut 0.35s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+@keyframes stIrisIn {
+  0%   { clip-path: circle(0% at var(--ox) var(--oy)); opacity: 0.9; }
+  100% { clip-path: circle(160% at var(--ox) var(--oy)); opacity: 1; }
+}
+@keyframes stIrisOut {
+  0%   { clip-path: circle(160% at 50% 50%); opacity: 1; }
+  100% { clip-path: circle(0% at 50% 50%); opacity: 0; }
+}
+@keyframes stClockIn {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(-90deg); opacity: 0; }
+  60%  { transform: translate(-50%, -50%) scale(1.15) rotate(20deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes stClockOut {
+  0%   { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.2) rotate(120deg); opacity: 0; }
+}
+@keyframes stSpinHour {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(540deg); }
+}
+@keyframes stSpinMin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(1080deg); }
+}
+
+/* Tap-origin burst — quick ring blooming from the clicked tile */
+.tap-burst {
+  position: fixed;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,209,102,0.9), rgba(255,107,155,0.3) 60%, transparent 80%);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  z-index: 9998;
+  animation: tapBurstAnim 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes tapBurstAnim {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(80); opacity: 0; }
+}
+
+/* Tile pulse — quick squish-stretch when tapped before transition */
+.tile-pulse { animation: tilePulse 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes tilePulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.12); filter: brightness(1.25); }
+  65%  { transform: scale(0.96); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* Cascade-in — staggered child reveal driven by --i */
+.cascade-in {
+  opacity: 0;
+  transform: translateY(14px) scale(0.92);
+  animation: cascadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes cascadeIn {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mode picker entrance — extra punch on the card itself */
+.modal:not([hidden]) .mode-picker-card {
+  animation: modePickerPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modePickerPop {
+  0%   { transform: scale(0.7) rotate(-4deg); opacity: 0; }
+  60%  { transform: scale(1.04) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Screen-active: a tiny extra emphasis when the new screen appears mid-wipe */
+.screen.active { animation: screenIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .screen-transition, .tap-burst, .tile-pulse, .cascade-in,
+  .modal:not([hidden]) .mode-picker-card { animation: none !important; }
+  .screen-transition .st-iris { display: none; }
+}
+

@@ -113,6 +113,21 @@ const Game = (() => {
     document.getElementById(`screen-${id}`).classList.add('active');
   }
 
+  // Transition wrapper — wipe before swapping screens. origin: pointer event or element.
+  function transitionTo(id, origin, tone) {
+    if (typeof Transitions === 'undefined') { showScreen(id); return; }
+    let pt = null;
+    if (origin) {
+      if (origin.clientX != null) pt = { x: origin.clientX, y: origin.clientY };
+      else if (origin.getBoundingClientRect) {
+        const r = origin.getBoundingClientRect();
+        pt = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+    }
+    if (origin && origin.getBoundingClientRect) Transitions.tapBurst(origin);
+    Transitions.wipe(() => showScreen(id), { origin: pt, tone: tone || 'gold' });
+  }
+
   // ===== HOME =====
   function renderHome() {
     const grid = document.getElementById('levelGrid');
@@ -136,9 +151,12 @@ const Game = (() => {
         </div>
       `;
       if (!locked) {
-        card.addEventListener('click', () => startLevel(lvl.id));
+        card.addEventListener('click', (e) => {
+          if (typeof Transitions !== 'undefined') Transitions.pulse(card);
+          setTimeout(() => startLevel(lvl.id, e), 180);
+        });
         card.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startLevel(lvl.id); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startLevel(lvl.id, card); }
         });
       }
       grid.appendChild(card);
@@ -173,9 +191,12 @@ const Game = (() => {
         <div class="act-name">${a.name}</div>
         <div class="act-blurb">${a.blurb}</div>
       `;
-      tile.addEventListener('click', () => openModePicker(a));
+      tile.addEventListener('click', (e) => {
+        if (typeof Transitions !== 'undefined') Transitions.pulse(tile);
+        setTimeout(() => openModePicker(a, e), 160);
+      });
       tile.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModePicker(a); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModePicker(a, tile); }
       });
       grid.appendChild(tile);
     });
@@ -191,8 +212,8 @@ const Game = (() => {
   ];
 
   let pickerCtx = null;
-  function openModePicker(activity) {
-    pickerCtx = { activity, levelId: progress.lastLevel || 1, modeId: 'quiz' };
+  function openModePicker(activity, origin) {
+    pickerCtx = { activity, levelId: progress.lastLevel || 1, modeId: 'quiz', origin };
     const modal = document.getElementById('modePickerModal');
     document.getElementById('modePickerTitle').textContent = `${activity.icon}  ${activity.name}`;
     document.getElementById('modePickerBlurb').textContent = activity.blurb;
@@ -245,6 +266,13 @@ const Game = (() => {
     }
 
     modal.hidden = false;
+    // Cascade in the level + mode pills
+    if (typeof Transitions !== 'undefined') {
+      requestAnimationFrame(() => {
+        Transitions.cascade(levelRow, '.mode-pill');
+        Transitions.cascade(modeRow, '.mode-pill');
+      });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -253,9 +281,10 @@ const Game = (() => {
     if (cancel) cancel.addEventListener('click', () => {
       document.getElementById('modePickerModal').hidden = true;
     });
-    if (start) start.addEventListener('click', () => {
+    if (start) start.addEventListener('click', (e) => {
+      const origin = pickerCtx && pickerCtx.origin ? pickerCtx.origin : e.currentTarget;
       document.getElementById('modePickerModal').hidden = true;
-      if (pickerCtx) startActivity(pickerCtx.activity.id, pickerCtx.modeId, pickerCtx.levelId);
+      if (pickerCtx) startActivity(pickerCtx.activity.id, pickerCtx.modeId, pickerCtx.levelId, origin);
     });
   });
 
@@ -339,7 +368,7 @@ const Game = (() => {
     };
   }
 
-  function startActivity(activityId, modeId, levelId) {
+  function startActivity(activityId, modeId, levelId, origin) {
     const activity = Activities.get(activityId);
     if (!activity) return;
 
@@ -366,13 +395,13 @@ const Game = (() => {
     const clockWrap = document.querySelector('#screen-game .clock-wrap');
     clockWrap.classList.remove('hidden');
     clockWrap.dataset.built = '';
-    showScreen('game');
+    transitionTo('game', origin, 'teal');
     Mascot.setMood(mascotGameEl, 'happy');
 
     const greet = Phrases.newRound();
     sayRaw(Phrases.withName(greet, progress.playerName));
 
-    setTimeout(() => runModeLoop(activity, modeId, levelId), 500);
+    setTimeout(() => runModeLoop(activity, modeId, levelId), 800);
   }
 
   function setupModeHud(stats, modeId) {
@@ -564,7 +593,7 @@ const Game = (() => {
     document.getElementById('nextBtn').style.display = 'none';
     document.getElementById('unlockMsg').hidden = true;
 
-    showScreen('results');
+    transitionTo('results', null, 'pink');
 
     slots.forEach((slot, i) => {
       if (i < stars) {
@@ -585,7 +614,7 @@ const Game = (() => {
 
     // Wire results buttons to replay this activity
     const again = document.getElementById('againBtn');
-    again.onclick = () => startActivity(activity.id, modeId, levelId);
+    again.onclick = (e) => startActivity(activity.id, modeId, levelId, e);
     const home = document.getElementById('homeBtn');
     home.onclick = () => backToHome();
   }
@@ -598,7 +627,7 @@ const Game = (() => {
     const qStat = document.querySelector('#screen-game .stat[aria-label="Question number"]');
     if (qStat) qStat.style.visibility = '';
     renderHome();
-    showScreen('home');
+    transitionTo('home', null, 'gold');
   }
 
   // ===== TUTORIAL =====
@@ -624,7 +653,7 @@ const Game = (() => {
   }
 
   // ===== GAME =====
-  function startLevel(levelId) {
+  function startLevel(levelId, origin) {
     state.currentLevel = levelId;
     state.questionIdx = 0;
     state.score = 0;
@@ -649,7 +678,7 @@ const Game = (() => {
     document.getElementById('score').textContent = '0';
     document.getElementById('streakBadge').hidden = true;
     Clock.build(document.getElementById('clock'));
-    showScreen('game');
+    transitionTo('game', origin, 'gold');
     Mascot.setMood(mascotGameEl, 'happy');
 
     maybeShowTutorial(levelId, () => {
@@ -912,7 +941,7 @@ const Game = (() => {
     const nextBtn = document.getElementById('nextBtn');
     nextBtn.style.display = (state.currentLevel < 5 && progress.unlocked > state.currentLevel) ? '' : 'none';
 
-    showScreen('results');
+    transitionTo('results', null, 'pink');
 
     slots.forEach((slot, i) => {
       if (i < stars) {
@@ -1099,24 +1128,24 @@ const Game = (() => {
     buildSettings();
 
     // Buttons
-    document.getElementById('playBtn').addEventListener('click', () => {
-      startLevel(progress.lastLevel || 1);
+    document.getElementById('playBtn').addEventListener('click', (e) => {
+      startLevel(progress.lastLevel || 1, e);
     });
     document.getElementById('backBtn').addEventListener('click', () => {
       Voice.cancel();
       clearIdleTimer();
       renderHome();
-      showScreen('home');
+      transitionTo('home', null, 'gold');
     });
-    document.getElementById('againBtn').addEventListener('click', () => startLevel(state.currentLevel));
-    document.getElementById('nextBtn').addEventListener('click', () => {
+    document.getElementById('againBtn').addEventListener('click', (e) => startLevel(state.currentLevel, e));
+    document.getElementById('nextBtn').addEventListener('click', (e) => {
       const next = Math.min(state.currentLevel + 1, 5);
-      startLevel(next);
+      startLevel(next, e);
     });
     document.getElementById('homeBtn').addEventListener('click', () => {
       Voice.cancel();
       renderHome();
-      showScreen('home');
+      transitionTo('home', null, 'gold');
     });
     document.getElementById('hintBtn').addEventListener('click', giveHint);
     document.getElementById('repeatBtn').addEventListener('click', () => {
