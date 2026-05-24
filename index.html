@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Clock Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Baloo+2:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="stars-bg" aria-hidden="true"></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <button id="muteBtn" class="mute-btn" aria-label="Toggle sound">🔊</button>
+
+  <!-- HOME SCREEN -->
+  <section id="screen-home" class="screen active" aria-label="Home screen">
+    <div class="home-inner">
+      <h1 class="title">
+        <span class="title-clock">🕐</span>
+        <span class="title-text">Clock Quest</span>
+      </h1>
+      <p class="tagline">Learn to read the clock with Professor Hoot!</p>
+
+      <div class="mascot-home" id="mascotHome" aria-hidden="true"></div>
+
+      <button id="playBtn" class="btn btn-play" aria-label="Play last level">▶ Play</button>
+
+      <h2 class="levels-heading">Choose your level</h2>
+      <div id="levelGrid" class="level-grid" role="list"></div>
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="screen-game" class="screen" aria-label="Game screen">
+    <header class="game-topbar">
+      <button id="backBtn" class="btn-icon" aria-label="Back to home">←</button>
+      <div class="topbar-info">
+        <div class="level-name" id="levelName">Level 1</div>
+        <div class="topbar-stats">
+          <span class="stat" aria-label="Question number"><span id="qNum">1</span>/10</span>
+          <span class="stat" aria-label="Score">⭐ <span id="score">0</span></span>
+          <span class="stat streak" id="streakBadge" hidden>🔥 <span id="streakNum">0</span></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="game-main">
+      <div class="clock-wrap">
+        <div class="clock-glow"></div>
+        <div id="clock" class="clock"></div>
+      </div>
+
+      <div class="question-area">
+        <p class="question">What time does the clock show?</p>
+        <div id="answers" class="answers" role="group" aria-label="Answer choices"></div>
+      </div>
+
+      <div class="mascot-game" id="mascotGame" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- RESULTS SCREEN -->
+  <section id="screen-results" class="screen" aria-label="Results screen">
+    <div class="results-inner">
+      <h2 id="resultsTitle" class="results-title">Great job!</h2>
+      <div class="stars-row" id="starsRow" aria-label="Stars earned">
+        <span class="star-slot">★</span>
+        <span class="star-slot">★</span>
+        <span class="star-slot">★</span>
+      </div>
+      <p class="results-score">Score: <span id="finalScore">0</span></p>
+      <p class="results-correct"><span id="finalCorrect">0</span> out of 10 correct</p>
+      <div class="mascot-results" id="mascotResults" aria-hidden="true"></div>
+      <div id="unlockMsg" class="unlock-msg" hidden>🎉 New level unlocked!</div>
+      <div class="results-buttons">
+        <button id="againBtn" class="btn btn-secondary" aria-label="Play this level again">↻ Play Again</button>
+        <button id="nextBtn" class="btn btn-play" aria-label="Next level">Next Level →</button>
+        <button id="homeBtn" class="btn btn-secondary" aria-label="Return home">🏠 Home</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="js/audio.js"></script>
+  <script src="js/mascot.js"></script>
+  <script src="js/clock.js"></script>
+  <script src="js/confetti.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
