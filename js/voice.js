@@ -205,20 +205,31 @@ const Voice = (() => {
     return muted;
   }
 
-  // ===== Time-to-words (natural English) =====
+  // ===== Time-to-words (school-style English) =====
+  // Matches the "Telling Time" chart Toby's school uses:
+  // five past, ten past, quarter past, twenty past, twenty-five past, half past,
+  // twenty-five to, twenty to, quarter to, ten to, five to.
+  const FIVE_MIN_PHRASES = {
+    0:  (h, n) => `${h} o'clock`,
+    5:  (h, n) => `five past ${h}`,
+    10: (h, n) => `ten past ${h}`,
+    15: (h, n) => `quarter past ${h}`,
+    20: (h, n) => `twenty past ${h}`,
+    25: (h, n) => `twenty-five past ${h}`,
+    30: (h, n) => `half past ${h}`,
+    35: (h, n) => `twenty-five to ${n}`,
+    40: (h, n) => `twenty to ${n}`,
+    45: (h, n) => `quarter to ${n}`,
+    50: (h, n) => `ten to ${n}`,
+    55: (h, n) => `five to ${n}`,
+  };
+
   function timeToWords(h, m, levelId = 5) {
-    const hourWord = String(h);
-    if (m === 0) return `${hourWord} o'clock`;
-    if (m === 15) return `quarter past ${hourWord}`;
-    if (m === 30) return `half past ${hourWord}`;
-    if (m === 45) {
-      const next = h === 12 ? 1 : h + 1;
-      return `quarter to ${next}`;
-    }
-    if (m < 30) {
-      return `${m} minutes past ${hourWord}`;
-    }
     const next = h === 12 ? 1 : h + 1;
+    const phraseFn = FIVE_MIN_PHRASES[m];
+    if (phraseFn) return phraseFn(h, next);
+    // Non-multiple of 5 (Level 5 only) — fall back to numeric phrasing
+    if (m < 30) return `${m} minutes past ${h}`;
     return `${60 - m} minutes to ${next}`;
   }
 

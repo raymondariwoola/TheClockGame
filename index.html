@@ -33,8 +33,12 @@
 
       <button id="playBtn" class="btn btn-play" aria-label="Play last level">▶ Play</button>
 
-      <h2 class="levels-heading">Choose your level</h2>
+      <h2 class="levels-heading">Quick Play — Tell the Time</h2>
       <div id="levelGrid" class="level-grid" role="list"></div>
+
+      <h2 class="levels-heading">🎮 Activity Library</h2>
+      <p class="hold-hint">Tap any activity to choose a mode and difficulty.</p>
+      <div id="activityGrid" class="activity-grid" role="list"></div>
     </div>
   </section>
 
@@ -144,11 +148,36 @@
     </div>
   </div>
 
+  <!-- MODE PICKER -->
+  <div id="modePickerModal" class="modal" hidden>
+    <div class="modal-card mode-picker-card">
+      <h2 id="modePickerTitle">Choose a mode</h2>
+      <p id="modePickerBlurb" class="mode-blurb"></p>
+
+      <div class="setting-row">
+        <label>Difficulty</label>
+        <div id="modeLevelRow" class="mode-level-row"></div>
+      </div>
+
+      <div class="setting-row">
+        <label>Mode</label>
+        <div id="modeChoices" class="mode-choices"></div>
+      </div>
+
+      <div class="modal-buttons">
+        <button id="modePickerCancel" class="btn btn-secondary">Cancel</button>
+        <button id="modePickerStart" class="btn btn-play">▶ Start</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/audio.js"></script>
   <script src="js/voice.js"></script>
   <script src="js/mascot.js"></script>
   <script src="js/clock.js"></script>
   <script src="js/confetti.js"></script>
+  <script src="js/dragdrop.js"></script>
+  <script src="js/activities.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

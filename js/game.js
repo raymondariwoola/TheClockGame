@@ -34,6 +34,8 @@ const Game = (() => {
         const p = JSON.parse(raw);
         if (!p.tutorialsSeen) p.tutorialsSeen = {};
         if (!p.playerName) p.playerName = '';
+        if (!p.activities) p.activities = {};
+        if (typeof p.endlessBest !== 'number') p.endlessBest = 0;
         return p;
       }
     } catch (e) {}
@@ -41,6 +43,7 @@ const Game = (() => {
       stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       unlocked: 1, lastLevel: 1,
       tutorialsSeen: {}, playerName: '',
+      activities: {}, endlessBest: 0,
     };
   }
   function saveProgress() { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
@@ -150,6 +153,449 @@ const Game = (() => {
       document.getElementById('tagline').textContent =
         `Welcome back, ${progress.playerName}! Ready to learn?`;
     }
+
+    renderActivityGrid();
+  }
+
+  // ===== ACTIVITY LIBRARY =====
+  function renderActivityGrid() {
+    const grid = document.getElementById('activityGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    Activities.list.forEach(a => {
+      const tile = document.createElement('div');
+      tile.className = 'activity-tile';
+      tile.setAttribute('role', 'listitem');
+      tile.setAttribute('tabindex', '0');
+      tile.setAttribute('aria-label', `${a.name}: ${a.blurb}`);
+      tile.innerHTML = `
+        <span class="act-icon">${a.icon}</span>
+        <div class="act-name">${a.name}</div>
+        <div class="act-blurb">${a.blurb}</div>
+      `;
+      tile.addEventListener('click', () => openModePicker(a));
+      tile.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModePicker(a); }
+      });
+      grid.appendChild(tile);
+    });
+  }
+
+  // ===== MODE PICKER =====
+  const MODES = [
+    { id: 'practice', name: 'Practice', icon: '🧘', sub: 'No pressure', blurb: 'Untimed, with hints. Play as long as you like.' },
+    { id: 'quiz', name: 'Quiz', icon: '🎯', sub: '10 questions', blurb: 'Ten questions, earn stars.' },
+    { id: 'timed', name: 'Timed', icon: '⏱️', sub: '60 seconds', blurb: 'Beat the clock — answer as many as you can in 60s.' },
+    { id: 'memorize', name: 'Memorize', icon: '🧠', sub: 'Flash & recall', blurb: 'The clock flashes then hides. Answer from memory!' },
+    { id: 'sandbox', name: 'Sandbox', icon: '🎨', sub: 'Free play', blurb: 'No score, just play.' },
+  ];
+
+  let pickerCtx = null;
+  function openModePicker(activity) {
+    pickerCtx = { activity, levelId: progress.lastLevel || 1, modeId: 'quiz' };
+    const modal = document.getElementById('modePickerModal');
+    document.getElementById('modePickerTitle').textContent = `${activity.icon}  ${activity.name}`;
+    document.getElementById('modePickerBlurb').textContent = activity.blurb;
+
+    // Level pills
+    const levelRow = document.getElementById('modeLevelRow');
+    levelRow.innerHTML = '';
+    [1, 2, 3, 4, 5].forEach(lvl => {
+      const allowed = activity.supports.levels.includes(lvl);
+      const pill = document.createElement('button');
+      pill.className = 'mode-pill' + (lvl === pickerCtx.levelId && allowed ? ' selected' : '');
+      pill.textContent = `Level ${lvl}`;
+      if (!allowed) pill.disabled = true;
+      pill.addEventListener('click', () => {
+        if (!allowed) return;
+        pickerCtx.levelId = lvl;
+        levelRow.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+      });
+      levelRow.appendChild(pill);
+    });
+    // Ensure default selected level is actually allowed
+    if (!activity.supports.levels.includes(pickerCtx.levelId)) {
+      pickerCtx.levelId = activity.supports.levels[0];
+      levelRow.querySelectorAll('.mode-pill').forEach((p, i) => {
+        p.classList.toggle('selected', !p.disabled && Number(p.textContent.replace('Level ', '')) === pickerCtx.levelId);
+      });
+    }
+
+    // Mode pills
+    const modeRow = document.getElementById('modeChoices');
+    modeRow.innerHTML = '';
+    MODES.forEach(m => {
+      if (!activity.supports.modes.includes(m.id)) return;
+      const pill = document.createElement('button');
+      pill.className = 'mode-pill' + (m.id === pickerCtx.modeId ? ' selected' : '');
+      pill.innerHTML = `<span class="mp-icon">${m.icon}</span>${m.name}<span class="mp-sub">${m.sub}</span>`;
+      pill.title = m.blurb;
+      pill.addEventListener('click', () => {
+        pickerCtx.modeId = m.id;
+        modeRow.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+      });
+      modeRow.appendChild(pill);
+    });
+    if (!activity.supports.modes.includes(pickerCtx.modeId)) {
+      pickerCtx.modeId = activity.supports.modes[0];
+      const first = modeRow.querySelector('.mode-pill');
+      if (first) first.classList.add('selected');
+    }
+
+    modal.hidden = false;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const cancel = document.getElementById('modePickerCancel');
+    const start = document.getElementById('modePickerStart');
+    if (cancel) cancel.addEventListener('click', () => {
+      document.getElementById('modePickerModal').hidden = true;
+    });
+    if (start) start.addEventListener('click', () => {
+      document.getElementById('modePickerModal').hidden = true;
+      if (pickerCtx) startActivity(pickerCtx.activity.id, pickerCtx.modeId, pickerCtx.levelId);
+    });
+  });
+
+  // ===== ACTIVITY RUNTIME =====
+  // Mode loop: runs activity.run() repeatedly under the rules of the chosen mode.
+  let activityState = null;
+
+  function buildActivityCtx(activity, levelId, modeId) {
+    const promptEl = document.querySelector('#screen-game .question');
+    const bodyEl = document.getElementById('answers');
+    const clockWrap = document.querySelector('#screen-game .clock-wrap');
+    const holdHint = document.querySelector('#screen-game .hold-hint');
+    promptEl.classList.add('activity-prompt');
+    holdHint && holdHint.classList.add('hidden');
+
+    return {
+      activityId: activity.id,
+      levelId, modeId,
+      body: bodyEl,
+
+      setPrompt(html) { promptEl.innerHTML = html; },
+      say(text, opts) { return sayRaw(Phrases.withName(text, progress.playerName), opts); },
+      sayTimeWords(h, m, opts) { return sayRaw(Voice.timeToWords(h, m), opts); },
+
+      showClock(time) {
+        clockWrap.classList.remove('hidden');
+        if (!clockWrap.dataset.built) {
+          Clock.build(document.getElementById('clock'));
+          clockWrap.dataset.built = '1';
+        }
+        if (time) Clock.setTime(time.h, time.m);
+      },
+      hideClock() { clockWrap.classList.add('hidden'); },
+
+      // Flash a clock briefly then hide for "memorize" mode
+      flashClock(time, ms) {
+        return new Promise((resolve) => {
+          this.showClock(time);
+          this.say('Look carefully…', { interrupt: true });
+          setTimeout(() => {
+            this.hideClock();
+            this.say('What time was it?');
+            resolve();
+          }, ms || 2200);
+        });
+      },
+
+      celebrate() {
+        Audio.correct();
+        Mascot.setMood(mascotGameEl, 'excited');
+        mascotGameEl.classList.add('celebrate');
+        setTimeout(() => mascotGameEl.classList.remove('celebrate'), 700);
+        const r = mascotGameEl.getBoundingClientRect();
+        Confetti.burst(window.innerWidth / 2, window.innerHeight / 3, 70);
+      },
+
+      fail(correctPhrase) {
+        Audio.wrong();
+        Mascot.setMood(mascotGameEl, 'sad');
+        const clockEl = document.getElementById('clock');
+        clockEl.classList.add('shake');
+        setTimeout(() => clockEl.classList.remove('shake'), 500);
+        setTimeout(() => Mascot.setMood(mascotGameEl, 'happy'), 1200);
+      },
+
+      // Voice + min delay between questions
+      afterAnswer(correct) {
+        const phrase = correct
+          ? (Phrases.streak(activityState ? activityState.streak + 1 : 1) || Phrases.correct())
+          : Phrases.wrong('')
+              .replace(/\s*(It was|The clock said|it was)\s*\.\s*/g, '')
+              .replace(/\s+\./g, '.')
+              .trim() || "Not quite — try again!";
+        const named = Phrases.withName(phrase, progress.playerName);
+        const voiceP = sayRaw(named, { pitch: correct ? 1.15 : 0.95, interrupt: true });
+        return new Promise(resolve => waitForVoiceThen(voiceP, correct ? 800 : 1200, resolve));
+      },
+    };
+  }
+
+  function startActivity(activityId, modeId, levelId) {
+    const activity = Activities.get(activityId);
+    if (!activity) return;
+
+    activityState = {
+      activity, modeId, levelId,
+      questionIdx: 0, correctCount: 0, streak: 0, score: 0,
+      lives: 3, timerEnd: 0, totalQuestions: 10,
+      stopped: false,
+    };
+    progress.lastLevel = levelId;
+    saveProgress();
+
+    // Wire game screen
+    document.getElementById('levelName').textContent = `${activity.icon} ${activity.name}`;
+    document.getElementById('score').textContent = '0';
+    document.getElementById('streakBadge').hidden = true;
+    document.getElementById('qNum').textContent = '1';
+
+    // Show or hide quiz counter / timer based on mode
+    const stats = document.querySelector('#screen-game .topbar-stats');
+    setupModeHud(stats, modeId);
+
+    // Pre-build clock; activities can hide it
+    const clockWrap = document.querySelector('#screen-game .clock-wrap');
+    clockWrap.classList.remove('hidden');
+    clockWrap.dataset.built = '';
+    showScreen('game');
+    Mascot.setMood(mascotGameEl, 'happy');
+
+    const greet = Phrases.newRound();
+    sayRaw(Phrases.withName(greet, progress.playerName));
+
+    setTimeout(() => runModeLoop(activity, modeId, levelId), 500);
+  }
+
+  function setupModeHud(stats, modeId) {
+    // Remove any previous HUD
+    stats.querySelectorAll('.mode-hud').forEach(n => n.remove());
+    const hud = document.createElement('span');
+    hud.className = 'mode-hud';
+
+    if (modeId === 'quiz' || modeId === 'memorize') {
+      // questions counter is already there (#qNum)
+    } else if (modeId === 'practice') {
+      // hide question counter
+      const qStat = stats.querySelector('.stat[aria-label="Question number"]');
+      if (qStat) qStat.style.visibility = 'hidden';
+    } else if (modeId === 'timed') {
+      const qStat = stats.querySelector('.stat[aria-label="Question number"]');
+      if (qStat) qStat.style.visibility = 'hidden';
+      const timer = document.createElement('span');
+      timer.className = 'timer-pill';
+      timer.id = 'modeTimer';
+      timer.textContent = '60s';
+      hud.appendChild(timer);
+    } else if (modeId === 'endless') {
+      const lives = document.createElement('span');
+      lives.className = 'lives-pill';
+      lives.id = 'modeLives';
+      lives.textContent = '❤️❤️❤️';
+      hud.appendChild(lives);
+    }
+    if (hud.children.length) stats.appendChild(hud);
+  }
+
+  async function runModeLoop(activity, modeId, levelId) {
+    const ctx = buildActivityCtx(activity, levelId, modeId);
+
+    if (modeId === 'sandbox') {
+      await activity.run(ctx);
+      backToHome();
+      return;
+    }
+
+    if (modeId === 'timed') {
+      const DURATION = 60_000;
+      activityState.timerEnd = Date.now() + DURATION;
+      const timerEl = document.getElementById('modeTimer');
+      const ticker = setInterval(() => {
+        const rem = Math.max(0, activityState.timerEnd - Date.now());
+        timerEl.textContent = `${Math.ceil(rem / 1000)}s`;
+        if (rem < 10_000) timerEl.classList.add('warn');
+        if (rem === 0) {
+          clearInterval(ticker);
+          activityState.stopped = true;
+        }
+      }, 250);
+
+      while (!activityState.stopped && Date.now() < activityState.timerEnd) {
+        const result = await activity.run(ctx);
+        if (activityState.stopped) break;
+        recordAnswer(result.correct);
+      }
+      clearInterval(ticker);
+      endRoundFor(activity, modeId, levelId);
+      return;
+    }
+
+    if (modeId === 'practice') {
+      // run forever; the back button exits via backToHome
+      activityState.totalQuestions = Infinity;
+      while (!activityState.stopped) {
+        const result = await activity.run(ctx);
+        if (activityState.stopped) break;
+        recordAnswer(result.correct);
+      }
+      return;
+    }
+
+    // Default: quiz / memorize — 10 questions
+    activityState.totalQuestions = 10;
+    while (!activityState.stopped && activityState.questionIdx < activityState.totalQuestions) {
+      document.getElementById('qNum').textContent = activityState.questionIdx + 1;
+      const result = await activity.run(ctx);
+      if (activityState.stopped) break;
+      recordAnswer(result.correct);
+    }
+    endRoundFor(activity, modeId, levelId);
+  }
+
+  function recordAnswer(correct) {
+    activityState.questionIdx++;
+    if (correct) {
+      activityState.correctCount++;
+      activityState.streak++;
+      let pts = 10;
+      if (activityState.streak >= 5) pts = 20;
+      else if (activityState.streak >= 3) pts = 15;
+      activityState.score += pts;
+      document.getElementById('score').textContent = activityState.score;
+      const sb = document.getElementById('streakBadge');
+      if (activityState.streak >= 3) {
+        sb.hidden = false;
+        document.getElementById('streakNum').textContent = activityState.streak;
+        if ([3, 5, 7, 10].includes(activityState.streak)) Audio.sparkle();
+      }
+      // Timed mode: bonus seconds for streaks of 3
+      if (activityState.modeId === 'timed' && activityState.streak >= 3 && activityState.streak % 3 === 0) {
+        activityState.timerEnd += 3000;
+        const t = document.getElementById('modeTimer');
+        t && t.classList.add('warn');
+        setTimeout(() => t && t.classList.remove('warn'), 800);
+      }
+    } else {
+      activityState.streak = 0;
+      document.getElementById('streakBadge').hidden = true;
+    }
+  }
+
+  function endRoundFor(activity, modeId, levelId) {
+    const correct = activityState.correctCount;
+    const total = (modeId === 'timed') ? activityState.questionIdx : activityState.totalQuestions;
+    let stars = 0;
+    if (modeId === 'timed') {
+      // Star thresholds for timed: 5/10/15+ correct in 60s
+      if (correct >= 15) stars = 3;
+      else if (correct >= 10) stars = 2;
+      else if (correct >= 5) stars = 1;
+    } else {
+      if (correct >= total - 1) stars = 3;
+      else if (correct >= Math.ceil(total * 0.6)) stars = 2;
+      else if (correct >= Math.ceil(total * 0.3)) stars = 1;
+    }
+
+    // Save activity progress
+    if (!progress.activities[activity.id]) progress.activities[activity.id] = { stars: {}, bestTimed: {}, lastMode: modeId };
+    const a = progress.activities[activity.id];
+    a.lastMode = modeId;
+    if (modeId === 'timed') {
+      const prev = a.bestTimed[levelId] || 0;
+      if (correct > prev) a.bestTimed[levelId] = correct;
+    } else {
+      const prevStars = a.stars[levelId] || 0;
+      a.stars[levelId] = Math.max(prevStars, stars);
+    }
+    // Legacy stars system still tracks the original Tell Time / level path:
+    if (activity.id === 'tell-time' && (modeId === 'quiz' || modeId === 'memorize')) {
+      const prev = progress.stars[levelId] || 0;
+      progress.stars[levelId] = prev + stars;
+      if (progress.stars[levelId] >= 5 && levelId < 5 && progress.unlocked < levelId + 1) {
+        progress.unlocked = levelId + 1;
+      }
+    }
+    saveProgress();
+
+    showResults({ activity, modeId, levelId, correct, total, stars });
+  }
+
+  function showResults({ activity, modeId, levelId, correct, total, stars }) {
+    let title = 'Great job!';
+    let mood = 'happy';
+    let spoken = '';
+
+    if (modeId === 'timed') {
+      title = `${correct} in 60s!`;
+      mood = correct >= 10 ? 'excited' : 'happy';
+      spoken = correct >= 10 ? `Wow! You got ${correct} answers in one minute!` : `You got ${correct}. Try again to beat it!`;
+    } else if (stars === 3) {
+      title = 'Amazing! ⭐⭐⭐'; mood = 'excited';
+      spoken = `Amazing! You got ${correct} out of ${total}! Three stars!`;
+    } else if (stars === 2) {
+      title = 'Well done!'; mood = 'happy';
+      spoken = `Well done! ${correct} out of ${total}. Two stars!`;
+    } else if (stars === 1) {
+      title = 'Good try!'; mood = 'happy';
+      spoken = `Good try! ${correct} correct. One star!`;
+    } else {
+      title = 'Keep practising!'; mood = 'sad';
+      spoken = Phrases.lowScore();
+    }
+
+    document.getElementById('resultsTitle').textContent = title;
+    document.getElementById('finalScore').textContent = activityState.score;
+    document.getElementById('finalCorrect').textContent = `${correct}`;
+    const correctLine = document.querySelector('.results-correct');
+    if (correctLine) correctLine.innerHTML = `<span id="finalCorrect">${correct}</span> ${modeId === 'timed' ? 'correct answers' : `out of ${total} correct`}`;
+
+    const slots = document.querySelectorAll('.star-slot');
+    slots.forEach(s => s.classList.remove('earned'));
+
+    Mascot.setMood(mascotResultsEl, mood);
+    document.getElementById('nextBtn').style.display = 'none';
+    document.getElementById('unlockMsg').hidden = true;
+
+    showScreen('results');
+
+    slots.forEach((slot, i) => {
+      if (i < stars) {
+        setTimeout(() => {
+          slot.classList.add('earned');
+          Audio.tick();
+        }, 400 + i * 350);
+      }
+    });
+
+    if (stars > 0 || (modeId === 'timed' && correct >= 5)) {
+      setTimeout(() => Audio.fanfare(), 400 + stars * 350);
+      setTimeout(() => Confetti.burst(window.innerWidth / 2, window.innerHeight / 3, 120), 400 + stars * 350);
+    }
+
+    Voice.cancel();
+    setTimeout(() => sayRaw(Phrases.withName(spoken, progress.playerName), { pitch: stars >= 2 ? 1.2 : 1.0 }), 600);
+
+    // Wire results buttons to replay this activity
+    const again = document.getElementById('againBtn');
+    again.onclick = () => startActivity(activity.id, modeId, levelId);
+    const home = document.getElementById('homeBtn');
+    home.onclick = () => backToHome();
+  }
+
+  function backToHome() {
+    if (activityState) activityState.stopped = true;
+    Voice.cancel();
+    clearIdleTimer();
+    // Restore the question counter visibility
+    const qStat = document.querySelector('#screen-game .stat[aria-label="Question number"]');
+    if (qStat) qStat.style.visibility = '';
+    renderHome();
+    showScreen('home');
   }
 
   // ===== TUTORIAL =====

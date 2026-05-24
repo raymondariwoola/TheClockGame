@@ -1,4 +1,5 @@
 // SVG analog clock - drawn entirely in code
+// Main clock (singleton) + miniClock factory for activities showing multiple clocks
 const Clock = (() => {
   const SIZE = 400;
   const CX = SIZE / 2;
@@ -10,13 +11,25 @@ const Clock = (() => {
   let minuteHand = null;
   let currentHourAngle = 0;
   let currentMinuteAngle = 0;
+  let interactive = null; // { hourDrag, minuteDrag, snap, onChange }
 
-  function build(container) {
+  // Build clock SVG into any container. Returns the svg element and handles.
+  // opts.size : px (default 400, used for viewBox math)
+  // opts.showMinuteTicks : default true
+  // opts.handStyle : 'classic' (default) or 'simple' (matches school worksheets)
+  function buildInto(container, opts = {}) {
+    const size = opts.size || SIZE;
+    const cx = size / 2;
+    const cy = size / 2;
+    const r = (size / SIZE) * R;
+    const showMinuteTicks = opts.showMinuteTicks !== false;
+    const handStyle = opts.handStyle || 'classic';
+
     container.innerHTML = '';
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`);
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
 
-    svg.innerHTML = `
+    const defs = `
       <defs>
         <radialGradient id="faceGrad" cx="50%" cy="45%" r="55%">
           <stop offset="0%" stop-color="#fffbe8"/>
@@ -32,41 +45,44 @@ const Clock = (() => {
           <stop offset="60%" stop-color="#d94545"/>
           <stop offset="100%" stop-color="#7a1a1a"/>
         </radialGradient>
-        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3"/>
-        </filter>
       </defs>
-
-      <!-- Outer rim -->
-      <circle cx="${CX}" cy="${CY}" r="${R + 18}" fill="url(#rimGrad)"/>
-      <circle cx="${CX}" cy="${CY}" r="${R + 12}" fill="#2a1437"/>
-      <!-- Face -->
-      <circle cx="${CX}" cy="${CY}" r="${R}" fill="url(#faceGrad)"/>
     `;
+    svg.innerHTML = defs;
 
-    // Minute tick marks
-    for (let m = 0; m < 60; m++) {
-      const angle = (m * 6 - 90) * Math.PI / 180;
-      const isHour = m % 5 === 0;
-      const inner = isHour ? R - 18 : R - 8;
-      const x1 = CX + Math.cos(angle) * inner;
-      const y1 = CY + Math.sin(angle) * inner;
-      const x2 = CX + Math.cos(angle) * (R - 2);
-      const y2 = CY + Math.sin(angle) * (R - 2);
-      const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      tick.setAttribute('x1', x1); tick.setAttribute('y1', y1);
-      tick.setAttribute('x2', x2); tick.setAttribute('y2', y2);
-      tick.setAttribute('stroke', isHour ? '#3a2a1a' : '#8a6020');
-      tick.setAttribute('stroke-width', isHour ? 4 : 1.5);
-      tick.setAttribute('stroke-linecap', 'round');
-      svg.appendChild(tick);
+    // Rim + face
+    const rim = `
+      <circle cx="${cx}" cy="${cy}" r="${r + 18 * (size / SIZE)}" fill="url(#rimGrad)"/>
+      <circle cx="${cx}" cy="${cy}" r="${r + 12 * (size / SIZE)}" fill="#2a1437"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#faceGrad)"/>
+    `;
+    svg.insertAdjacentHTML('beforeend', rim);
+
+    // Ticks
+    if (showMinuteTicks) {
+      for (let m = 0; m < 60; m++) {
+        const a = (m * 6 - 90) * Math.PI / 180;
+        const isHour = m % 5 === 0;
+        const inner = isHour ? r - 18 * (size / SIZE) : r - 8 * (size / SIZE);
+        const outer = r - 2 * (size / SIZE);
+        const x1 = cx + Math.cos(a) * inner;
+        const y1 = cy + Math.sin(a) * inner;
+        const x2 = cx + Math.cos(a) * outer;
+        const y2 = cy + Math.sin(a) * outer;
+        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        tick.setAttribute('x1', x1); tick.setAttribute('y1', y1);
+        tick.setAttribute('x2', x2); tick.setAttribute('y2', y2);
+        tick.setAttribute('stroke', isHour ? '#3a2a1a' : '#8a6020');
+        tick.setAttribute('stroke-width', isHour ? 4 * (size / SIZE) : 1.5 * (size / SIZE));
+        tick.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(tick);
+      }
     }
 
     // Numbers 1-12
     for (let n = 1; n <= 12; n++) {
-      const angle = (n * 30 - 90) * Math.PI / 180;
-      const tx = CX + Math.cos(angle) * (R - 38);
-      const ty = CY + Math.sin(angle) * (R - 38);
+      const a = (n * 30 - 90) * Math.PI / 180;
+      const tx = cx + Math.cos(a) * (r - 38 * (size / SIZE));
+      const ty = cy + Math.sin(a) * (r - 38 * (size / SIZE));
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', tx);
       text.setAttribute('y', ty);
@@ -74,76 +90,176 @@ const Clock = (() => {
       text.setAttribute('dominant-baseline', 'central');
       const bold = (n === 12 || n === 3 || n === 6 || n === 9);
       text.setAttribute('font-family', 'Fredoka, sans-serif');
-      text.setAttribute('font-size', bold ? 36 : 30);
+      text.setAttribute('font-size', (bold ? 36 : 30) * (size / SIZE));
       text.setAttribute('font-weight', bold ? 700 : 600);
       text.setAttribute('fill', bold ? '#2a1437' : '#5a3d1a');
       text.textContent = n;
       svg.appendChild(text);
     }
 
-    // Hour hand - outer group translates to centre, inner group rotates (transform-origin = 0,0 naturally)
+    // Hands
+    const hourColor = handStyle === 'simple' ? '#000' : '#2a1437';
+    const minColor = handStyle === 'simple' ? '#000' : '#a02828';
+    const hourW = (handStyle === 'simple' ? 8 : 12) * (size / SIZE);
+    const minW = (handStyle === 'simple' ? 5 : 7) * (size / SIZE);
+
     const hourWrap = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    hourWrap.setAttribute('transform', `translate(${CX} ${CY})`);
-    hourHand = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    hourHand.setAttribute('class', 'hour-hand');
-    hourHand.style.transition = 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    hourHand.innerHTML = `
-      <line x1="0" y1="18" x2="0" y2="-90"
-            stroke="#2a1437" stroke-width="12" stroke-linecap="round"/>
+    hourWrap.setAttribute('transform', `translate(${cx} ${cy})`);
+    const hourG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    hourG.setAttribute('class', 'hour-hand');
+    hourG.style.transition = opts.noTransition ? 'none' : 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    hourG.innerHTML = `
+      <line x1="0" y1="${18 * (size / SIZE)}" x2="0" y2="${-90 * (size / SIZE)}"
+            stroke="${hourColor}" stroke-width="${hourW}" stroke-linecap="round"/>
     `;
-    hourWrap.appendChild(hourHand);
+    hourWrap.appendChild(hourG);
     svg.appendChild(hourWrap);
 
-    // Minute hand
     const minuteWrap = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    minuteWrap.setAttribute('transform', `translate(${CX} ${CY})`);
-    minuteHand = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    minuteHand.setAttribute('class', 'minute-hand');
-    minuteHand.style.transition = 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    minuteHand.innerHTML = `
-      <line x1="0" y1="24" x2="0" y2="-130"
-            stroke="#a02828" stroke-width="7" stroke-linecap="round"/>
+    minuteWrap.setAttribute('transform', `translate(${cx} ${cy})`);
+    const minuteG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    minuteG.setAttribute('class', 'minute-hand');
+    minuteG.style.transition = opts.noTransition ? 'none' : 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    minuteG.innerHTML = `
+      <line x1="0" y1="${24 * (size / SIZE)}" x2="0" y2="${-130 * (size / SIZE)}"
+            stroke="${minColor}" stroke-width="${minW}" stroke-linecap="round"/>
     `;
-    minuteWrap.appendChild(minuteHand);
+    minuteWrap.appendChild(minuteG);
     svg.appendChild(minuteWrap);
 
     // Centre jewel
     const jewel = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     jewel.innerHTML = `
-      <circle cx="${CX}" cy="${CY}" r="14" fill="#2a1437"/>
-      <circle cx="${CX}" cy="${CY}" r="10" fill="url(#jewelGrad)"/>
-      <circle cx="${CX - 3}" cy="${CY - 3}" r="3" fill="#fff" opacity="0.7"/>
+      <circle cx="${cx}" cy="${cy}" r="${14 * (size / SIZE)}" fill="#2a1437"/>
+      <circle cx="${cx}" cy="${cy}" r="${10 * (size / SIZE)}" fill="url(#jewelGrad)"/>
+      <circle cx="${cx - 3 * (size / SIZE)}" cy="${cy - 3 * (size / SIZE)}" r="${3 * (size / SIZE)}" fill="#fff" opacity="0.7"/>
     `;
     svg.appendChild(jewel);
 
     container.appendChild(svg);
-    svgEl = svg;
+    return { svg, hourG, minuteG };
+  }
 
-    // Reset
+  function build(container) {
+    interactive = null;
+    const { svg, hourG, minuteG } = buildInto(container);
+    svgEl = svg;
+    hourHand = hourG;
+    minuteHand = minuteG;
     currentHourAngle = 0;
     currentMinuteAngle = 0;
     hourHand.style.transform = 'rotate(0deg)';
     minuteHand.style.transform = 'rotate(0deg)';
   }
 
-  // Set time with smooth rotation (no backwards spin)
+  // Position hands at h:m with shortest-path animation
   function setTime(hour, minute) {
     if (!hourHand || !minuteHand) return;
     const h = hour % 12;
     const targetMinuteRaw = minute * 6;
     const targetHourRaw = (h * 30) + (minute * 0.5);
-
-    // Normalise: pick shortest path so we don't spin backwards weirdly
     const normalise = (current, target) => {
       const delta = ((target - (current % 360)) + 540) % 360 - 180;
       return current + delta;
     };
     currentMinuteAngle = normalise(currentMinuteAngle, targetMinuteRaw);
     currentHourAngle = normalise(currentHourAngle, targetHourRaw);
-
     hourHand.style.transform = `rotate(${currentHourAngle}deg)`;
     minuteHand.style.transform = `rotate(${currentMinuteAngle}deg)`;
   }
 
-  return { build, setTime };
+  // Read current time as {h: 1..12, m: 0..59} based on hand positions
+  function getTime() {
+    const minDeg = ((currentMinuteAngle % 360) + 360) % 360;
+    const hourDeg = ((currentHourAngle % 360) + 360) % 360;
+    const m = Math.round(minDeg / 6) % 60;
+    let h = Math.floor(hourDeg / 30) % 12;
+    if (h === 0) h = 12;
+    return { h, m };
+  }
+
+  // ===== Interactive drag mode =====
+  // snapMinutes: snap minute hand to nearest N minutes (5 by default)
+  // onChange: called with {h, m} whenever the user moves a hand
+  function setInteractive(opts = {}) {
+    if (!svgEl) return;
+    const snapMinutes = opts.snapMinutes || 5;
+    const onChange = opts.onChange || (() => {});
+
+    // Wrap each hand in an invisible thicker hit area for easy grabbing
+    const addHandle = (handG, color, hitWidth) => {
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      hit.setAttribute('x1', 0); hit.setAttribute('y1', 0);
+      hit.setAttribute('x2', 0);
+      hit.setAttribute('y2', handG.querySelector('line').getAttribute('y2'));
+      hit.setAttribute('stroke', color);
+      hit.setAttribute('stroke-width', hitWidth);
+      hit.setAttribute('stroke-linecap', 'round');
+      hit.setAttribute('opacity', 0);
+      hit.style.pointerEvents = 'stroke';
+      hit.style.cursor = 'grab';
+      handG.appendChild(hit);
+      return hit;
+    };
+
+    const hourHit = addHandle(hourHand, 'transparent', 40);
+    const minuteHit = addHandle(minuteHand, 'transparent', 36);
+
+    // No transition during drag — feels sluggish otherwise
+    const setTransition = (on) => {
+      const t = on ? 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none';
+      hourHand.style.transition = t;
+      minuteHand.style.transition = t;
+    };
+
+    const fireChange = () => onChange(getTime());
+
+    const dragMinute = DragDrop.angleDrag(svgEl, minuteHit, (deg) => {
+      setTransition(false);
+      // Snap to nearest snapMinutes increment
+      const snap = snapMinutes * 6;
+      const snapped = Math.round(deg / snap) * snap;
+      currentMinuteAngle = snapped;
+      minuteHand.style.transform = `rotate(${snapped}deg)`;
+      // Hour hand drifts proportionally with minutes — keep visually honest
+      // Recompute hour angle from current displayed hour + new minute position
+      const m = (Math.round(snapped / 6)) % 60;
+      const baseHour = Math.floor(((currentHourAngle % 360) + 360) % 360 / 30);
+      const newHourDeg = baseHour * 30 + m * 0.5;
+      currentHourAngle = newHourDeg;
+      hourHand.style.transform = `rotate(${newHourDeg}deg)`;
+      fireChange();
+    }, () => { setTransition(true); });
+
+    const dragHour = DragDrop.angleDrag(svgEl, hourHit, (deg) => {
+      setTransition(false);
+      // Snap to nearest hour (every 30°)
+      const snapped = Math.round(deg / 30) * 30;
+      currentHourAngle = snapped + ((Math.round(currentMinuteAngle / 6) % 60) * 0.5);
+      hourHand.style.transform = `rotate(${currentHourAngle}deg)`;
+      fireChange();
+    }, () => { setTransition(true); });
+
+    interactive = { dragMinute, dragHour };
+    svgEl.classList.add('interactive');
+  }
+
+  // Convenience: create a small read-only mini clock displaying h:m.
+  // Used by Tick-the-Clock and Match-Up.
+  function miniClock(h, m, size = 130) {
+    const div = document.createElement('div');
+    div.className = 'mini-clock';
+    div.style.width = size + 'px';
+    div.style.height = size + 'px';
+    const { hourG, minuteG } = buildInto(div, { size: 400, noTransition: true, handStyle: 'simple' });
+    // Use SIZE=400 viewBox math; CSS scales the SVG to size px
+    const hh = h % 12;
+    const minDeg = m * 6;
+    const hourDeg = hh * 30 + m * 0.5;
+    hourG.style.transform = `rotate(${hourDeg}deg)`;
+    minuteG.style.transform = `rotate(${minDeg}deg)`;
+    return div;
+  }
+
+  return { build, setTime, getTime, setInteractive, miniClock, buildInto };
 })();
