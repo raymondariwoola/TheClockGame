@@ -507,6 +507,30 @@ const Game = (() => {
   // ===== SETTINGS =====
   function buildSettings() {
     const sel = document.getElementById('voiceSelect');
+    const badge = document.getElementById('voiceQualityBadge');
+    const tip = document.getElementById('voiceTip');
+
+    const QUALITY_LABEL = {
+      premium: 'Premium', enhanced: 'Enhanced', neural: 'Neural',
+      standard: 'Standard', basic: 'Basic',
+    };
+
+    const TIPS = {
+      basic: `<strong>Tip:</strong> The current voice sounds robotic. Install a free <strong>Premium</strong> voice for a much more human result:
+        <br>• <strong>Mac:</strong> System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → tick a "(Premium)" voice (Ava, Zoe, Samantha).
+        <br>• <strong>Windows:</strong> Use Microsoft Edge — it has free neural voices (Aria, Jenny).`,
+      standard: `<strong>Want better?</strong> Mac users can install free <strong>Premium</strong> voices (Ava, Zoe) under System Settings → Accessibility → Spoken Content. Edge users get free neural voices.`,
+    };
+
+    const updateBadgeAndTip = () => {
+      const q = Voice.getQuality();
+      badge.className = 'quality-badge ' + q;
+      badge.textContent = QUALITY_LABEL[q] || '';
+      const tipText = TIPS[q];
+      if (tipText) { tip.innerHTML = tipText; tip.hidden = false; }
+      else tip.hidden = true;
+    };
+
     const updateVoiceList = () => {
       const voices = Voice.getVoices();
       sel.innerHTML = '';
@@ -523,13 +547,15 @@ const Game = (() => {
         if (Voice.getSelected() && v.name === Voice.getSelected().name) opt.selected = true;
         sel.appendChild(opt);
       });
+      updateBadgeAndTip();
     };
     updateVoiceList();
     Voice.onChange(updateVoiceList);
 
     sel.addEventListener('change', () => {
       Voice.setVoiceByName(sel.value);
-      sayRaw(`Hi! I'm your new voice. How do I sound?`, { interrupt: true });
+      updateBadgeAndTip();
+      sayRaw("Hi! How do I sound now?", { interrupt: true });
     });
 
     const rateSlider = document.getElementById('rateSlider');

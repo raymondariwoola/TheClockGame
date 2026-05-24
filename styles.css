@@ -572,3 +572,30 @@ body {
 }
 .setting-row input[type="range"] { padding: 0; height: 30px; accent-color: var(--gold); }
 .setting-row.danger-row { margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+
+/* Voice quality badge */
+.quality-badge {
+  display: inline-block;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.quality-badge.premium { background: linear-gradient(180deg, #ffe590, var(--gold)); color: #4a2e00; box-shadow: 0 0 12px rgba(255,209,102,0.5); }
+.quality-badge.enhanced { background: linear-gradient(180deg, #b0e8d0, #4ecdc4); color: #06321a; }
+.quality-badge.neural { background: linear-gradient(180deg, #c79bff, var(--purple)); color: #fff; }
+.quality-badge.standard { background: rgba(255,255,255,0.18); color: var(--cream); }
+.quality-badge.basic { background: rgba(255,107,107,0.25); color: #ffb8b8; }
+
+.voice-tip {
+  font-size: 13px; color: #ffd4a8;
+  background: rgba(255,209,102,0.08);
+  border: 1px solid rgba(255,209,102,0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+.voice-tip strong { color: var(--gold); }
