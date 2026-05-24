@@ -670,6 +670,23 @@ body {
 .mode-pill .mp-sub { display: block; font-size: 11px; opacity: 0.7; margin-top: 2px; font-weight: 500; }
 
 /* ============================================================
+   ACTIVITY HOST — neutralise classic .answers grid so activities
+   can lay out freely. fourChoice() reuses .answers grid directly.
+   ============================================================ */
+.answers.activity-host {
+  display: block;
+  max-width: none;
+}
+/* When fourChoice runs inside .activity-host, restore a centred 2-col grid */
+.answers.activity-host:has(.choice-btn) {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* ============================================================
    FOUR-CHOICE (reusable)
    ============================================================ */
 .four-choice {
@@ -677,18 +694,19 @@ body {
   max-width: 520px; margin: 0 auto;
 }
 .choice-btn {
-  font-family: 'Fredoka', sans-serif; font-weight: 600;
-  font-size: 26px;
-  padding: 22px 14px;
-  border: 3px solid rgba(255,255,255,0.2);
-  border-radius: 20px;
-  background: linear-gradient(160deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+  font-family: 'Fredoka', sans-serif; font-weight: 700;
+  font-size: 30px;
+  padding: 24px 16px;
+  border: 3px solid rgba(255,255,255,0.25);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.22), rgba(255,255,255,0.1));
   color: var(--cream);
   cursor: pointer;
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, border-color 0.2s;
   backdrop-filter: blur(8px);
-  min-height: 76px;
+  min-height: 84px;
   position: relative; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 6px 0 rgba(0,0,0,0.2);
 }
 .choice-btn:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.03);
@@ -831,31 +849,86 @@ body {
 /* ============================================================
    ORDER DURATIONS
    ============================================================ */
+.order-board {
+  max-width: 480px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+}
+.order-end-label {
+  font-family: 'Fredoka', sans-serif; font-weight: 700;
+  font-size: 18px;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 14px;
+  letter-spacing: 0.5px;
+}
+.order-end-label.top {
+  background: linear-gradient(160deg, rgba(110,231,167,0.25), rgba(45,189,110,0.12));
+  color: #b6ffd6;
+  border: 2px dashed rgba(110,231,167,0.45);
+}
+.order-end-label.bottom {
+  background: linear-gradient(160deg, rgba(255,155,155,0.22), rgba(217,69,69,0.1));
+  color: #ffc0c0;
+  border: 2px dashed rgba(255,155,155,0.45);
+}
 .order-list {
-  display: flex; flex-direction: column; gap: 10px;
-  max-width: 400px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 12px;
 }
 .order-card {
-  background: linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
-  border: 2px solid rgba(255,255,255,0.2);
-  border-radius: 14px;
-  padding: 14px 18px;
-  font-family: 'Fredoka', sans-serif; font-weight: 600;
-  font-size: 20px; color: var(--cream);
+  background: linear-gradient(160deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08));
+  border: 3px solid rgba(255,255,255,0.25);
+  border-radius: 18px;
+  padding: 14px 14px 14px 12px;
+  font-family: 'Fredoka', sans-serif;
+  color: var(--cream);
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center; gap: 12px;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.18);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.order-card.moved {
+  transform: scale(1.04);
+  border-color: var(--gold);
+  box-shadow: 0 0 22px rgba(255,209,102,0.55), 0 4px 0 rgba(0,0,0,0.18);
+}
+.order-rank {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, var(--gold), #e0a800);
+  color: #2a1437;
+  font-weight: 800; font-size: 22px;
+  border-radius: 50%;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+}
+.order-label {
+  font-weight: 700; font-size: 22px;
+  text-align: left;
+}
+.order-arrows {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.order-arrow {
+  width: 50px; height: 38px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  background: linear-gradient(160deg, var(--teal), #2a9d99);
+  color: #fff;
+  font-size: 22px; font-weight: 800;
   cursor: pointer;
-  display: flex; justify-content: space-between; align-items: center;
-  transition: transform 0.15s, border-color 0.2s, background 0.2s;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+  transition: transform 0.1s, background 0.2s, opacity 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
 }
-.order-card:hover { transform: translateX(4px); border-color: var(--gold); }
-.order-card.selected { border-color: var(--teal); background: rgba(78,205,196,0.18); box-shadow: 0 0 16px rgba(78,205,196,0.4); }
-.order-card.correct { border-color: #2dbd6e; background: rgba(45,189,110,0.18); }
-.order-card.wrong { border-color: #d94545; background: rgba(217,69,69,0.18); }
-.order-grip { opacity: 0.4; font-size: 22px; }
-.order-ends {
-  display: flex; justify-content: space-between; align-items: center;
-  max-width: 400px; margin: 0 auto 8px;
-  font-size: 13px; color: rgba(255,255,255,0.6); font-style: italic;
+.order-arrow:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05);
+  background: linear-gradient(160deg, #6fdfd9, var(--teal));
 }
+.order-arrow:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
+.order-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+.order-card.correct { border-color: #2dbd6e; background: linear-gradient(160deg, rgba(45,189,110,0.3), rgba(45,189,110,0.12)); }
+.order-card.wrong { border-color: #d94545; background: linear-gradient(160deg, rgba(217,69,69,0.3), rgba(217,69,69,0.12)); }
 
 /* ============================================================
    MODE HUD (timer, lives)

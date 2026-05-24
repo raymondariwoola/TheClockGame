@@ -36,9 +36,11 @@ const Activities = (() => {
   function fourChoice(host, options, correctIdx, opts = {}) {
     return new Promise((resolve) => {
       host.innerHTML = '';
-      const wrap = el('div', 'four-choice');
+      // host (#answers) already has .answers class providing the 2-col grid.
+      // Insert .choice-btn children directly into it — no wrapper.
+      const buttons = [];
       options.forEach((label, i) => {
-        const btn = el('button', 'choice-btn');
+        const btn = el('button', 'choice-btn answer-btn');
         btn.textContent = label;
         btn.setAttribute('aria-label', `Answer: ${String(label).replace(':', ' ')}`);
         const ring = el('span', 'hold-ring'); btn.appendChild(ring);
@@ -63,17 +65,15 @@ const Activities = (() => {
         btn.addEventListener('mouseenter', () => { opts.onHover && opts.onHover(i); });
         btn.addEventListener('click', e => e.preventDefault());
 
-        wrap.appendChild(btn);
+        host.appendChild(btn);
+        buttons.push(btn);
       });
-      host.appendChild(wrap);
 
       function finish(chosen, btn) {
-        const allBtns = wrap.querySelectorAll('.choice-btn');
-        allBtns.forEach(b => b.disabled = true);
+        buttons.forEach(b => b.disabled = true);
         const correct = chosen === correctIdx;
         btn.classList.add(correct ? 'correct' : 'wrong');
-        if (!correct) allBtns[correctIdx].classList.add('correct');
-        // small delay so visual confirmation lands
+        if (!correct) buttons[correctIdx].classList.add('correct');
         setTimeout(() => resolve({ chosenIdx: chosen, correct, btn }), 350);
       }
     });
@@ -409,45 +409,61 @@ const Activities = (() => {
         const startOrder = shuffle([...four]);
 
         ctx.hideClock();
-        ctx.setPrompt('Put these in order — <strong>shortest</strong> to <strong>longest</strong>.');
-        ctx.say('Put these times in order from shortest to longest.');
+        ctx.setPrompt('Put these in order — <strong>shortest</strong> to <strong>longest</strong>. Use the ⬆ ⬇ arrows to move each card.');
+        ctx.say('Put these times in order from shortest to longest. Tap the up and down arrows to move each card.');
 
         ctx.body.innerHTML = '';
+
+        const board = el('div', 'order-board');
+
+        const topLabel = el('div', 'order-end-label top', '🟢 Shortest');
+        const bottomLabel = el('div', 'order-end-label bottom', '🔴 Longest');
+
         const list = el('div', 'order-list');
-        const cards = startOrder.map((d) => {
-          const c = el('div', 'order-card');
-          c.dataset.mins = d.mins;
-          c.innerHTML = `<span class="order-label">${d.label}</span><span class="order-grip">⋮⋮</span>`;
-          list.appendChild(c);
-          return c;
-        });
-        ctx.body.appendChild(list);
 
-        // Simple touch reordering: tap a card, tap another to swap
-        let selected = null;
-        cards.forEach(c => {
-          c.addEventListener('click', () => {
-            if (!selected) { selected = c; c.classList.add('selected'); }
-            else if (selected === c) { c.classList.remove('selected'); selected = null; }
-            else {
-              // swap DOM order
-              const a = selected, b = c;
-              const ap = a.nextSibling;
-              if (ap === b) { list.insertBefore(b, a); }
-              else {
-                const bp = b.nextSibling;
-                list.insertBefore(b, a);
-                list.insertBefore(a, bp);
-              }
-              a.classList.remove('selected'); selected = null;
+        const render = () => {
+          list.innerHTML = '';
+          [...list._items].forEach((d, i) => {
+            const card = el('div', 'order-card');
+            card.dataset.mins = d.mins;
+            card.innerHTML = `
+              <div class="order-rank">${i + 1}</div>
+              <div class="order-label">${d.label}</div>
+              <div class="order-arrows">
+                <button class="order-arrow up" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>⬆</button>
+                <button class="order-arrow down" aria-label="Move down" ${i === list._items.length - 1 ? 'disabled' : ''}>⬇</button>
+              </div>
+            `;
+            card.querySelector('.up').addEventListener('click', () => {
+              if (i === 0) return;
+              [list._items[i - 1], list._items[i]] = [list._items[i], list._items[i - 1]];
               Audio.tick();
-            }
+              render();
+              flashCard(i - 1);
+            });
+            card.querySelector('.down').addEventListener('click', () => {
+              if (i === list._items.length - 1) return;
+              [list._items[i + 1], list._items[i]] = [list._items[i], list._items[i + 1]];
+              Audio.tick();
+              render();
+              flashCard(i + 1);
+            });
+            list.appendChild(card);
           });
-        });
+        };
+        const flashCard = (idx) => {
+          const c = list.children[idx];
+          if (!c) return;
+          c.classList.add('moved');
+          setTimeout(() => c.classList.remove('moved'), 350);
+        };
+        list._items = startOrder;
+        render();
 
-        const labels = el('div', 'order-ends');
-        labels.innerHTML = '<span>↑ shortest</span><span>longest ↓</span>';
-        ctx.body.insertBefore(labels, list);
+        board.appendChild(topLabel);
+        board.appendChild(list);
+        board.appendChild(bottomLabel);
+        ctx.body.appendChild(board);
 
         const bar = el('div', 'action-bar');
         const check = el('button', 'btn btn-play', '✓ Check Order');
@@ -455,9 +471,10 @@ const Activities = (() => {
         ctx.body.appendChild(bar);
 
         check.addEventListener('click', () => {
-          const current = [...list.children].map(c => Number(c.dataset.mins));
-          const ok = current.every((m, i) => m === correct[i].mins);
+          const ok = list._items.every((d, i) => d.mins === correct[i].mins);
           check.disabled = true;
+          // disable arrows
+          list.querySelectorAll('.order-arrow').forEach(b => b.disabled = true);
           [...list.children].forEach((c, i) => {
             c.classList.add(Number(c.dataset.mins) === correct[i].mins ? 'correct' : 'wrong');
           });

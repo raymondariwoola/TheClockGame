@@ -12,6 +12,7 @@ const Clock = (() => {
   let currentHourAngle = 0;
   let currentMinuteAngle = 0;
   let interactive = null; // { hourDrag, minuteDrag, snap, onChange }
+  let uidCounter = 0;
 
   // Build clock SVG into any container. Returns the svg element and handles.
   // opts.size : px (default 400, used for viewBox math)
@@ -29,18 +30,24 @@ const Clock = (() => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
 
+    // Unique IDs per instance so multiple clocks on one page don't clash
+    const uid = ++uidCounter;
+    const faceId = `faceGrad_${uid}`;
+    const rimId = `rimGrad_${uid}`;
+    const jewelId = `jewelGrad_${uid}`;
+
     const defs = `
       <defs>
-        <radialGradient id="faceGrad" cx="50%" cy="45%" r="55%">
+        <radialGradient id="${faceId}" cx="50%" cy="45%" r="55%">
           <stop offset="0%" stop-color="#fffbe8"/>
           <stop offset="70%" stop-color="#fff0c4"/>
           <stop offset="100%" stop-color="#f0c878"/>
         </radialGradient>
-        <radialGradient id="rimGrad" cx="50%" cy="50%" r="50%">
+        <radialGradient id="${rimId}" cx="50%" cy="50%" r="50%">
           <stop offset="85%" stop-color="#c8932a"/>
           <stop offset="100%" stop-color="#8a6020"/>
         </radialGradient>
-        <radialGradient id="jewelGrad" cx="35%" cy="35%" r="65%">
+        <radialGradient id="${jewelId}" cx="35%" cy="35%" r="65%">
           <stop offset="0%" stop-color="#ff9b9b"/>
           <stop offset="60%" stop-color="#d94545"/>
           <stop offset="100%" stop-color="#7a1a1a"/>
@@ -51,9 +58,9 @@ const Clock = (() => {
 
     // Rim + face
     const rim = `
-      <circle cx="${cx}" cy="${cy}" r="${r + 18 * (size / SIZE)}" fill="url(#rimGrad)"/>
+      <circle cx="${cx}" cy="${cy}" r="${r + 18 * (size / SIZE)}" fill="url(#${rimId})"/>
       <circle cx="${cx}" cy="${cy}" r="${r + 12 * (size / SIZE)}" fill="#2a1437"/>
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#faceGrad)"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${faceId})"/>
     `;
     svg.insertAdjacentHTML('beforeend', rim);
 
@@ -79,6 +86,9 @@ const Clock = (() => {
     }
 
     // Numbers 1-12
+    // For mini clocks (small displayed size), boost numbers so kids can read easily.
+    const isMini = !!opts.miniClock;
+    const numScale = isMini ? 1.4 : 1.0;
     for (let n = 1; n <= 12; n++) {
       const a = (n * 30 - 90) * Math.PI / 180;
       const tx = cx + Math.cos(a) * (r - 38 * (size / SIZE));
@@ -90,18 +100,19 @@ const Clock = (() => {
       text.setAttribute('dominant-baseline', 'central');
       const bold = (n === 12 || n === 3 || n === 6 || n === 9);
       text.setAttribute('font-family', 'Fredoka, sans-serif');
-      text.setAttribute('font-size', (bold ? 36 : 30) * (size / SIZE));
-      text.setAttribute('font-weight', bold ? 700 : 600);
-      text.setAttribute('fill', bold ? '#2a1437' : '#5a3d1a');
+      text.setAttribute('font-size', (bold ? 36 : 30) * (size / SIZE) * numScale);
+      text.setAttribute('font-weight', bold ? 800 : 700);
+      text.setAttribute('fill', '#2a1437');
       text.textContent = n;
       svg.appendChild(text);
     }
 
     // Hands
-    const hourColor = handStyle === 'simple' ? '#000' : '#2a1437';
-    const minColor = handStyle === 'simple' ? '#000' : '#a02828';
-    const hourW = (handStyle === 'simple' ? 8 : 12) * (size / SIZE);
-    const minW = (handStyle === 'simple' ? 5 : 7) * (size / SIZE);
+    const hourColor = handStyle === 'simple' ? '#1a0f2a' : '#2a1437';
+    const minColor = handStyle === 'simple' ? '#1a0f2a' : '#a02828';
+    const handBoost = isMini ? 1.4 : 1.0;
+    const hourW = (handStyle === 'simple' ? 8 : 12) * (size / SIZE) * handBoost;
+    const minW = (handStyle === 'simple' ? 5 : 7) * (size / SIZE) * handBoost;
 
     const hourWrap = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     hourWrap.setAttribute('transform', `translate(${cx} ${cy})`);
@@ -131,7 +142,7 @@ const Clock = (() => {
     const jewel = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     jewel.innerHTML = `
       <circle cx="${cx}" cy="${cy}" r="${14 * (size / SIZE)}" fill="#2a1437"/>
-      <circle cx="${cx}" cy="${cy}" r="${10 * (size / SIZE)}" fill="url(#jewelGrad)"/>
+      <circle cx="${cx}" cy="${cy}" r="${10 * (size / SIZE)}" fill="url(#${jewelId})"/>
       <circle cx="${cx - 3 * (size / SIZE)}" cy="${cy - 3 * (size / SIZE)}" r="${3 * (size / SIZE)}" fill="#fff" opacity="0.7"/>
     `;
     svg.appendChild(jewel);
@@ -246,12 +257,12 @@ const Clock = (() => {
 
   // Convenience: create a small read-only mini clock displaying h:m.
   // Used by Tick-the-Clock and Match-Up.
-  function miniClock(h, m, size = 130) {
+  function miniClock(h, m, size = 150) {
     const div = document.createElement('div');
     div.className = 'mini-clock';
     div.style.width = size + 'px';
     div.style.height = size + 'px';
-    const { hourG, minuteG } = buildInto(div, { size: 400, noTransition: true, handStyle: 'simple' });
+    const { hourG, minuteG } = buildInto(div, { size: 400, noTransition: true, handStyle: 'simple', miniClock: true });
     // Use SIZE=400 viewBox math; CSS scales the SVG to size px
     const hh = h % 12;
     const minDeg = m * 6;

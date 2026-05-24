@@ -270,6 +270,9 @@ const Game = (() => {
     const holdHint = document.querySelector('#screen-game .hold-hint');
     promptEl.classList.add('activity-prompt');
     holdHint && holdHint.classList.add('hidden');
+    // Neutralise the classic .answers grid so activities can lay themselves out freely.
+    // fourChoice() opts back into 2-col grid via .four-choice wrapper.
+    bodyEl.classList.add('activity-host');
 
     return {
       activityId: activity.id,
@@ -630,6 +633,17 @@ const Game = (() => {
     state.answering = false;
     progress.lastLevel = levelId;
     saveProgress();
+
+    // Restore classic-flow DOM state in case we were in an activity.
+    const promptEl = document.querySelector('#screen-game .question');
+    const holdHint = document.querySelector('#screen-game .hold-hint');
+    const bodyEl = document.getElementById('answers');
+    const clockWrap = document.querySelector('#screen-game .clock-wrap');
+    promptEl && promptEl.classList.remove('activity-prompt');
+    holdHint && holdHint.classList.remove('hidden');
+    bodyEl && bodyEl.classList.remove('activity-host');
+    clockWrap && clockWrap.classList.remove('hidden');
+    promptEl && (promptEl.textContent = 'What time does the clock show?');
 
     document.getElementById('levelName').textContent = LEVELS[levelId - 1].name;
     document.getElementById('score').textContent = '0';
