@@ -1011,11 +1011,22 @@ const Game = (() => {
       standard: 'Standard', basic: 'Basic',
     };
 
+    // Per-platform install instructions for higher-quality voices.
+    // Each entry returns the HTML snippet for the tip body.
+    const PLATFORM_TIPS = {
+      mac: `<strong>Mac:</strong> System Settings → Accessibility → Spoken Content → System Voice → <em>Manage Voices…</em> → tick a "(Premium)" voice such as <strong>Ava</strong>, <strong>Zoe</strong>, or <strong>Samantha</strong>. After it downloads, come back and pick it from the list above.`,
+      ios: `<strong>iPhone / iPad:</strong> Settings → Accessibility → Spoken Content → <em>Voices</em> → English → tap a voice and download an <strong>Enhanced</strong> or <strong>Premium</strong> one (Ava, Zoe, Samantha, Evan). Once downloaded it shows up here — pick it from the list above.`,
+      android: `<strong>Android / Samsung:</strong> Settings → General management (or System) → <em>Text-to-speech output</em> → choose <strong>Speech Services by Google</strong> → tap the gear → <em>Install voice data</em> → English → pick a <strong>high-quality / Neural</strong> voice. On Samsung you can also pick <strong>Samsung text-to-speech</strong>. Then reload this page.`,
+      windows: `<strong>Windows:</strong> Open this game in <strong>Microsoft Edge</strong> for free neural voices (Aria, Jenny, Guy). Or in Settings → Time & language → Speech → <em>Add voices</em>, install a "Natural" voice pack, then reload.`,
+      other: `<strong>Tip:</strong> Try opening this game in <strong>Chrome</strong> or <strong>Microsoft Edge</strong> — they ship with free neural voices that sound far more human.`,
+    };
+
+    const platform = Voice.detectPlatform ? Voice.detectPlatform() : 'other';
+    const platformTip = PLATFORM_TIPS[platform] || PLATFORM_TIPS.other;
+
     const TIPS = {
-      basic: `<strong>Tip:</strong> The current voice sounds robotic. Install a free <strong>Premium</strong> voice for a much more human result:
-        <br>• <strong>Mac:</strong> System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → tick a "(Premium)" voice (Ava, Zoe, Samantha).
-        <br>• <strong>Windows:</strong> Use Microsoft Edge — it has free neural voices (Aria, Jenny).`,
-      standard: `<strong>Want better?</strong> Mac users can install free <strong>Premium</strong> voices (Ava, Zoe) under System Settings → Accessibility → Spoken Content. Edge users get free neural voices.`,
+      basic: `<strong>Tip:</strong> The current voice sounds robotic. Install a free <strong>Premium</strong> / <strong>Neural</strong> voice for a much more human result:<br>• ${platformTip}`,
+      standard: `<strong>Want better?</strong> ${platformTip}`,
     };
 
     const updateBadgeAndTip = () => {

@@ -13,18 +13,25 @@ const Voice = (() => {
 
   // Voices known to be high quality and friendly for kids (in roughly best-first order)
   const FRIENDLY_NAMES = [
-    // macOS Siri-derived (best free TTS available anywhere)
+    // macOS / iOS Siri-derived (best free TTS available anywhere)
     'Ava', 'Zoe', 'Allison', 'Susan', 'Samantha', 'Karen', 'Moira',
-    'Tessa', 'Fiona', 'Serena', 'Kate', 'Martha',
-    // macOS male
-    'Daniel', 'Oliver', 'Tom',
+    'Tessa', 'Fiona', 'Serena', 'Kate', 'Martha', 'Nicky',
+    // iOS Siri voice slots (newer iOS surfaces these names)
+    'Siri Female', 'Siri Male', 'Siri Voice 1', 'Siri Voice 2',
+    'Siri Voice 3', 'Siri Voice 4',
+    // macOS / iOS male
+    'Daniel', 'Oliver', 'Tom', 'Aaron', 'Arthur',
     // Microsoft Edge neural
     'Microsoft Aria', 'Microsoft Jenny', 'Microsoft Libby', 'Microsoft Sonia',
     'Microsoft Michelle', 'Microsoft Ana',
     // Microsoft male neural
     'Microsoft Guy', 'Microsoft Ryan',
-    // Chrome / Google
-    'Google UK English Female', 'Google US English',
+    // Chrome / Google (Android + desktop Chrome)
+    'Google UK English Female', 'Google UK English Male',
+    'Google US English', 'Google US English Female', 'Google US English Male',
+    'Google australian english', 'Google english',
+    // Samsung / Android TTS engines
+    'Samsung English', 'English (United States)', 'English (United Kingdom)',
   ];
 
   // Voices to actively avoid (joke / novelty voices on macOS, robotic legacy)
@@ -45,11 +52,16 @@ const Voice = (() => {
 
     let score = 0;
 
-    // Quality tier markers (macOS / Edge expose these in the name)
+    // Quality tier markers (macOS / iOS / Edge expose these in the name)
     if (n.includes('(premium)') || n.includes(' premium')) score += 100;
     if (n.includes('(enhanced)') || n.includes(' enhanced')) score += 60;
     if (n.includes('(natural)') || n.includes('neural') || n.includes('online')) score += 70;
     if (n.includes('siri')) score += 80;
+    // Google network voices on Android/Chrome are noticeably more natural than
+    // the bundled "espeak"-style fallbacks
+    if (n.startsWith('google ')) score += 25;
+    // Samsung neural voices on modern Galaxy devices
+    if (n.includes('samsung')) score += 15;
 
     // Local vs remote (local = no network needed, lower latency)
     if (v.localService) score += 5;
@@ -74,11 +86,27 @@ const Voice = (() => {
   function detectQuality(v) {
     if (!v) return 'none';
     const n = v.name.toLowerCase();
-    if (n.includes('(premium)') || n.includes('siri')) return 'premium';
-    if (n.includes('(enhanced)')) return 'enhanced';
+    if (n.includes('(premium)') || n.includes(' premium') || n.includes('siri')) return 'premium';
+    if (n.includes('(enhanced)') || n.includes(' enhanced')) return 'enhanced';
     if (n.includes('(natural)') || n.includes('neural') || n.includes('online')) return 'neural';
+    // Google network voices (Chrome/Android) — pretty good, treat as neural-ish
+    if (n.startsWith('google ') && !v.localService) return 'neural';
     if (FRIENDLY_NAMES.some(name => v.name.includes(name))) return 'standard';
     return 'basic';
+  }
+
+  // Detect the platform so we can show targeted "install a better voice" tips.
+  // Returns: 'ios' | 'android' | 'mac' | 'windows' | 'other'
+  function detectPlatform() {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const plat = (navigator.platform || '').toLowerCase();
+    // iPadOS 13+ reports as Mac but has touch
+    const isIPad = /ipad/.test(ua) || (plat === 'macintel' && (navigator.maxTouchPoints || 0) > 1);
+    if (/iphone|ipod/.test(ua) || isIPad) return 'ios';
+    if (/android/.test(ua)) return 'android';
+    if (/mac/.test(plat) || /mac os x/.test(ua)) return 'mac';
+    if (/win/.test(plat) || /windows/.test(ua)) return 'windows';
+    return 'other';
   }
 
   function loadVoices() {
@@ -243,7 +271,7 @@ const Voice = (() => {
   return {
     speak, cancel, setVoiceByName, setRate, toggleMute,
     timeToWords, getVoices, getSelected, getQuality, isMuted, getRate,
-    isSupported, onChange, whenDone, isSpeaking,
+    isSupported, onChange, whenDone, isSpeaking, detectPlatform,
   };
 })();
 
