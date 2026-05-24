@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Chronos Strike — Reflex Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="bgFx" aria-hidden="true"></canvas>
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+
+  <!-- INTRO / MENU -->
+  <section id="screen-menu" class="screen active">
+    <div class="menu-inner">
+      <div class="logo-wrap">
+        <div class="logo-ring r1"></div>
+        <div class="logo-ring r2"></div>
+        <div class="logo-ring r3"></div>
+        <h1 class="logo-title">
+          <span class="title-glitch" data-text="CHRONOS">CHRONOS</span>
+          <span class="title-sub">S T R I K E</span>
+        </h1>
+      </div>
+      <p class="menu-tagline">Stop the clock. Bend the hand of time. Survive the chaos.</p>
+
+      <div class="menu-stats">
+        <div class="stat-card">
+          <div class="stat-label">Best Score</div>
+          <div class="stat-value" id="menuBest">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Best Combo</div>
+          <div class="stat-value" id="menuCombo">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Round Reached</div>
+          <div class="stat-value" id="menuRound">0</div>
+        </div>
+      </div>
+
+      <div class="menu-modes">
+        <button class="mode-card" data-mode="classic">
+          <span class="mode-emoji">⚡</span>
+          <span class="mode-title">Classic</span>
+          <span class="mode-desc">25 rounds, 3 lives, escalating mayhem</span>
+        </button>
+        <button class="mode-card" data-mode="endless">
+          <span class="mode-emoji">∞</span>
+          <span class="mode-title">Endless</span>
+          <span class="mode-desc">No end. One life. How far can you go?</span>
+        </button>
+        <button class="mode-card" data-mode="zen">
+          <span class="mode-emoji">🌀</span>
+          <span class="mode-title">Zen</span>
+          <span class="mode-desc">No lives, no rush. Practice your timing.</span>
+        </button>
+      </div>
+
+      <div class="menu-controls">
+        <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
+      </div>
+
+      <a href="../index.html" class="back-home">← Back to Clock Quest</a>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="screen-game" class="screen">
+    <div class="hud">
+      <div class="hud-left">
+        <div class="hud-block">
+          <div class="hud-label">SCORE</div>
+          <div class="hud-value" id="scoreVal">0</div>
+        </div>
+        <div class="hud-block combo-block" id="comboBlock">
+          <div class="hud-label">COMBO</div>
+          <div class="hud-value" id="comboVal">×1</div>
+          <div class="combo-bar"><div class="combo-bar-fill" id="comboBar"></div></div>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div class="round-label" id="roundLabel">ROUND 1</div>
+        <div class="modifier-tag" id="modifierTag" hidden></div>
+      </div>
+
+      <div class="hud-right">
+        <div class="lives" id="lives">
+          <span class="life">●</span><span class="life">●</span><span class="life">●</span>
+        </div>
+        <button class="hud-btn" id="pauseBtn" aria-label="Pause">⏸</button>
+      </div>
+    </div>
+
+    <div class="arena">
+      <div class="clock-stage">
+        <div class="warp-rings">
+          <div class="warp-ring"></div>
+          <div class="warp-ring"></div>
+          <div class="warp-ring"></div>
+        </div>
+
+        <svg id="clockSvg" viewBox="0 0 600 600" aria-hidden="true">
+          <defs>
+            <radialGradient id="faceGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(20,30,60,0.5)"/>
+              <stop offset="60%" stop-color="rgba(8,12,30,0.85)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0.95)"/>
+            </radialGradient>
+            <linearGradient id="handGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="60%" stop-color="#00f0ff"/>
+              <stop offset="100%" stop-color="#0066ff"/>
+            </linearGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="strongGlow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+
+          <!-- Outer rim -->
+          <circle cx="300" cy="300" r="270" fill="none" stroke="rgba(0,240,255,0.15)" stroke-width="2"/>
+          <circle cx="300" cy="300" r="260" fill="url(#faceGrad)" stroke="rgba(0,240,255,0.4)" stroke-width="3" filter="url(#glow)"/>
+          <circle cx="300" cy="300" r="250" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+
+          <!-- Hour markers (drawn dynamically would be nice but static works) -->
+          <g id="tickLayer"></g>
+
+          <!-- Target zones (filled in by JS) -->
+          <g id="zoneLayer"></g>
+
+          <!-- Hands -->
+          <g id="handLayer" transform="translate(300 300)">
+            <g id="hand">
+              <line x1="0" y1="40" x2="0" y2="-220" stroke="url(#handGrad)" stroke-width="8" stroke-linecap="round" filter="url(#strongGlow)"/>
+              <line x1="0" y1="40" x2="0" y2="-220" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+            </g>
+            <g id="hand2" style="display:none">
+              <line x1="0" y1="40" x2="0" y2="-220" stroke="#ff5599" stroke-width="8" stroke-linecap="round" filter="url(#strongGlow)"/>
+            </g>
+            <circle cx="0" cy="0" r="14" fill="#0a0a1f" stroke="#00f0ff" stroke-width="3"/>
+            <circle cx="0" cy="0" r="5" fill="#00f0ff"/>
+          </g>
+
+          <!-- Particle path (DOM particles overlaid via fxCanvas) -->
+        </svg>
+
+        <div class="strike-zone" id="strikeRingHint"></div>
+        <div class="judgment" id="judgment"></div>
+      </div>
+
+      <button id="strikeBtn" class="strike-btn">
+        <span class="strike-label">STRIKE</span>
+        <span class="strike-sub">SPACE / CLICK</span>
+      </button>
+
+      <div class="powerups" id="powerups"></div>
+    </div>
+
+    <div class="round-progress">
+      <div class="round-progress-fill" id="roundProgress"></div>
+    </div>
+  </section>
+
+  <!-- GAME OVER / SUMMARY -->
+  <section id="screen-over" class="screen">
+    <div class="over-inner">
+      <h2 class="over-title" id="overTitle">RUN COMPLETE</h2>
+      <div class="over-grid">
+        <div class="over-stat">
+          <div class="stat-label">FINAL SCORE</div>
+          <div class="stat-value xl" id="overScore">0</div>
+        </div>
+        <div class="over-stat">
+          <div class="stat-label">PERFECT HITS</div>
+          <div class="stat-value" id="overPerfect">0</div>
+        </div>
+        <div class="over-stat">
+          <div class="stat-label">BEST COMBO</div>
+          <div class="stat-value" id="overCombo">0</div>
+        </div>
+        <div class="over-stat">
+          <div class="stat-label">ROUND REACHED</div>
+          <div class="stat-value" id="overRound">0</div>
+        </div>
+        <div class="over-stat">
+          <div class="stat-label">ACCURACY</div>
+          <div class="stat-value" id="overAcc">0%</div>
+        </div>
+        <div class="over-stat">
+          <div class="stat-label">RANK</div>
+          <div class="stat-value rank" id="overRank">F</div>
+        </div>
+      </div>
+      <div class="new-best" id="newBest" hidden>⚡ NEW BEST ⚡</div>
+      <div class="over-actions">
+        <button class="btn-primary" id="retryBtn">RETRY</button>
+        <button class="btn-secondary" id="menuBtn">MAIN MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <div id="pauseOverlay" class="overlay" hidden>
+    <div class="overlay-card">
+      <h2>PAUSED</h2>
+      <button class="btn-primary" id="resumeBtn">RESUME</button>
+      <button class="btn-secondary" id="quitBtn">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- Countdown -->
+  <div id="countdown" class="countdown" hidden><span></span></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
