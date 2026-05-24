@@ -57,19 +57,28 @@ body {
   position: fixed; inset: 0; pointer-events: none; z-index: 100;
 }
 
-/* Mute button */
-.mute-btn {
+/* Top-right control cluster */
+.topright {
   position: fixed; top: 16px; right: 16px; z-index: 50;
+  display: flex; gap: 8px;
+}
+.icon-btn {
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   border: 2px solid rgba(255, 255, 255, 0.2);
   color: var(--cream);
-  width: 56px; height: 56px; border-radius: 50%;
-  font-size: 24px; cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  width: 52px; height: 52px; border-radius: 50%;
+  font-size: 22px; cursor: pointer;
+  transition: transform 0.2s, background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; justify-content: center;
 }
-.mute-btn:hover { transform: scale(1.08); background: rgba(255, 255, 255, 0.2); }
-.mute-btn:active { transform: scale(0.95); }
+.icon-btn:hover { transform: scale(1.08); background: rgba(255, 255, 255, 0.2); }
+.icon-btn:active { transform: scale(0.95); }
+.icon-btn.off { opacity: 0.5; border-color: rgba(255,255,255,0.1); }
+.icon-btn.active-glow {
+  border-color: var(--gold);
+  box-shadow: 0 0 16px rgba(255,209,102,0.5);
+}
 
 /* Screens */
 .screen {
@@ -423,4 +432,143 @@ body {
   .answers { grid-template-columns: 1fr; max-width: 380px; }
   .mascot-game { width: 86px; height: 86px; right: 10px; bottom: 10px; }
   .level-grid { grid-template-columns: repeat(2, 1fr); }
+  .topright { top: 10px; right: 10px; }
+  .icon-btn { width: 44px; height: 44px; font-size: 18px; }
 }
+
+/* ===== Hold-to-hear visual ===== */
+.answer-btn { position: relative; user-select: none; -webkit-user-select: none; }
+.answer-btn .hold-ring {
+  position: absolute; inset: -3px;
+  border-radius: 20px;
+  border: 3px solid var(--teal);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.answer-btn.holding .hold-ring {
+  opacity: 1;
+  animation: holdPulse 0.5s ease-out;
+}
+@keyframes holdPulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.08); opacity: 0.3; }
+}
+
+.hold-hint {
+  font-size: 14px; color: rgba(255,255,255,0.55);
+  margin-bottom: 12px; font-style: italic;
+}
+
+/* ===== Hint button glow ===== */
+.hint-btn.pulse { animation: hintPulse 1.5s ease-in-out infinite; }
+@keyframes hintPulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255,209,102,0); }
+  50% { box-shadow: 0 0 18px rgba(255,209,102,0.7); border-color: var(--gold); }
+}
+
+/* ===== Speaking indicator on mascot ===== */
+.mascot.speaking { animation: speakBounce 0.4s ease-in-out infinite; }
+@keyframes speakBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* ===== Idle nudge ===== */
+.clock.idle-nudge { animation: idleNudge 1s ease-in-out 3; }
+@keyframes idleNudge {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+
+/* ===== Modals ===== */
+.modal {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(5, 7, 34, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: modalFade 0.3s ease;
+}
+.modal[hidden] { display: none; }
+@keyframes modalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  background: linear-gradient(160deg, #2a1f6b, #1a1437);
+  border: 3px solid rgba(255,209,102,0.4);
+  border-radius: 28px;
+  padding: 30px;
+  max-width: 460px; width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(255,209,102,0.2);
+  animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modalPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.modal-card h2 {
+  font-family: 'Fredoka', sans-serif; font-weight: 700;
+  font-size: 30px; color: var(--gold); margin-bottom: 10px;
+}
+.modal-card p {
+  font-size: 18px; color: var(--cream);
+  margin-bottom: 16px; line-height: 1.5;
+}
+.modal-mascot {
+  width: 130px; height: 130px; margin: 0 auto 12px;
+  animation: mascotBob 3s ease-in-out infinite;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
+}
+
+.modal-card input[type="text"] {
+  width: 100%;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 22px; padding: 14px 18px;
+  border-radius: 14px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: var(--cream);
+  text-align: center;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.modal-card input[type="text"]:focus {
+  border-color: var(--gold);
+}
+.modal-buttons {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tutorial-card p {
+  font-size: 20px; line-height: 1.6;
+}
+
+/* Settings rows */
+.setting-row {
+  display: flex; flex-direction: column;
+  gap: 6px; margin-bottom: 16px;
+  text-align: left;
+}
+.setting-row label {
+  font-weight: 600; font-size: 16px;
+  color: #e8d5ff;
+}
+.setting-row select,
+.setting-row input[type="range"] {
+  font-family: 'Baloo 2', sans-serif;
+  padding: 10px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: var(--cream);
+  font-size: 16px;
+}
+.setting-row input[type="range"] { padding: 0; height: 30px; accent-color: var(--gold); }
+.setting-row.danger-row { margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
