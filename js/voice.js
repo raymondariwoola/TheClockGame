@@ -118,6 +118,8 @@ const Voice = (() => {
   // ===== Prosody-aware speak =====
   // Splits text on sentence boundaries, speaks each as its own utterance
   // with tiny pauses and slight pitch contour for naturalness.
+  let activeSpeech = Promise.resolve();
+
   function speak(text, opts = {}) {
     if (!supported || muted || !text) return Promise.resolve();
     if (opts.interrupt) synth.cancel();
@@ -130,8 +132,16 @@ const Voice = (() => {
 
     // Split on sentence-ending punctuation, keeping the punctuation
     const chunks = chunkSentences(text);
-    return chainChunks(chunks, pitch, baseRate, opts);
+    // Chain onto any in-flight speech so back-to-back calls queue naturally
+    // unless the caller explicitly interrupted above.
+    const prior = opts.interrupt ? Promise.resolve() : activeSpeech;
+    const p = prior.then(() => chainChunks(chunks, pitch, baseRate, opts));
+    activeSpeech = p.catch(() => {}); // never let a rejection break the chain
+    return p;
   }
+
+  function whenDone() { return activeSpeech; }
+  function isSpeaking() { return !!(supported && (synth.speaking || synth.pending)); }
 
   function chunkSentences(text) {
     // Match a sentence then trailing punctuation. Keeps "Yes!" and "Really?" intact.
@@ -222,7 +232,7 @@ const Voice = (() => {
   return {
     speak, cancel, setVoiceByName, setRate, toggleMute,
     timeToWords, getVoices, getSelected, getQuality, isMuted, getRate,
-    isSupported, onChange,
+    isSupported, onChange, whenDone, isSpeaking,
   };
 })();
 

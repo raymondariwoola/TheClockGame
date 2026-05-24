@@ -229,12 +229,12 @@ const Game = (() => {
 
     state.answering = true;
 
-    // Speak question
-    Voice.cancel();
+    // Speak question — queues after any in-flight praise so the previous
+    // sentence isn't cut off. Small lead-in so the visual settles first.
     const questionText = state.questionIdx === state.totalQuestions
       ? Phrases.lastQuestion() + " What time is it?"
       : "What time is it?";
-    setTimeout(() => sayRaw(questionText), 400);
+    setTimeout(() => sayRaw(questionText), 250);
 
     resetIdleTimer();
   }
@@ -278,7 +278,8 @@ const Game = (() => {
     btn.addEventListener('pointerup', end);
     btn.addEventListener('pointerleave', cancel);
     btn.addEventListener('pointercancel', cancel);
-    btn.addEventListener('mouseenter', () => Audio.tick());
+    // Hover tick — but stay silent while Hoot is speaking so we never compete with the voice
+    btn.addEventListener('mouseenter', () => { if (!Voice.isSpeaking()) Audio.tick(); });
     // Prevent native click double-fire
     btn.addEventListener('click', e => e.preventDefault());
   }
@@ -317,17 +318,15 @@ const Game = (() => {
       const rect = btn.getBoundingClientRect();
       Confetti.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, state.streak >= 5 ? 120 : 70);
 
-      // Voice: praise + maybe streak shout
-      Voice.cancel();
+      // Voice: praise + maybe streak shout. Interrupt any lingering idle nudge.
       const streakPhrase = Phrases.streak(state.streak);
-      if (streakPhrase) {
-        // Excited shout, then move on
-        sayRaw(streakPhrase, { pitch: 1.3, rate: 1.1 });
-      } else {
-        sayRaw(Phrases.withName(Phrases.correct(), progress.playerName), { pitch: 1.15 });
-      }
+      const voiceP = streakPhrase
+        ? sayRaw(streakPhrase, { pitch: 1.3, rate: 1.1, interrupt: true })
+        : sayRaw(Phrases.withName(Phrases.correct(), progress.playerName), { pitch: 1.15, interrupt: true });
 
-      setTimeout(() => nextQuestion(), 1400);
+      // Advance only after the praise has finished speaking (with a small floor
+      // so the celebration doesn't feel rushed even on very short voice lines).
+      waitForVoiceThen(voiceP, 900, () => nextQuestion());
     } else {
       btn.classList.add('wrong');
       allBtns.forEach(b => { if (b.textContent === correct) b.classList.add('correct'); });
@@ -340,16 +339,24 @@ const Game = (() => {
       clockEl.classList.add('shake');
       setTimeout(() => clockEl.classList.remove('shake'), 500);
 
-      Voice.cancel();
       const [hh, mm] = correct.split(':').map(Number);
       const correctSpoken = Voice.timeToWords(hh, mm, state.currentLevel);
-      sayRaw(Phrases.wrong(correctSpoken), { pitch: 0.95, rate: 0.95 });
+      const voiceP = sayRaw(Phrases.wrong(correctSpoken), { pitch: 0.95, rate: 0.95, interrupt: true });
 
-      setTimeout(() => {
+      waitForVoiceThen(voiceP, 1400, () => {
         Mascot.setMood(mascotGameEl, 'happy');
         nextQuestion();
-      }, 2400);
+      });
     }
+  }
+
+  // Wait for the voice promise to settle AND a minimum visual delay, whichever is longer.
+  // Capped so a misbehaving TTS engine can't stall the game indefinitely.
+  function waitForVoiceThen(voicePromise, minDelay, fn) {
+    const MAX_WAIT = 8000;
+    const minP = new Promise(r => setTimeout(r, minDelay));
+    const capP = new Promise(r => setTimeout(r, MAX_WAIT));
+    Promise.race([Promise.all([voicePromise, minP]), capP]).then(fn);
   }
 
   // ===== Idle nudges =====
