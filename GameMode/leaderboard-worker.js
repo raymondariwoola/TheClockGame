@@ -1,24 +1,3 @@
-/**
- * Chronos Strike — leaderboard proxy (Cloudflare Worker).
- *
- * Keeps your GitHub token SERVER-SIDE so it never reaches the browser.
- * The static game (GitHub Pages) calls this worker; the worker reads/writes
- * the public gist using a token stored as a Worker secret.
- *
- * DEPLOY (dashboard, ~3 min, no CLI, no credit card):
- *   1. https://dash.cloudflare.com → Workers & Pages → Create → Worker.
- *   2. Name it e.g. "chronos-leaderboard", Deploy, then "Edit code".
- *   3. Replace the sample with THIS file's contents, Deploy.
- *   4. Settings → Variables and Secrets, add:
- *        GITHUB_TOKEN  (Secret)   your classic token with ONLY the "gist" scope
- *        GIST_ID       (Text)     the gist id from its URL
- *        GIST_FILE     (Text)     chronos-leaderboard.json   (optional)
- *        ALLOW_ORIGIN  (Text)     https://<you>.github.io    (optional; locks CORS)
- *   5. Copy the worker URL (https://chronos-leaderboard.<you>.workers.dev)
- *      into leaderboard-config.js -> workerUrl.
- *
- * Full walkthrough: LEADERBOARD-SETUP.md
- */
 
 const MAX_ENTRIES = 20;
 const MODES = ['classic', 'endless', 'zen'];
