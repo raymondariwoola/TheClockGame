@@ -7,10 +7,14 @@
 
   const MAX_ENTRIES = 20;
   const cfg = window.CHRONOS_LB_CONFIG || {};
+  const WORKER_URL = (cfg.workerUrl || '').trim().replace(/\/+$/, '');
   const GIST_ID = (cfg.gistId || '').trim();
   const GIST_FILE = cfg.gistFile || 'chronos-leaderboard.json';
   const TOKEN = Array.isArray(cfg.tokenParts) ? cfg.tokenParts.join('').trim() : '';
-  const REMOTE = !!GIST_ID;
+  // worker = Cloudflare proxy (token stays server-side); remote = direct gist
+  // (token exposed in browser); local = this-browser-only fallback.
+  const MODE = WORKER_URL ? 'worker' : (GIST_ID ? 'remote' : 'local');
+  const REMOTE = MODE !== 'local';
   const LOCAL_KEY = 'cs_local_board';
   const CACHE_KEY = 'cs_board_cache';
 
@@ -73,8 +77,32 @@
     if (!res.ok) throw new Error('gist save failed: ' + res.status);
   }
 
+  // ---------- worker proxy (token stays server-side) ----------
+  async function workerFetch() {
+    const res = await fetch(WORKER_URL, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error('worker fetch failed: ' + res.status);
+    const data = await res.json();
+    return normalize(data.entries);
+  }
+
+  async function workerSubmit(entry) {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry }),
+    });
+    if (!res.ok) throw new Error('worker submit failed: ' + res.status);
+    const data = await res.json();
+    return { entries: normalize(data.entries), made: !!data.made, source: 'remote' };
+  }
+
   async function loadBoard() {
-    if (REMOTE) {
+    if (MODE === 'worker') {
+      const entries = await workerFetch();
+      writeJson(CACHE_KEY, entries);
+      return { entries, source: 'remote' };
+    }
+    if (MODE === 'remote') {
       const entries = await fetchRemote();
       writeJson(CACHE_KEY, entries);
       return { entries, source: 'remote' };
@@ -85,7 +113,12 @@
   // Re-fetch, merge, trim, save — so a concurrent submission elsewhere
   // isn't clobbered. Returns whether the entry survived the merge.
   async function submitEntry(entry) {
-    if (REMOTE && TOKEN) {
+    if (MODE === 'worker') {
+      const result = await workerSubmit(entry);
+      writeJson(CACHE_KEY, result.entries);
+      return result;
+    }
+    if (MODE === 'remote' && TOKEN) {
       let entries;
       try { entries = await fetchRemote(); }
       catch { entries = normalize(readJson(CACHE_KEY)); }
