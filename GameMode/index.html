@@ -60,6 +60,12 @@
         </button>
       </div>
 
+      <button class="menu-board-btn" id="menuBoardBtn">
+        <span class="mb-icon">🏆</span>
+        <span class="mb-text">HALL OF TIME — GLOBAL TOP 20</span>
+        <span class="mb-arrow">→</span>
+      </button>
+
       <div class="menu-controls">
         <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
       </div>
@@ -195,9 +201,31 @@
         </div>
       </div>
       <div class="new-best" id="newBest" hidden>⚡ NEW BEST ⚡</div>
+      <div class="lb-check" id="lbCheck" hidden></div>
       <div class="over-actions">
         <button class="btn-primary" id="retryBtn">RETRY</button>
+        <button class="btn-secondary" id="overBoardBtn">🏆 LEADERBOARD</button>
         <button class="btn-secondary" id="menuBtn">MAIN MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD / HALL OF TIME -->
+  <section id="screen-board" class="screen">
+    <div class="board-inner">
+      <header class="board-head">
+        <h2 class="board-title">HALL <span class="board-title-of">OF</span> TIME</h2>
+        <p class="board-sub">GLOBAL TOP 20 · CHRONOS STRIKE</p>
+        <div class="board-status" id="boardStatus">LOADING…</div>
+      </header>
+
+      <div class="podium" id="podium"></div>
+
+      <ol class="board-list" id="boardList"></ol>
+
+      <div class="board-actions">
+        <button class="btn-primary" id="boardPlayBtn">◀ BACK TO GAME</button>
+        <button class="btn-secondary" id="boardRefreshBtn">⟳ REFRESH</button>
       </div>
     </div>
   </section>
@@ -214,7 +242,33 @@
   <!-- Countdown -->
   <div id="countdown" class="countdown" hidden><span></span></div>
 
+  <!-- Name entry (top-20 qualification) -->
+  <div id="nameOverlay" class="overlay" hidden>
+    <div class="overlay-card name-card">
+      <div class="name-crown">👑</div>
+      <h2 class="name-title">TOP 20!</h2>
+      <p class="name-blurb">
+        Your score of <span class="name-score" id="nameScore">0</span> ranks
+        <span class="name-rank" id="nameRank">#—</span> in the world.<br>
+        Engrave your name in the Hall of Time.
+      </p>
+      <form id="nameForm" autocomplete="off">
+        <div class="name-fields">
+          <input id="firstName" type="text" maxlength="20" placeholder="FIRST NAME" required autocomplete="given-name">
+          <input id="lastName" type="text" maxlength="20" placeholder="LAST NAME" required autocomplete="family-name">
+        </div>
+        <div class="name-error" id="nameError" hidden></div>
+        <div class="name-actions">
+          <button type="submit" class="btn-primary" id="nameSubmit">ENGRAVE MY NAME</button>
+          <button type="button" class="btn-secondary" id="nameSkip">SKIP</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+  <script src="leaderboard-config.js"></script>
   <script src="game.js"></script>
+  <script src="leaderboard.js"></script>
 </body>
 </html>

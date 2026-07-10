@@ -21,6 +21,7 @@
     menu: $('screen-menu'),
     game: $('screen-game'),
     over: $('screen-over'),
+    board: $('screen-board'),
   };
   const elBgFx = $('bgFx');
   const elFxCanvas = $('fxCanvas');
@@ -96,6 +97,9 @@
       powerup() { tone(660, 0.08); tone(990, 0.08); tone(1320, 0.12); },
       gameover() { sweep(440, 80, 0.7, 'sawtooth', 0.22); },
       newRound() { tone(523, 0.08); tone(784, 0.1); },
+      overdrive() { sweep(440, 1760, 0.35, 'square', 0.12); tone(1760, 0.2, 'triangle', 0.16); },
+      boss() { tone(110, 0.4, 'sawtooth', 0.2); tone(220, 0.3, 'square', 0.1); },
+      trap() { sweep(600, 40, 0.5, 'square', 0.2); },
     };
   })();
 
@@ -258,8 +262,12 @@
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('opacity', z.opacity != null ? z.opacity : 0.85);
       path.setAttribute('filter', 'url(#glow)');
+      if (z.type === 'decoy') path.setAttribute('stroke-dasharray', '6 10');
       path.dataset.idx = idx;
       elZoneLayer.appendChild(path);
+
+      // decoys have no sweet-spot — they are pure danger
+      if (z.type === 'decoy') return;
 
       // perfect sweet-spot (smaller, centered)
       const perfHalf = Math.min(3, halfArc * 0.25);
@@ -296,6 +304,10 @@
     hitsRequired: 1,
     hitsDone: 0,
     modifier: null,
+    bossRound: false,
+    overdrive: false,
+    perfectStreak: 0,
+    pulse: false,
     powerups: { freeze: 0, slowmo: 0, doubleScore: 0 },
     rafId: null,
     lastTs: 0,
@@ -352,6 +364,19 @@
         };
         st.quantumTimeout = setTimeout(teleport, 1200);
       } },
+    { id: 'decoy',    name: '💀 DECOYS',       apply: (st) => {
+        // two red trap arcs — striking one costs a life AND 100 points
+        const real = st.zones[0];
+        [1, 2].forEach(k => {
+          st.zones.push({
+            center: (real.center + 90 * k + Math.random() * 90) % 360,
+            size: Math.max(18, real.size),
+            type: 'decoy',
+            color: 'rgba(255,64,96,0.75)',
+          });
+        });
+      } },
+    { id: 'pulse',    name: '💓 PULSE',        apply: (st) => { st.pulse = true; } },
   ];
 
   // -------- Screen transitions --------
@@ -436,6 +461,7 @@
         State.powerups.slowmo -= dt;
         if (State.powerups.slowmo <= 0) updatePowerups();
       }
+      if (State.pulse) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
       State.handAngle = (State.handAngle + speed * State.handDir * dt + 360) % 360;
       if (State.multiHand) {
         State.hand2Angle = (State.hand2Angle + State.hand2Speed * State.hand2Dir * dt + 360) % 360;
@@ -484,7 +510,10 @@
     State.hitsDone = 0;
     State.multiHand = false;
     State.modifier = null;
+    State.pulse = false;
+    State.bossRound = State.mode !== 'zen' && State.round > 1 && State.round % 5 === 0;
     elModifierTag.hidden = true;
+    elModifierTag.classList.remove('boss');
 
     const { speed, size, dir } = roundParams(State.round, State.mode);
     State.handSpeed = speed;
@@ -498,7 +527,27 @@
       hit: false,
     }];
 
-    const mod = pickModifier(State.round, State.mode);
+    if (State.bossRound) {
+      // boss: two gold zones on opposite sides, faster hand, 2× score
+      State.handSpeed = speed * 1.3;
+      State.hitsRequired = 2;
+      const base = Math.random() * 360;
+      State.zones = [0, 180].map(off => ({
+        center: (base + off) % 360,
+        size: Math.max(16, size * 0.9),
+        color: 'rgba(255,224,102,0.9)',
+        hit: false,
+      }));
+      elModifierTag.textContent = '⚠ BOSS ROUND — 2× SCORE';
+      elModifierTag.classList.add('boss');
+      elModifierTag.hidden = false;
+      AudioFx.boss();
+      if (window.anime) {
+        anime({ targets: elModifierTag, scale: [0.5, 1.1, 1], opacity: [0, 1], duration: 600, easing: 'easeOutBack' });
+      }
+    }
+
+    const mod = State.bossRound ? null : pickModifier(State.round, State.mode);
     if (mod) {
       State.modifier = mod;
       mod.apply(State);
@@ -544,13 +593,13 @@
     if (!State.spinning || State.paused) return;
     AudioFx.strike();
 
-    // find best zone for current hand angle
+    // find best (non-decoy) zone for current hand angle
     const ang = State.handAngle;
     let best = null;
     let bestDist = Infinity;
     let bestIdx = -1;
     State.zones.forEach((z, i) => {
-      if (z.hit) return;
+      if (z.hit || z.type === 'decoy') return;
       const d = angularDistance(ang, z.center);
       if (d < bestDist) { bestDist = d; best = z; bestIdx = i; }
     });
@@ -572,7 +621,23 @@
     const sy = cy + Math.sin(a) * r;
 
     if (kind === 'miss') {
-      handleMiss(sx, sy);
+      // landed on a decoy trap?
+      const trap = State.zones.find(z => z.type === 'decoy' && angularDistance(ang, z.center) <= z.size / 2);
+      if (trap) {
+        AudioFx.trap();
+        const penalty = Math.min(100, State.score);
+        if (penalty > 0) {
+          State.score -= penalty;
+          elScore.textContent = State.score;
+          popupScore(-penalty, sx, sy - 60, '#ff4060');
+        }
+        handleMiss(sx, sy, 'TRAP!');
+        return;
+      }
+      // tell the player which way they were off
+      const diff = ((best.center - ang + 540) % 360) - 180;
+      const early = State.handDir === 1 ? diff > 0 : diff < 0;
+      handleMiss(sx, sy, early ? 'EARLY!' : 'LATE!');
       return;
     }
 
@@ -595,11 +660,34 @@
     State.combo = 1 + Math.floor(State.comboStreak / 3);
     if (State.combo > State.bestCombo) State.bestCombo = State.combo;
 
-    let gained = scoreFor(kind) * State.combo * (State.modifier ? 1.5 : 1) * (State.powerups.doubleScore > 0 ? 2 : 1);
+    // overdrive kicks in at combo ×4 and holds until a miss
+    const wasOverdrive = State.overdrive;
+    State.overdrive = State.combo >= 4;
+    if (State.overdrive && !wasOverdrive) {
+      AudioFx.overdrive();
+      document.body.classList.add('overdrive');
+      setTimeout(() => flashJudgment('⚡ OVERDRIVE ⚡', 'perfect'), 500);
+    }
+
+    // consecutive perfects build an escalating flat bonus
+    if (kind === 'perfect') State.perfectStreak++;
+    else State.perfectStreak = 0;
+
+    let gained = scoreFor(kind) * State.combo;
+    if (State.modifier) gained *= 1.5;
+    if (State.bossRound) gained *= 2;
+    if (State.overdrive) gained *= 1.5;
+    if (State.powerups.doubleScore > 0) gained *= 2;
+    if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
     gained = Math.round(gained);
     State.score += gained;
 
     elScore.textContent = State.score;
+    elScore.classList.remove('bump');
+    void elScore.offsetWidth;
+    elScore.classList.add('bump');
+    elStrikeHint.className = 'strike-zone flash-' + kind;
+    setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 220);
     elCombo.textContent = '×' + State.combo;
     elComboBar.style.width = Math.min(100, (State.comboStreak % 3) * 33.34 + (State.combo > 1 ? 33.34 : 0)) + '%';
     elComboBlock.classList.toggle('active', State.combo > 1);
@@ -638,13 +726,18 @@
     }
   }
 
-  function handleMiss(x, y) {
+  function handleMiss(x, y, label = 'MISS') {
     AudioFx.miss();
     Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
-    flashJudgment('MISS', 'miss');
+    flashJudgment(label, 'miss');
     shakeScreen(1.2);
+    elStrikeHint.className = 'strike-zone flash-miss';
+    setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
     State.comboStreak = 0;
     State.combo = 1;
+    State.perfectStreak = 0;
+    State.overdrive = false;
+    document.body.classList.remove('overdrive');
     elCombo.textContent = '×1';
     elComboBar.style.width = '0%';
     elComboBlock.classList.remove('active');
@@ -728,6 +821,10 @@
     State.totalAttempts = 0;
     State.bestCombo = 1;
     State.powerups = { freeze: 0, slowmo: 0, doubleScore: 0 };
+    State.perfectStreak = 0;
+    State.overdrive = false;
+    State.pulse = false;
+    document.body.classList.remove('overdrive');
     State.started = true;
     elScore.textContent = '0';
     elCombo.textContent = '×1';
@@ -772,6 +869,8 @@
   function endGame() {
     stopSpin();
     AudioFx.gameover();
+    State.overdrive = false;
+    document.body.classList.remove('overdrive');
 
     // persist bests
     const bestScore = Math.max(loadInt(LS.bestScore), State.score);
@@ -799,6 +898,18 @@
     if (window.anime) {
       anime({ targets: '.over-stat', translateY: [40, 0], opacity: [0, 1], delay: anime.stagger(80), duration: 600, easing: 'easeOutCubic' });
       anime({ targets: '.over-title', scale: [0.6, 1], opacity: [0, 1], duration: 700, easing: 'easeOutBack' });
+    }
+
+    // global leaderboard qualification check (leaderboard.js)
+    if (window.ChronosLB) {
+      window.ChronosLB.onGameEnd({
+        score: State.score,
+        mode: State.mode,
+        round: State.round,
+        combo: State.bestCombo,
+        acc,
+        perfect: State.perfectHits,
+      });
     }
   }
 
@@ -848,9 +959,12 @@
   $('menuBtn').addEventListener('click', () => { showScreen('menu'); refreshMenuStats(); });
 
   addEventListener('keydown', (e) => {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (e.code === 'Space') {
-      e.preventDefault();
-      if (screens.game.classList.contains('active')) strike();
+      if (screens.game.classList.contains('active')) {
+        e.preventDefault();
+        strike();
+      }
     } else if (e.key === 'p' || e.key === 'P') {
       if (screens.game.classList.contains('active')) togglePause();
     } else if (e.key === 'Escape') {
@@ -865,6 +979,9 @@
     if (e.target.closest('button')) return;
     strike();
   });
+
+  // Expose the bits leaderboard.js needs for navigation
+  window.ChronosGame = { showScreen, refreshMenuStats };
 
   // Initial menu render
   refreshMenuStats();
