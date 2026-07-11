@@ -244,6 +244,13 @@
   async function onGameEnd(stats) {
     pendingStats = null;
     if (!elLbCheck) return;
+    // GOD-mode (creator demo) runs are for fun only — never ranked
+    if (stats.god) {
+      elLbCheck.hidden = false;
+      elLbCheck.className = 'lb-check';
+      elLbCheck.textContent = '◈ DEMO RUN — NOT RANKED';
+      return;
+    }
     // Zen has no lives, so scores are unbounded — keep it off the global board
     if (stats.mode === 'zen' || stats.score <= 0) { elLbCheck.hidden = true; return; }
 

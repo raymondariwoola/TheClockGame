@@ -51,6 +51,7 @@ still be baked into the shipped files.
    | `GIST_ID` | Text | the gist id |
    | `GIST_FILE` | Text | `chronos-leaderboard.json` *(optional)* |
    | `ALLOW_ORIGIN` | Text | `https://<you>.github.io` *(optional; locks CORS to your site)* |
+   | `ADMIN_CODE` | **Secret** | your GOD-mode password *(optional; see below)* |
 
    Click **Deploy** again so the variables take effect.
 5. Copy your worker URL (**Settings → Domains & Routes**), e.g.
@@ -90,6 +91,27 @@ window.CHRONOS_LB_CONFIG = {
 ```
 
 ---
+
+## GOD mode (creator demo cheat)
+
+An invisible cheat for demoing the game without risk of failing. The password
+lives **only** in the worker's `ADMIN_CODE` secret — it never ships in the site.
+
+1. Add an `ADMIN_CODE` **Secret** in the worker (step 4 above) and **Deploy**.
+2. In the game, trigger the hidden prompt by either:
+   - tapping the **CHRONOS** logo **5×** quickly, or
+   - typing **`godmode`** anywhere on the keyboard.
+3. Enter the code. A small **◈** appears bottom-left. Every strike now lands
+   PERFECT and lives can't be lost. Tap **◈** for an **Autopilot** toggle or to
+   **Return to Normal**.
+
+Any run touched by GOD mode is flagged and **never submitted** to the leaderboard
+(and doesn't affect your local bests) — it shows `◈ DEMO RUN — NOT RANKED` at the
+end. Client-side cheats are inherently bypassable, so GOD mode is a convenience,
+not a security boundary; leaderboard fairness is what's actually protected.
+
+*No worker? For offline demos you can instead set `FALLBACK_HASH` in
+`game.js` to the SHA-256 hex of your code (`echo -n 'yourcode' | shasum -a 256`).*
 
 ## Notes
 

@@ -319,6 +319,7 @@
     phantomTimeout: null,
     quantumTimeout: null,
     started: false,
+    godTainted: false,   // true if GOD mode was ever active this run (never ranked)
   };
 
   // -------- Modifiers --------
@@ -607,7 +608,8 @@
     if (!best) return;
 
     const half = best.size / 2;
-    const kind = classify(bestDist, half);
+    let kind = classify(bestDist, half);
+    if (God.isActive()) kind = 'perfect'; // creator demo: every strike lands perfect
 
     State.totalAttempts++;
 
@@ -727,6 +729,7 @@
   }
 
   function handleMiss(x, y, label = 'MISS') {
+    if (God.isActive()) return; // GOD mode: misses (and life loss) are impossible
     AudioFx.miss();
     Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
     flashJudgment(label, 'miss');
@@ -826,6 +829,7 @@
     State.pulse = false;
     document.body.classList.remove('overdrive');
     State.started = true;
+    State.godTainted = God.isActive(); // a run started under GOD mode is never ranked
     elScore.textContent = '0';
     elCombo.textContent = '×1';
     elComboBar.style.width = '0%';
@@ -872,14 +876,14 @@
     State.overdrive = false;
     document.body.classList.remove('overdrive');
 
-    // persist bests
-    const bestScore = Math.max(loadInt(LS.bestScore), State.score);
-    const bestCombo = Math.max(loadInt(LS.bestCombo), State.bestCombo);
-    const bestRound = Math.max(loadInt(LS.bestRound), State.round);
-    const newBestScore = State.score > loadInt(LS.bestScore);
-    saveInt(LS.bestScore, bestScore);
-    saveInt(LS.bestCombo, bestCombo);
-    saveInt(LS.bestRound, bestRound);
+    // persist bests — but GOD-mode runs never pollute your records
+    const prevBest = loadInt(LS.bestScore);
+    const newBestScore = !State.godTainted && State.score > prevBest;
+    if (!State.godTainted) {
+      saveInt(LS.bestScore, Math.max(prevBest, State.score));
+      saveInt(LS.bestCombo, Math.max(loadInt(LS.bestCombo), State.bestCombo));
+      saveInt(LS.bestRound, Math.max(loadInt(LS.bestRound), State.round));
+    }
 
     // stats
     $('overScore').textContent = State.score;
@@ -909,6 +913,7 @@
         combo: State.bestCombo,
         acc,
         perfect: State.perfectHits,
+        god: State.godTainted,
       });
     }
   }
@@ -979,6 +984,203 @@
     if (e.target.closest('button')) return;
     strike();
   });
+
+  // ============================================================
+  // GOD MODE — invisible creator/demo cheat.
+  // Password is verified by the Cloudflare Worker (ADMIN_CODE secret),
+  // so it never ships in this file. Enabling it forces every strike to
+  // land PERFECT and makes lives un-losable. Any run touched by GOD mode
+  // is flagged State.godTainted and is never submitted to the leaderboard.
+  // ============================================================
+  const God = (() => {
+    let active = false;
+    let autopilot = false;
+    let apTimer = null;
+    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.workerUrl) || '')
+      .trim().replace(/\/+$/, '');
+    // Optional offline fallback: SHA-256 hex of the admin code. Leave '' to
+    // require the worker (recommended). Set it if you demo with no network.
+    const FALLBACK_HASH = '';
+
+    const isActive = () => active;
+
+    async function verify(code) {
+      code = (code || '').trim();
+      if (!code) return false;
+      if (WORKER) {
+        try {
+          const res = await fetch(WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verifyAdmin', code }),
+          });
+          if (res.ok) { const d = await res.json().catch(() => null); if (d && d.ok) return true; }
+        } catch (e) { /* fall through to offline hash */ }
+      }
+      if (FALLBACK_HASH && window.crypto && crypto.subtle) {
+        try {
+          const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code));
+          const hex = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+          if (hex === FALLBACK_HASH) return true;
+        } catch (e) {}
+      }
+      return false;
+    }
+
+    function enable() {
+      active = true;
+      if (State.started) State.godTainted = true;
+      // top up lives instantly if a run is already in progress
+      if (State.spinning && State.mode !== 'zen') {
+        State.lives = State.mode === 'endless' ? 1 : 3;
+        renderLives();
+      }
+      showIndicator();
+    }
+
+    function disable() {
+      active = false;
+      stopAutopilot();
+      hideIndicator();
+    }
+
+    // ---- autopilot: strike automatically as the hand crosses each zone ----
+    function startAutopilot() {
+      autopilot = true;
+      if (apTimer) return;
+      apTimer = setInterval(() => {
+        if (!active || !State.spinning || State.paused) return;
+        const near = State.zones.some(z => !z.hit && z.type !== 'decoy'
+          && angularDistance(State.handAngle, z.center) <= z.size / 2);
+        if (near) strike();
+      }, 60);
+    }
+    function stopAutopilot() {
+      autopilot = false;
+      if (apTimer) { clearInterval(apTimer); apTimer = null; }
+    }
+    function toggleAutopilot() {
+      if (autopilot) stopAutopilot(); else startAutopilot();
+      updateIndicator();
+    }
+
+    // ---- tiny indicator ----
+    let indicatorEl = null;
+    function showIndicator() {
+      if (!indicatorEl) {
+        indicatorEl = document.createElement('button');
+        indicatorEl.className = 'god-indicator';
+        indicatorEl.setAttribute('aria-label', 'GOD mode options');
+        indicatorEl.addEventListener('click', openPanel);
+        document.body.appendChild(indicatorEl);
+      }
+      indicatorEl.hidden = false;
+      updateIndicator();
+    }
+    function hideIndicator() { if (indicatorEl) indicatorEl.hidden = true; }
+    function updateIndicator() {
+      if (!indicatorEl) return;
+      indicatorEl.textContent = autopilot ? '◈▸' : '◈';
+      indicatorEl.classList.toggle('auto', autopilot);
+      indicatorEl.title = 'GOD mode' + (autopilot ? ' · autopilot' : '') + ' — click for options';
+    }
+
+    // ---- overlays (reuse .overlay / .overlay-card chrome) ----
+    function buildOverlay(html) {
+      const ov = document.createElement('div');
+      ov.className = 'overlay god-overlay';
+      ov.innerHTML = html;
+      ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+      document.body.appendChild(ov);
+      return ov;
+    }
+
+    function promptCode() {
+      const ov = buildOverlay(`
+        <div class="overlay-card god-card">
+          <div class="god-glyph">◈</div>
+          <h2>ADMIN ACCESS</h2>
+          <input id="godCodeInput" type="password" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" />
+          <div class="god-error" id="godErr" hidden>Access denied.</div>
+          <div class="god-actions">
+            <button class="btn-primary" id="godGo">UNLOCK</button>
+            <button class="btn-secondary" id="godCancel">CANCEL</button>
+          </div>
+        </div>`);
+      const input = ov.querySelector('#godCodeInput');
+      const err = ov.querySelector('#godErr');
+      const go = ov.querySelector('#godGo');
+      setTimeout(() => input.focus(), 120);
+      const submit = async () => {
+        go.disabled = true; go.textContent = 'CHECKING…'; err.hidden = true;
+        const ok = await verify(input.value);
+        if (ok) { enable(); ov.remove(); toast('◈ GOD MODE ENGAGED'); }
+        else {
+          go.disabled = false; go.textContent = 'UNLOCK';
+          err.hidden = false; input.value = ''; input.focus();
+        }
+      };
+      go.addEventListener('click', submit);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+      ov.querySelector('#godCancel').addEventListener('click', () => ov.remove());
+    }
+
+    function openPanel() {
+      const ov = buildOverlay(`
+        <div class="overlay-card god-card">
+          <div class="god-glyph">◈</div>
+          <h2>GOD MODE</h2>
+          <p class="god-note">Every strike lands <strong>PERFECT</strong> · lives never fall.<br>This run is <strong>not ranked</strong>.</p>
+          <label class="god-toggle"><input type="checkbox" id="godAuto" ${autopilot ? 'checked' : ''}/> Autopilot — hands-free demo</label>
+          <div class="god-actions">
+            <button class="btn-secondary" id="godClose">CLOSE</button>
+            <button class="btn-primary danger" id="godOff">RETURN TO NORMAL</button>
+          </div>
+        </div>`);
+      ov.querySelector('#godAuto').addEventListener('change', toggleAutopilot);
+      ov.querySelector('#godClose').addEventListener('click', () => ov.remove());
+      ov.querySelector('#godOff').addEventListener('click', () => { disable(); ov.remove(); toast('NORMAL MODE'); });
+    }
+
+    function toast(text) {
+      const t = document.createElement('div');
+      t.className = 'god-toast';
+      t.textContent = text;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('show'));
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 1800);
+    }
+
+    // ---- secret triggers ----
+    function open() { active ? openPanel() : promptCode(); }
+    function armTriggers() {
+      // 1) tap the CHRONOS logo 5× within 1.5s
+      const logo = document.querySelector('.logo-title');
+      if (logo) {
+        let taps = [];
+        logo.addEventListener('click', () => {
+          const now = Date.now();
+          taps = taps.filter(t => now - t < 1500);
+          taps.push(now);
+          if (taps.length >= 5) { taps = []; open(); }
+        });
+      }
+      // 2) type "godmode" anywhere (outside form fields)
+      let buf = '', bufTimer = null;
+      addEventListener('keydown', (e) => {
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+        const k = (e.key || '').toLowerCase();
+        if (k.length !== 1 || !/[a-z]/.test(k)) return;
+        buf = (buf + k).slice(-8);
+        clearTimeout(bufTimer);
+        bufTimer = setTimeout(() => { buf = ''; }, 1200);
+        if (buf.endsWith('godmode')) { buf = ''; open(); }
+      });
+    }
+
+    return { isActive, enable, disable, armTriggers };
+  })();
+  God.armTriggers();
 
   // Expose the bits leaderboard.js needs for navigation
   window.ChronosGame = { showScreen, refreshMenuStats };

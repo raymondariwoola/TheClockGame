@@ -1223,3 +1223,93 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
   .score-popup { transition: none; }
   .podium-medal, .board-row.me, .podium-card.me, .menu-board-btn::before { animation: none !important; }
 }
+
+/* =====================================================================
+   GOD MODE (creator demo) — deliberately understated
+   ===================================================================== */
+.god-indicator {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 120;
+  min-width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 7px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  color: var(--neon-yellow);
+  background: rgba(4,5,13,0.55);
+  border: 1px solid rgba(255,224,102,0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.4;
+  text-shadow: 0 0 8px rgba(255,224,102,0.7);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.god-indicator[hidden] { display: none; }
+.god-indicator:hover { opacity: 1; transform: scale(1.08); }
+.god-indicator.auto {
+  color: var(--neon-green);
+  border-color: rgba(45,255,170,0.6);
+  text-shadow: 0 0 8px rgba(45,255,170,0.7);
+  animation: puPulse 1s infinite;
+}
+
+.god-card { text-align: center; max-width: 420px; border-color: var(--neon-yellow); box-shadow: 0 0 60px rgba(255,224,102,0.3); }
+.god-glyph { font-size: 40px; color: var(--neon-yellow); filter: drop-shadow(0 0 16px rgba(255,224,102,0.7)); }
+.god-card h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  letter-spacing: 6px;
+  font-size: 24px;
+  margin: 6px 0 16px;
+  color: #fff;
+}
+.god-card input {
+  width: 100%;
+  background: rgba(0,240,255,0.06);
+  border: 1px solid rgba(0,240,255,0.35);
+  border-radius: 10px;
+  padding: 13px 14px;
+  color: #fff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 15px;
+  letter-spacing: 3px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.god-card input::placeholder { color: rgba(230,239,255,0.35); font-size: 12px; letter-spacing: 3px; }
+.god-card input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 16px rgba(0,240,255,0.3); }
+.god-error { color: var(--neon-red); font-size: 12px; letter-spacing: 2px; margin-top: 10px; font-family: 'Orbitron', sans-serif; }
+.god-note { color: var(--ink-dim); font-size: 13px; line-height: 1.55; margin: 4px 0 16px; }
+.god-toggle {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  color: var(--ink); font-size: 14px; letter-spacing: 1px; cursor: pointer; margin-bottom: 8px;
+}
+.god-toggle input { width: 18px; height: 18px; accent-color: var(--neon-green); cursor: pointer; }
+.god-actions { display: flex; gap: 12px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+.btn-primary.danger {
+  background: linear-gradient(180deg, var(--neon-red), #b3122f);
+  color: #fff;
+  box-shadow: 0 0 24px rgba(255,64,96,0.5);
+}
+.btn-primary.danger:hover { box-shadow: 0 0 36px rgba(255,64,96,0.8); }
+
+.god-toast {
+  position: fixed; left: 50%; bottom: 40px;
+  transform: translate(-50%, 20px);
+  z-index: 130;
+  padding: 12px 26px;
+  border-radius: 40px;
+  background: rgba(4,5,13,0.9);
+  border: 1px solid var(--neon-yellow);
+  color: var(--neon-yellow);
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 3px; font-size: 14px;
+  box-shadow: 0 0 30px rgba(255,224,102,0.4);
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.god-toast.show { opacity: 1; transform: translate(-50%, 0); }

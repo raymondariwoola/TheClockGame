@@ -53,6 +53,14 @@ export default {
 
       if (request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
+
+        // Admin (GOD mode) code check
+        if (body && body.action === 'verifyAdmin') {
+          const ok = !!(env.ADMIN_CODE && typeof body.code === 'string'
+            && safeEqual(body.code, env.ADMIN_CODE));
+          return json({ ok }, cors);
+        }
+
         const raw = body && body.entry ? body.entry : body;
         const entry = sanitizeEntry(raw);
         if (!entry) return json({ error: 'invalid entry' }, cors, 400);
@@ -101,6 +109,15 @@ function sanitizeList(list) {
 function clampInt(v, lo, hi) {
   const n = parseInt(v, 10);
   return isNaN(n) ? lo : Math.max(lo, Math.min(hi, n));
+}
+
+// length-aware constant-time-ish string compare (avoids trivial timing leaks)
+function safeEqual(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
 }
 
 function json(obj, cors, status = 200) {
