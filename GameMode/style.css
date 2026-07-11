@@ -1367,6 +1367,43 @@ body.hardcore .round-label { text-shadow: 0 0 20px rgba(255,64,96,0.6); }
 body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181,0.55)); }
 
 /* =====================================================================
+   MODE IDENTITY — round sub-label + ENDLESS survival theme
+   ===================================================================== */
+.round-sub {
+  margin-top: 4px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px; letter-spacing: 3px;
+  color: var(--ink-dim);
+}
+.round-sub[hidden] { display: none; }
+.round-sub.pulse { animation: subPulse 0.55s ease; }
+@keyframes subPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); color: var(--neon-green); text-shadow: 0 0 16px rgba(45,255,170,0.8); }
+  100% { transform: scale(1); }
+}
+
+/* Endless = survival: violet accents + a red intensity vignette */
+body.endless .round-sub { color: var(--neon-violet); text-shadow: 0 0 12px rgba(139,92,255,0.6); }
+body.endless .round-label { text-shadow: 0 0 22px rgba(139,92,255,0.7); }
+body.endless #clockSvg { filter: drop-shadow(0 0 34px rgba(139,92,255,0.4)); }
+body.endless.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181,0.55)); }
+
+.vignette {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;                 /* above starfield, behind the game content */
+  opacity: var(--vig, 0);
+  transition: opacity 0.8s ease;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(255,64,96,0.10) 74%, rgba(255,64,96,0.30) 100%);
+}
+.vignette.pulse { animation: vignettePulse 1.6s ease-in-out infinite; }
+@keyframes vignettePulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.55); }
+}
+
+/* =====================================================================
    TAUNTS — distractions that try to derail you
    ===================================================================== */
 .taunt {
@@ -1384,10 +1421,14 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
   top: max(70px, calc(env(safe-area-inset-top) + 60px)); right: 16px;
   font-size: clamp(16px, 3vw, 24px); letter-spacing: 1px;
   color: var(--neon-magenta);
-  opacity: 0; transform: translateX(30px) rotate(-2deg);
-  transition: opacity 0.25s, transform 0.25s;
+  animation: tauntNudge 2.4s ease forwards;
 }
-.taunt-nudge.show { opacity: 1; transform: translateX(0) rotate(-2deg); }
+@keyframes tauntNudge {
+  0% { opacity: 0; transform: translateX(30px) rotate(-2deg); }
+  8% { opacity: 1; transform: translateX(0) rotate(-2deg); }
+  85% { opacity: 1; transform: translateX(0) rotate(-2deg); }
+  100% { opacity: 0; transform: translateX(-12px) rotate(-2deg); }
+}
 
 /* banner — text sweeps across the arena */
 .taunt-banner {
@@ -1396,19 +1437,19 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
   font-size: clamp(24px, 6vw, 54px); letter-spacing: 2px;
   color: var(--neon-magenta);
 }
-.taunt-banner.from-left { animation: tauntBannerL 1.4s cubic-bezier(.2,.7,.3,1) forwards; }
-.taunt-banner.from-right { animation: tauntBannerR 1.4s cubic-bezier(.2,.7,.3,1) forwards; }
+.taunt-banner.from-left { animation: tauntBannerL 2.8s cubic-bezier(.2,.7,.3,1) forwards; }
+.taunt-banner.from-right { animation: tauntBannerR 2.8s cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes tauntBannerL {
-  0% { transform: translate(-120%, -50%) skewX(-12deg); opacity: 0; }
-  15%, 85% { opacity: 1; }
-  50% { transform: translate(0, -50%) skewX(-6deg); }
-  100% { transform: translate(120%, -50%) skewX(-12deg); opacity: 0; }
+  0% { transform: translate(-120%, -50%) skewX(-10deg); opacity: 0; }
+  18% { transform: translate(0, -50%) skewX(0); opacity: 1; }
+  78% { transform: translate(0, -50%) skewX(0); opacity: 1; } /* HOLD — readable */
+  100% { transform: translate(120%, -50%) skewX(-10deg); opacity: 0; }
 }
 @keyframes tauntBannerR {
-  0% { transform: translate(120%, -50%) skewX(12deg); opacity: 0; }
-  15%, 85% { opacity: 1; }
-  50% { transform: translate(0, -50%) skewX(6deg); }
-  100% { transform: translate(-120%, -50%) skewX(12deg); opacity: 0; }
+  0% { transform: translate(120%, -50%) skewX(10deg); opacity: 0; }
+  18% { transform: translate(0, -50%) skewX(0); opacity: 1; }
+  78% { transform: translate(0, -50%) skewX(0); opacity: 1; } /* HOLD — readable */
+  100% { transform: translate(-120%, -50%) skewX(10deg); opacity: 0; }
 }
 
 /* sweep — translucent bar crosses the clock, briefly hiding the hand */
@@ -1418,7 +1459,7 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
   transform: translate(-40%, -50%);
   background: linear-gradient(90deg, transparent, rgba(255,43,181,0.28), rgba(255,64,96,0.32), rgba(255,43,181,0.28), transparent);
   backdrop-filter: blur(2px);
-  animation: tauntSweep 1.1s ease-in-out forwards;
+  animation: tauntSweep 2.0s ease-in-out forwards;
 }
 .taunt-sweep span {
   font-family: 'Orbitron', sans-serif; font-weight: 900;
@@ -1427,9 +1468,10 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
   text-shadow: 0 0 14px rgba(255,43,181,0.9);
 }
 @keyframes tauntSweep {
-  0% { transform: translate(-40%, -50%); opacity: 0; }
-  20%, 80% { opacity: 1; }
-  100% { transform: translate(40%, -50%); opacity: 0; }
+  0% { transform: translate(-45%, -50%); opacity: 0; }
+  22% { transform: translate(0, -50%); opacity: 1; }
+  70% { transform: translate(0, -50%); opacity: 1; } /* hold over the clock */
+  100% { transform: translate(45%, -50%); opacity: 0; }
 }
 
 /* glitch — jittering text + brief screen distortion */
@@ -1438,7 +1480,7 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
   transform: translate(-50%, -50%);
   font-size: clamp(26px, 7vw, 60px); letter-spacing: 3px;
   color: #fff; text-transform: uppercase;
-  animation: tauntGlitch 0.85s forwards;
+  animation: tauntGlitch 1.5s forwards;
 }
 .taunt-glitch::before, .taunt-glitch::after {
   content: attr(data-text);
@@ -1448,9 +1490,9 @@ body.hardcore.overdrive #clockSvg { filter: drop-shadow(0 0 46px rgba(255,43,181
 .taunt-glitch::after { color: var(--neon-cyan); mix-blend-mode: screen; animation: glitchShift 0.15s infinite reverse; }
 @keyframes tauntGlitch {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
-  10%, 80% { opacity: 1; }
-  80% { transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes glitchShift {
   0% { transform: translate(2px, -1px); }

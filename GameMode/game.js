@@ -325,6 +325,7 @@
     hardcore: false,     // opt-in double-points difficulty (harder + relentless taunts)
     maxLives: 3,
     jolt: 1,             // transient hand-speed multiplier used by hardcore taunts
+    survivalMult: 1,     // endless-only: grows each wave + on streaks, scales all score
   };
 
   // -------- Modifiers --------
@@ -387,7 +388,10 @@
 
   // -------- Screen transitions --------
   function showScreen(id) {
-    if (id === 'menu') document.body.classList.remove('hardcore');
+    if (id === 'menu') {
+      document.body.classList.remove('hardcore', 'endless');
+      document.documentElement.style.setProperty('--vig', '0');
+    }
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);
@@ -504,8 +508,12 @@
     const hc = State.hardcore && mode !== 'zen';
     // Base speed grows with round; hardcore starts faster and keeps climbing longer
     const base = mode === 'zen' ? 130 : (hc ? 175 : 150);
-    const cap = hc ? 540 : 430;
-    const speed = (base + Math.min(round * 13, cap)) * (hc ? 1.12 : 1);
+    // Classic/zen speed CAPS (beatable). Endless NEVER caps — it just keeps
+    // accelerating until you crack, which is the whole point of survival.
+    const ramp = (mode === 'endless')
+      ? round * (hc ? 16 : 13)
+      : Math.min(round * 13, hc ? 540 : 430);
+    const speed = (base + ramp) * (hc ? 1.12 : 1);
     // Zone shrinks; hardcore shrinks faster to a tighter floor
     const floor = hc ? 10 : 13;
     const size = Math.max(floor, (hc ? 56 : 60) - round * (hc ? 1.9 : 1.55));
@@ -578,6 +586,12 @@
     elRoundLabel.textContent = State.mode === 'endless' ? `WAVE ${State.round}` : `ROUND ${State.round}`;
     elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / CLASSIC_ROUNDS * 100) + '%' : '100%';
 
+    // Mode-specific progression
+    if (State.mode === 'endless' && State.round > 1) State.survivalMult += 0.15;
+    updateRoundSub();
+    updateVignette();
+    if (State.mode === 'classic') maybeActBanner(State.round);
+
     // intro flourish
     if (window.anime) {
       anime({ targets: elRoundLabel, translateY: [-20, 0], opacity: [0, 1], duration: 400, easing: 'easeOutQuad' });
@@ -586,6 +600,45 @@
 
     AudioFx.newRound();
     applyHandRotation();
+  }
+
+  // Sub-label under the round name: classic shows progress to the finish,
+  // endless shows the growing survival multiplier.
+  function updateRoundSub(pulse) {
+    const sub = document.getElementById('roundSub');
+    if (!sub) return;
+    if (State.mode === 'classic') {
+      sub.textContent = `ROUND ${State.round} / ${CLASSIC_ROUNDS}`;
+      sub.hidden = false;
+    } else if (State.mode === 'endless') {
+      sub.textContent = `SURVIVAL ×${State.survivalMult.toFixed(2)}`;
+      sub.hidden = false;
+      if (pulse) { sub.classList.remove('pulse'); void sub.offsetWidth; sub.classList.add('pulse'); }
+    } else {
+      sub.hidden = true;
+    }
+  }
+
+  // Endless: a red intensity vignette that closes in as the waves climb.
+  function updateVignette() {
+    const root = document.documentElement;
+    const v = document.getElementById('vignette');
+    if (State.mode === 'endless') {
+      const t = Math.min(1, (State.round - 1) / 18);
+      root.style.setProperty('--vig', (0.15 + t * 0.8).toFixed(2));
+      if (v) v.classList.toggle('pulse', State.round >= 12);
+    } else {
+      root.style.setProperty('--vig', '0');
+      if (v) v.classList.remove('pulse');
+    }
+  }
+
+  // Classic: an "ACT" banner every 10 rounds to give the campaign structure.
+  function maybeActBanner(round) {
+    if ((round - 1) % 10 !== 0) return;
+    const act = Math.floor((round - 1) / 10) + 1;
+    const roman = ['', 'I', 'II', 'III', 'IV', 'V'][act] || String(act);
+    flashJudgment(`ACT ${roman}`, 'great');
   }
 
   // -------- Strike logic --------
@@ -605,8 +658,14 @@
     return 'miss';
   }
 
+  let lastStrikeTs = 0;
   function strike() {
     if (!State.spinning || State.paused) return;
+    // Guard against a single tap/click firing twice (some mobile browsers emit
+    // both a synthesized and a bubbled event) — that previously cost two lives.
+    const nowTs = (window.performance && performance.now) ? performance.now() : Date.now();
+    if (nowTs - lastStrikeTs < 90) return;
+    lastStrikeTs = nowTs;
     AudioFx.strike();
 
     // find best (non-decoy) zone for current hand angle
@@ -694,6 +753,7 @@
     if (State.modifier) gained *= 1.5;
     if (State.bossRound) gained *= 2;
     if (State.hardcore) gained *= 2;   // hardcore reward: double points
+    if (State.mode === 'endless') gained *= State.survivalMult; // deeper = richer
     if (State.overdrive) gained *= 1.5;
     if (State.powerups.doubleScore > 0) gained *= 2;
     if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
@@ -734,8 +794,19 @@
 
     State.hitsDone++;
 
-    // grant powerups on combo milestones
-    if (State.comboStreak > 0 && State.comboStreak % 5 === 0) grantRandomPowerup();
+    // 5-streak reward — differs by mode:
+    //   endless   → pump the survival multiplier (keeps it relentless, no easing off)
+    //   classic/zen → a random powerup (future home of full "super powers")
+    if (State.comboStreak > 0 && State.comboStreak % 5 === 0) {
+      if (State.mode === 'endless') {
+        State.survivalMult += 0.5;
+        updateRoundSub(true);
+        AudioFx.powerup();
+        popupScore('SURVIVAL UP', x, y - 60, '#8b5cff');
+      } else {
+        grantRandomPowerup();
+      }
+    }
 
     // taunt: goad the player when they're on a hot streak (nastier in hardcore)
     if (State.comboStreak >= 6 && State.comboStreak % 6 === 0) Taunts.provoke(State.combo);
@@ -749,6 +820,7 @@
 
   function handleMiss(x, y, label = 'MISS') {
     if (God.isActive()) return; // GOD mode: misses (and life loss) are impossible
+    if (!State.spinning) return; // ignore any stray miss after the round/run has stopped
     AudioFx.miss();
     Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
     flashJudgment(label, 'miss');
@@ -840,10 +912,14 @@
     State.combo = 1;
     State.comboStreak = 0;
     State.hardcore = (mode === 'zen') ? false : Difficulty.isHardcore();
-    State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : (State.hardcore ? 2 : 3));
+    // Classic always has 3 lives (hardcore adds pressure via speed + taunts,
+    // not fewer lives); endless is a single-life survival run.
+    State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : 3);
     State.lives = mode === 'zen' ? 999 : State.maxLives;
+    State.survivalMult = 1;
     State.jolt = 1;
     document.body.classList.toggle('hardcore', State.hardcore);
+    document.body.classList.toggle('endless', mode === 'endless');
     State.perfectHits = 0;
     State.totalHits = 0;
     State.totalAttempts = 0;
@@ -900,6 +976,7 @@
     AudioFx.gameover();
     State.overdrive = false;
     document.body.classList.remove('overdrive');
+    document.documentElement.style.setProperty('--vig', '0');
 
     // persist bests — but GOD-mode runs never pollute your records
     const prevBest = loadInt(LS.bestScore);
@@ -1068,13 +1145,14 @@
     const active = () => State.spinning && !State.paused && !God.isActive();
 
     let timer = null;
+    let currentEl = null;   // only one taunt visible at a time
 
     function schedule() {
       clearTimeout(timer);
       if (!State.spinning) return;
       const hc = State.hardcore;
-      const min = hc ? 3500 : 7000;
-      const max = hc ? 7000 : 14000;
+      const min = hc ? 5000 : 9000;
+      const max = hc ? 9000 : 16000;
       timer = setTimeout(() => {
         if (active() && State.round >= (hc ? 1 : 2)) fire(hc ? pickHardType() : 'nudge');
         schedule();
@@ -1089,7 +1167,7 @@
     }
 
     function start() { schedule(); }
-    function stop() { clearTimeout(timer); timer = null; }
+    function stop() { clearTimeout(timer); timer = null; if (currentEl) { currentEl.remove(); currentEl = null; } }
 
     function onMiss() {
       if (!State.spinning || God.isActive()) return;
@@ -1106,12 +1184,18 @@
     }
     function fire(type) { if (active()) show(type, textFor()); }
 
+    // Each taunt stays long enough to actually read (slides in, HOLDS, slides out).
+    const DUR = { nudge: 2400, banner: 2800, sweep: 2000, glitch: 1500 };
     function show(type, text) {
+      if (currentEl) { currentEl.remove(); currentEl = null; }
       AudioFx.taunt();
-      if (type === 'banner') return banner(text);
-      if (type === 'sweep') return sweepTaunt(text);
-      if (type === 'glitch') return glitch(text);
-      return nudge(text);
+      let el;
+      if (type === 'banner') el = banner(text);
+      else if (type === 'sweep') el = sweepTaunt(text);
+      else if (type === 'glitch') el = glitch(text);
+      else el = nudge(text);
+      currentEl = el;
+      setTimeout(() => { if (el === currentEl) currentEl = null; if (el) el.remove(); }, DUR[type] || 2200);
     }
 
     function nudge(text) {
@@ -1119,8 +1203,7 @@
       el.className = 'taunt taunt-nudge';
       el.textContent = text;
       document.body.appendChild(el);
-      requestAnimationFrame(() => el.classList.add('show'));
-      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 1600);
+      return el;
     }
     function banner(text) {
       const host = arena() || document.body;
@@ -1128,7 +1211,7 @@
       el.className = 'taunt taunt-banner ' + (Math.random() < 0.5 ? 'from-left' : 'from-right');
       el.textContent = text;
       host.appendChild(el);
-      setTimeout(() => el.remove(), 1500);
+      return el;
     }
     function sweepTaunt(text) {
       const host = stage() || document.body;
@@ -1137,8 +1220,8 @@
       el.innerHTML = '<span></span>';
       el.querySelector('span').textContent = text;
       host.appendChild(el);
-      if (State.hardcore) jolt(1.7, 380);
-      setTimeout(() => el.remove(), 1200);
+      if (State.hardcore) jolt(1.6, 420);
+      return el;
     }
     function glitch(text) {
       const el = document.createElement('div');
@@ -1147,9 +1230,9 @@
       el.textContent = text;
       (arena() || document.body).appendChild(el);
       document.body.classList.add('glitching');
-      if (State.hardcore) jolt(1.6, 320);
+      if (State.hardcore) jolt(1.5, 360);
       setTimeout(() => document.body.classList.remove('glitching'), 320);
-      setTimeout(() => el.remove(), 900);
+      return el;
     }
     function jolt(factor, ms) {
       AudioFx.jolt();
