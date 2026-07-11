@@ -102,6 +102,7 @@
       trap() { sweep(600, 40, 0.5, 'square', 0.2); },
       taunt() { sweep(320, 90, 0.4, 'sawtooth', 0.14); tone(150, 0.2, 'square', 0.1); },
       jolt() { sweep(180, 900, 0.18, 'square', 0.12); },
+      super() { tone(660, 0.1, 'triangle', 0.18); tone(880, 0.1, 'triangle', 0.16); tone(1320, 0.14, 'triangle', 0.18); tone(1760, 0.18, 'sine', 0.12); },
     };
   })();
 
@@ -252,7 +253,8 @@
     elZoneLayer.innerHTML = '';
     zones.forEach((z, idx) => {
       if (z.hidden) return;
-      const halfArc = z.size / 2;
+      const boost = (z.type === 'decoy') ? 1 : (State.zoneBoost || 1);
+      const halfArc = z.size * boost / 2;
       const start = z.center - halfArc;
       const end = z.center + halfArc;
       // perfect band (inner)
@@ -310,7 +312,6 @@
     overdrive: false,
     perfectStreak: 0,
     pulse: false,
-    powerups: { freeze: 0, slowmo: 0, doubleScore: 0 },
     rafId: null,
     lastTs: 0,
     overlayBusy: false,
@@ -326,6 +327,8 @@
     maxLives: 3,
     jolt: 1,             // transient hand-speed multiplier used by hardcore taunts
     survivalMult: 1,     // endless-only: grows each wave + on streaks, scales all score
+    powers: {},          // active super powers: id -> seconds left (Infinity = until used)
+    zoneBoost: 1,        // magnet/star widen the target zones
   };
 
   // -------- Modifiers --------
@@ -462,16 +465,10 @@
     const dt = State.lastTs ? (ts - State.lastTs) / 1000 : 0;
     State.lastTs = ts;
     if (!State.paused) {
+      tickPowers(dt);
       let speed = State.handSpeed;
-      if (State.powerups.freeze > 0) {
-        speed = 0;
-        State.powerups.freeze -= dt;
-        if (State.powerups.freeze <= 0) updatePowerups();
-      } else if (State.powerups.slowmo > 0) {
-        speed *= 0.35;
-        State.powerups.slowmo -= dt;
-        if (State.powerups.slowmo <= 0) updatePowerups();
-      }
+      if (State.powers.freeze) speed = 0;
+      else if (State.powers.slowmo) speed *= 0.35;
       if (State.pulse) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
       if (State.jolt !== 1) speed *= State.jolt;
       State.handAngle = (State.handAngle + speed * State.handDir * dt + 360) % 360;
@@ -681,9 +678,10 @@
 
     if (!best) return;
 
-    const half = best.size / 2;
+    const half = best.size * (State.zoneBoost || 1) / 2;
     let kind = classify(bestDist, half);
     if (God.isActive()) kind = 'perfect'; // creator demo: every strike lands perfect
+    if (State.powers.deadeye || State.powers.star) kind = 'perfect'; // super powers
 
     State.totalAttempts++;
 
@@ -755,7 +753,10 @@
     if (State.hardcore) gained *= 2;   // hardcore reward: double points
     if (State.mode === 'endless') gained *= State.survivalMult; // deeper = richer
     if (State.overdrive) gained *= 1.5;
-    if (State.powerups.doubleScore > 0) gained *= 2;
+    if (State.powers.double) gained *= 2;
+    if (State.powers.triple) gained *= 3;
+    if (State.powers.star) gained *= 2;
+    if (State.powers.frenzy) gained += 40 * State.combo;
     if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
     gained = Math.round(gained);
     State.score += gained;
@@ -821,20 +822,38 @@
   function handleMiss(x, y, label = 'MISS') {
     if (God.isActive()) return; // GOD mode: misses (and life loss) are impossible
     if (!State.spinning) return; // ignore any stray miss after the round/run has stopped
+
+    // STAR POWER — fully invincible, misses simply don't count
+    if (State.powers.star) { flashJudgment('★', 'perfect'); return; }
+    // SHIELD — consume it to negate this miss entirely (no life, no combo loss)
+    if (State.powers.shield) {
+      delete State.powers.shield;
+      updatePowerups();
+      AudioFx.powerup();
+      flashJudgment('BLOCKED', 'good');
+      elStrikeHint.className = 'strike-zone flash-good';
+      setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
+      return;
+    }
+
     AudioFx.miss();
     Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
     flashJudgment(label, 'miss');
     shakeScreen(1.2);
     elStrikeHint.className = 'strike-zone flash-miss';
     setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
-    State.comboStreak = 0;
-    State.combo = 1;
-    State.perfectStreak = 0;
-    State.overdrive = false;
-    document.body.classList.remove('overdrive');
-    elCombo.textContent = '×1';
-    elComboBar.style.width = '0%';
-    elComboBlock.classList.remove('active');
+
+    // COMBO LOCK — keep the combo alive through this one miss
+    if (!State.powers.combolock) {
+      State.comboStreak = 0;
+      State.combo = 1;
+      State.perfectStreak = 0;
+      State.overdrive = false;
+      document.body.classList.remove('overdrive');
+      elCombo.textContent = '×1';
+      elComboBar.style.width = '0%';
+      elComboBlock.classList.remove('active');
+    }
 
     Taunts.onMiss();
 
@@ -864,30 +883,125 @@
     }
   }
 
-  // -------- Powerups --------
-  function grantRandomPowerup() {
-    const pool = ['freeze', 'slowmo', 'doubleScore'];
-    if (State.mode !== 'zen' && State.lives < State.maxLives) pool.push('life');
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    AudioFx.powerup();
-    if (pick === 'freeze') State.powerups.freeze = 1.5;
-    else if (pick === 'slowmo') State.powerups.slowmo = 4;
-    else if (pick === 'doubleScore') State.powerups.doubleScore = 6;
-    else if (pick === 'life') { State.lives++; renderLives(); }
+  // -------- Super Powers (Classic / Zen reward on every 5-streak) --------
+  // A deliberately chaotic grab-bag. Timed powers live in State.powers
+  // (id -> seconds left; Infinity = holds until consumed). Instant powers fire once.
+  const POWERS = [
+    // ---- timed ----
+    { id: 'freeze',    name: 'TIME STOP',    icon: '❄️', kind: 'timed', dur: 1.8,      weight: 8,  blurb: 'The hand freezes solid.' },
+    { id: 'slowmo',    name: 'BULLET TIME',  icon: '🐢', kind: 'timed', dur: 4.5,      weight: 12, blurb: 'Everything crawls.' },
+    { id: 'double',    name: 'DOUBLE',       icon: '✖2', kind: 'timed', dur: 6,        weight: 12, blurb: 'Double points.' },
+    { id: 'triple',    name: 'TRIPLE',       icon: '✖3', kind: 'timed', dur: 5,        weight: 7,  blurb: 'Triple points!' },
+    { id: 'magnet',    name: 'ZONE MAGNET',  icon: '🧲', kind: 'timed', dur: 6,        weight: 11, blurb: 'Targets grow huge.' },
+    { id: 'deadeye',   name: 'DEADEYE',      icon: '🎯', kind: 'timed', dur: 4,        weight: 8,  blurb: 'Every strike is PERFECT.' },
+    { id: 'frenzy',    name: 'SCORE FRENZY', icon: '🔥', kind: 'timed', dur: 6,        weight: 9,  blurb: 'Bonus points on every hit.' },
+    { id: 'combolock', name: 'COMBO LOCK',   icon: '🔗', kind: 'timed', dur: 8,        weight: 8,  blurb: 'Your combo survives a miss.' },
+    { id: 'shield',    name: 'SHIELD',       icon: '🛡️', kind: 'timed', dur: Infinity, weight: 8,  blurb: 'Blocks the next miss.' },
+    { id: 'star',      name: 'STAR POWER',   icon: '🌟', kind: 'timed', dur: 4.5,      weight: 3,  blurb: 'Invincible + auto-perfect + 2×!' },
+    // ---- instant ----
+    { id: 'life',      name: 'EXTRA LIFE',   icon: '❤️', kind: 'instant', weight: 6,  blurb: '+1 life.' },
+    { id: 'heal',      name: 'FULL HEAL',    icon: '💖', kind: 'instant', weight: 3,  blurb: 'All lives restored.' },
+    { id: 'jackpot',   name: 'JACKPOT',      icon: '💰', kind: 'instant', weight: 10, blurb: 'Instant point windfall.' },
+    { id: 'overcharge',name: 'OVERCHARGE',   icon: '⚡', kind: 'instant', weight: 7,  blurb: 'Combo supercharged!' },
+    { id: 'wildcard',  name: 'WILDCARD',     icon: '🎰', kind: 'instant', weight: 5,  blurb: 'Two powers at once!' },
+  ];
+  const POWER_BY_ID = Object.fromEntries(POWERS.map(p => [p.id, p]));
+
+  // handleHit still calls grantRandomPowerup() — keep that name as the entry point.
+  function grantRandomPowerup() { grantSuperPower(false); }
+
+  function grantSuperPower(silent, excludeId) {
+    let pool = POWERS.filter(p => p.weight > 0 && p.id !== excludeId);
+    if (State.lives >= State.maxLives) pool = pool.filter(p => p.id !== 'life' && p.id !== 'heal');
+    if (!pool.length) return;
+    const total = pool.reduce((s, p) => s + p.weight, 0);
+    let r = Math.random() * total, chosen = pool[pool.length - 1];
+    for (const p of pool) { r -= p.weight; if (r <= 0) { chosen = p; break; } }
+    applyPower(chosen.id, silent);
+  }
+
+  function applyPower(id, silent) {
+    const p = POWER_BY_ID[id];
+    if (!p) return;
+    if (p.kind === 'timed') {
+      State.powers[id] = p.dur;
+      if (id === 'star') document.body.classList.add('starpower');
+      updateZoneBoost();
+    } else if (id === 'life') {
+      State.lives = Math.min(State.maxLives, State.lives + 1); renderLives();
+    } else if (id === 'heal') {
+      State.lives = State.maxLives; renderLives();
+    } else if (id === 'jackpot') {
+      const bonus = 250 + State.round * 60 + (State.hardcore ? 400 : 0);
+      State.score += bonus; elScore.textContent = State.score;
+      elScore.classList.remove('bump'); void elScore.offsetWidth; elScore.classList.add('bump');
+      const rect = elClockSvg.getBoundingClientRect();
+      popupScore(bonus, rect.left + rect.width / 2, rect.top + rect.height / 3, '#ffe066');
+    } else if (id === 'overcharge') {
+      State.comboStreak += 9;
+      State.combo = 1 + Math.floor(State.comboStreak / 3);
+      if (State.combo > State.bestCombo) State.bestCombo = State.combo;
+      if (!State.overdrive && State.combo >= 4) { State.overdrive = true; document.body.classList.add('overdrive'); AudioFx.overdrive(); }
+      elCombo.textContent = '×' + State.combo;
+      elComboBar.style.width = Math.min(100, (State.comboStreak % 3) * 33.34 + (State.combo > 1 ? 33.34 : 0)) + '%';
+      elComboBlock.classList.toggle('active', State.combo > 1);
+    } else if (id === 'wildcard') {
+      grantSuperPower(true, 'wildcard');
+      grantSuperPower(true, 'wildcard');
+    }
+    (id === 'star' || id === 'wildcard' || id === 'heal') ? AudioFx.super() : AudioFx.powerup();
+    if (!silent) announcePower(p);
     updatePowerups();
+  }
+
+  function updateZoneBoost() {
+    const boost = (State.powers.magnet || State.powers.star) ? 1.9 : 1;
+    if (boost !== State.zoneBoost) { State.zoneBoost = boost; renderZones(State.zones); }
+  }
+
+  // Tick timed powers every frame; fire expiry side-effects.
+  function tickPowers(dt) {
+    let changed = false;
+    for (const id in State.powers) {
+      const v = State.powers[id];
+      if (!isFinite(v)) continue;            // shield: waits to be consumed
+      const nv = v - dt;
+      if (nv <= 0) { delete State.powers[id]; onPowerExpire(id); changed = true; }
+      else State.powers[id] = nv;
+    }
+    if (changed) { updateZoneBoost(); updatePowerups(); }
+  }
+
+  function onPowerExpire(id) {
+    if (id === 'star') document.body.classList.remove('starpower');
   }
 
   function updatePowerups() {
     elPowerups.innerHTML = '';
-    const add = (icon, label, time) => {
+    for (const id in State.powers) {
+      const p = POWER_BY_ID[id]; if (!p) continue;
+      const t = State.powers[id];
       const chip = document.createElement('div');
-      chip.className = 'powerup-chip';
-      chip.innerHTML = `<span class="pu-icon">${icon}</span><span class="pu-label">${label}</span>${time != null ? `<span class="pu-time">${time.toFixed(1)}s</span>` : ''}`;
+      chip.className = 'powerup-chip' + (id === 'star' ? ' star' : '') + (id === 'shield' ? ' shield' : '');
+      chip.innerHTML = `<span class="pu-icon">${p.icon}</span><span class="pu-label">${p.name}</span>` +
+        (isFinite(t) ? `<span class="pu-time">${t.toFixed(1)}s</span>` : '');
       elPowerups.appendChild(chip);
-    };
-    if (State.powerups.freeze > 0) add('❄', 'FREEZE', State.powerups.freeze);
-    if (State.powerups.slowmo > 0) add('🐢', 'SLOW-MO', State.powerups.slowmo);
-    if (State.powerups.doubleScore > 0) add('×2', 'DOUBLE', State.powerups.doubleScore);
+    }
+  }
+
+  // Big centre announcement when a power drops.
+  let announceEl = null;
+  function announcePower(p) {
+    if (!announceEl) {
+      announceEl = document.createElement('div');
+      announceEl.className = 'power-announce';
+      document.body.appendChild(announceEl);
+    }
+    announceEl.innerHTML =
+      `<span class="pa-icon">${p.icon}</span><span class="pa-name">${p.name}</span><span class="pa-blurb">${p.blurb}</span>`;
+    announceEl.classList.remove('show'); void announceEl.offsetWidth; announceEl.classList.add('show');
+    clearTimeout(announceEl._t);
+    announceEl._t = setTimeout(() => announceEl.classList.remove('show'), 1500);
   }
   // refresh chips every 100ms
   setInterval(() => {
@@ -924,7 +1038,9 @@
     State.totalHits = 0;
     State.totalAttempts = 0;
     State.bestCombo = 1;
-    State.powerups = { freeze: 0, slowmo: 0, doubleScore: 0 };
+    State.powers = {};
+    State.zoneBoost = 1;
+    document.body.classList.remove('starpower');
     State.perfectStreak = 0;
     State.overdrive = false;
     State.pulse = false;
