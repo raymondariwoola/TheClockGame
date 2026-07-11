@@ -17,6 +17,7 @@
   const REMOTE = MODE !== 'local';
   const LOCAL_KEY = 'cs_local_board';
   const CACHE_KEY = 'cs_board_cache';
+  const NAME_KEY = 'cs_player_name';  // remembers first/last on this device
 
   const $ = (id) => document.getElementById(id);
   const elStatus = $('boardStatus');
@@ -38,6 +39,13 @@
   const writeJson = (key, v) => {
     try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* storage full/blocked */ }
   };
+
+  // Remembered player name (this device). Auto-fills the entry form next time.
+  const loadName = () => {
+    const n = readJson(NAME_KEY);
+    return (n && typeof n.first === 'string' && typeof n.last === 'string') ? n : null;
+  };
+  const saveName = (first, last) => writeJson(NAME_KEY, { first, last });
 
   const sortEntries = (list) =>
     [...list].sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
@@ -177,6 +185,7 @@
         <div class="podium-meta"></div>
         <div class="podium-base">${rank + 1}</div>`;
       card.querySelector('.podium-name').textContent = e.name;
+      if (e.hc) card.querySelector('.podium-name').append(hcBadge());
       card.querySelector('.podium-score').textContent = e.score.toLocaleString();
       card.querySelector('.podium-meta').textContent =
         `${MODE_LABEL[e.mode] || ''} · ${fmtDate(e.date)}`;
@@ -195,6 +204,7 @@
         <span class="row-date"></span>
         <span class="row-score"></span>`;
       li.querySelector('.row-name').textContent = e.name;
+      if (e.hc) li.querySelector('.row-name').append(hcBadge());
       li.querySelector('.row-mode').textContent = MODE_LABEL[e.mode] || '';
       li.querySelector('.row-date').textContent = fmtDate(e.date);
       li.querySelector('.row-score').textContent = e.score.toLocaleString();
@@ -215,6 +225,14 @@
     const b = document.createElement('span');
     b.className = 'you-badge';
     b.textContent = 'YOU';
+    return b;
+  }
+
+  function hcBadge() {
+    const b = document.createElement('span');
+    b.className = 'hc-badge';
+    b.textContent = '💀';
+    b.title = 'Hardcore run';
     return b;
   }
 
@@ -287,13 +305,22 @@
     $('nameRank').textContent = '#' + rank;
     elNameError.hidden = true;
     elNameSubmit.disabled = false;
-    elNameSubmit.textContent = 'ENGRAVE MY NAME';
     elOverlay.hidden = false;
+
+    // Auto-fill from the last name used on this device (if any)
+    const saved = loadName();
+    const known = !!saved;
+    $('firstName').value = saved ? saved.first : '';
+    $('lastName').value = saved ? saved.last : '';
+    elNameSubmit.textContent = known ? 'SUBMIT SCORE' : 'ENGRAVE MY NAME';
+
     if (window.anime) {
       anime({ targets: '.name-card', scale: [0.7, 1], opacity: [0, 1], duration: 500, easing: 'easeOutBack' });
       anime({ targets: '.name-crown', translateY: [-30, 0], rotate: ['-20deg', '0deg'], duration: 700, easing: 'easeOutElastic(1, .5)' });
     }
-    setTimeout(() => $('firstName').focus(), 300);
+    // If we know them, focus the submit so a returning player can one-tap;
+    // otherwise focus the first field so they can type.
+    setTimeout(() => (known ? elNameSubmit : $('firstName')).focus(), 300);
   }
 
   function closeNameOverlay() {
@@ -316,6 +343,9 @@
       return;
     }
 
+    // Remember for next time (even if the submit later fails)
+    saveName(first, last);
+
     const entry = {
       id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
       name: `${first} ${last}`,
@@ -324,6 +354,7 @@
       round: pendingStats.round,
       combo: pendingStats.combo,
       acc: pendingStats.acc,
+      hc: !!pendingStats.hc,
       date: new Date().toISOString(),
     };
 

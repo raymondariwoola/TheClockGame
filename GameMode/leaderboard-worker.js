@@ -94,6 +94,7 @@ function sanitizeEntry(e) {
     round: clampInt(e.round, 0, 99999),
     combo: clampInt(e.combo, 0, 99999),
     acc: clampInt(e.acc, 0, 100),
+    hc: !!e.hc,
     date,
   };
 }

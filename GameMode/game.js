@@ -100,6 +100,8 @@
       overdrive() { sweep(440, 1760, 0.35, 'square', 0.12); tone(1760, 0.2, 'triangle', 0.16); },
       boss() { tone(110, 0.4, 'sawtooth', 0.2); tone(220, 0.3, 'square', 0.1); },
       trap() { sweep(600, 40, 0.5, 'square', 0.2); },
+      taunt() { sweep(320, 90, 0.4, 'sawtooth', 0.14); tone(150, 0.2, 'square', 0.1); },
+      jolt() { sweep(180, 900, 0.18, 'square', 0.12); },
     };
   })();
 
@@ -320,6 +322,9 @@
     quantumTimeout: null,
     started: false,
     godTainted: false,   // true if GOD mode was ever active this run (never ranked)
+    hardcore: false,     // opt-in double-points difficulty (harder + relentless taunts)
+    maxLives: 3,
+    jolt: 1,             // transient hand-speed multiplier used by hardcore taunts
   };
 
   // -------- Modifiers --------
@@ -382,6 +387,7 @@
 
   // -------- Screen transitions --------
   function showScreen(id) {
+    if (id === 'menu') document.body.classList.remove('hardcore');
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);
@@ -463,6 +469,7 @@
         if (State.powerups.slowmo <= 0) updatePowerups();
       }
       if (State.pulse) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
+      if (State.jolt !== 1) speed *= State.jolt;
       State.handAngle = (State.handAngle + speed * State.handDir * dt + 360) % 360;
       if (State.multiHand) {
         State.hand2Angle = (State.hand2Angle + State.hand2Speed * State.hand2Dir * dt + 360) % 360;
@@ -477,23 +484,31 @@
     State.lastTs = 0;
     State.spinning = true;
     State.rafId = requestAnimationFrame(loop);
+    Taunts.start();
   }
 
   function stopSpin() {
     State.spinning = false;
+    State.jolt = 1;
     cancelAnimationFrame(State.rafId);
     if (State.phantomTimeout) clearTimeout(State.phantomTimeout);
     if (State.quantumTimeout) clearTimeout(State.quantumTimeout);
     State.phantomTimeout = State.quantumTimeout = null;
+    Taunts.stop();
   }
+
+  const CLASSIC_ROUNDS = 40; // longer campaign
 
   // -------- Difficulty curve --------
   function roundParams(round, mode) {
-    // Base speed grows with round
-    const base = mode === 'zen' ? 130 : 150;
-    const speed = base + Math.min(round * 14, 360);
-    // Zone shrinks
-    const size = Math.max(14, 60 - round * 1.8);
+    const hc = State.hardcore && mode !== 'zen';
+    // Base speed grows with round; hardcore starts faster and keeps climbing longer
+    const base = mode === 'zen' ? 130 : (hc ? 175 : 150);
+    const cap = hc ? 540 : 430;
+    const speed = (base + Math.min(round * 13, cap)) * (hc ? 1.12 : 1);
+    // Zone shrinks; hardcore shrinks faster to a tighter floor
+    const floor = hc ? 10 : 13;
+    const size = Math.max(floor, (hc ? 56 : 60) - round * (hc ? 1.9 : 1.55));
     const dir = Math.random() < 0.5 ? -1 : 1;
     return { speed, size, dir };
   }
@@ -561,7 +576,7 @@
 
     renderZones(State.zones);
     elRoundLabel.textContent = State.mode === 'endless' ? `WAVE ${State.round}` : `ROUND ${State.round}`;
-    elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / 25 * 100) + '%' : '100%';
+    elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / CLASSIC_ROUNDS * 100) + '%' : '100%';
 
     // intro flourish
     if (window.anime) {
@@ -678,6 +693,7 @@
     let gained = scoreFor(kind) * State.combo;
     if (State.modifier) gained *= 1.5;
     if (State.bossRound) gained *= 2;
+    if (State.hardcore) gained *= 2;   // hardcore reward: double points
     if (State.overdrive) gained *= 1.5;
     if (State.powerups.doubleScore > 0) gained *= 2;
     if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
@@ -721,6 +737,9 @@
     // grant powerups on combo milestones
     if (State.comboStreak > 0 && State.comboStreak % 5 === 0) grantRandomPowerup();
 
+    // taunt: goad the player when they're on a hot streak (nastier in hardcore)
+    if (State.comboStreak >= 6 && State.comboStreak % 6 === 0) Taunts.provoke(State.combo);
+
     if (State.hitsDone >= State.hitsRequired) {
       // round complete
       stopSpin();
@@ -745,6 +764,8 @@
     elComboBar.style.width = '0%';
     elComboBlock.classList.remove('active');
 
+    Taunts.onMiss();
+
     if (State.mode !== 'zen') {
       State.lives--;
       renderLives();
@@ -758,7 +779,7 @@
 
   function renderLives() {
     elLives.innerHTML = '';
-    const maxLives = State.mode === 'endless' ? 1 : (State.mode === 'zen' ? 0 : 3);
+    const maxLives = State.mode === 'zen' ? 0 : State.maxLives;
     if (maxLives === 0) {
       elLives.innerHTML = '<span class="life zen">∞</span>';
       return;
@@ -774,7 +795,7 @@
   // -------- Powerups --------
   function grantRandomPowerup() {
     const pool = ['freeze', 'slowmo', 'doubleScore'];
-    if (State.mode !== 'zen' && State.lives < (State.mode === 'endless' ? 1 : 3)) pool.push('life');
+    if (State.mode !== 'zen' && State.lives < State.maxLives) pool.push('life');
     const pick = pool[Math.floor(Math.random() * pool.length)];
     AudioFx.powerup();
     if (pick === 'freeze') State.powerups.freeze = 1.5;
@@ -803,7 +824,7 @@
 
   // -------- Flow --------
   function nextRound() {
-    if (State.mode === 'classic' && State.round >= 25) {
+    if (State.mode === 'classic' && State.round >= CLASSIC_ROUNDS) {
       endGame();
       return;
     }
@@ -818,7 +839,11 @@
     State.score = 0;
     State.combo = 1;
     State.comboStreak = 0;
-    State.lives = mode === 'endless' ? 1 : (mode === 'zen' ? 999 : 3);
+    State.hardcore = (mode === 'zen') ? false : Difficulty.isHardcore();
+    State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : (State.hardcore ? 2 : 3));
+    State.lives = mode === 'zen' ? 999 : State.maxLives;
+    State.jolt = 1;
+    document.body.classList.toggle('hardcore', State.hardcore);
     State.perfectHits = 0;
     State.totalHits = 0;
     State.totalAttempts = 0;
@@ -914,6 +939,7 @@
         acc,
         perfect: State.perfectHits,
         god: State.godTainted,
+        hc: State.hardcore,
       });
     }
   }
@@ -984,6 +1010,155 @@
     if (e.target.closest('button')) return;
     strike();
   });
+
+  // ============================================================
+  // DIFFICULTY — Normal vs Hardcore (2× points, harder, meaner taunts).
+  // Choice persists per-device; zen mode always ignores it.
+  // ============================================================
+  const Difficulty = (() => {
+    const KEY = 'cs_hardcore';
+    let hardcore = false;
+    try { hardcore = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    const opts = $$('.diff-opt');
+    function paint() {
+      opts.forEach(b => b.classList.toggle('selected', (b.dataset.diff === 'hardcore') === hardcore));
+      document.body.classList.toggle('hardcore-armed', hardcore);
+    }
+    opts.forEach(b => b.addEventListener('click', () => {
+      hardcore = b.dataset.diff === 'hardcore';
+      try { localStorage.setItem(KEY, hardcore ? '1' : '0'); } catch (e) {}
+      if (hardcore) AudioFx.boss(); else AudioFx.newRound();
+      if (window.anime) anime({ targets: b, scale: [1, 1.08, 1], duration: 220 });
+      paint();
+    }));
+    paint();
+    return { isHardcore: () => hardcore };
+  })();
+
+  // ============================================================
+  // TAUNTS — snarky distractions that try to break your focus.
+  // Timed + event-driven; hardcore fires more often and nastier,
+  // including a brief hand-speed "jolt" to derail your momentum.
+  // ============================================================
+  const Taunts = (() => {
+    const GENERIC = [
+      'Too slow.', 'Focus.', 'Is that all?', 'Predictable.', 'Yawn.',
+      'Tick… tock… fail.', 'The clock is laughing.', 'Blink and you lose.',
+      'You call that timing?', 'My circuits are bored.', 'Try harder.',
+      'Are you even trying?', 'Sloppy.', 'Concentrate… or don\'t.',
+    ];
+    const MISS = [
+      'HAH! Missed.', 'Ouch.', 'Embarrassing.', 'So close. Not really.',
+      'The clock wins.', 'Did you even try?', 'Told you.', 'Oof.',
+    ];
+    const PROVOKE = [
+      'Bet you choke now.', 'Getting cocky?', 'This is where you fall apart.',
+      'Don\'t get comfortable.', 'A streak? Cute.', 'Now watch you crumble.',
+      'Feeling confident? Mistake.',
+    ];
+    const HARDCORE = [
+      'Give up.', 'You\'re wasting my time.', 'Delete the app.',
+      'Painful to watch.', 'Zen mode is that way →', 'Quit while you can.',
+      'Pathetic.',
+    ];
+
+    const arena = () => document.querySelector('.arena');
+    const stage = () => document.querySelector('.clock-stage');
+    const rand = (a) => a[Math.floor(Math.random() * a.length)];
+    const active = () => State.spinning && !State.paused && !God.isActive();
+
+    let timer = null;
+
+    function schedule() {
+      clearTimeout(timer);
+      if (!State.spinning) return;
+      const hc = State.hardcore;
+      const min = hc ? 3500 : 7000;
+      const max = hc ? 7000 : 14000;
+      timer = setTimeout(() => {
+        if (active() && State.round >= (hc ? 1 : 2)) fire(hc ? pickHardType() : 'nudge');
+        schedule();
+      }, min + Math.random() * (max - min));
+    }
+    function pickHardType() {
+      const r = Math.random();
+      if (r < 0.35) return 'sweep';
+      if (r < 0.6) return 'glitch';
+      if (r < 0.82) return 'banner';
+      return 'nudge';
+    }
+
+    function start() { schedule(); }
+    function stop() { clearTimeout(timer); timer = null; }
+
+    function onMiss() {
+      if (!State.spinning || God.isActive()) return;
+      setTimeout(() => { if (State.spinning && !God.isActive()) show('banner', rand(MISS)); }, 260);
+    }
+    function provoke() {
+      if (!active()) return;
+      show(State.hardcore ? 'glitch' : 'banner', rand(PROVOKE));
+    }
+
+    function textFor() {
+      if (State.hardcore && Math.random() < 0.4) return rand(HARDCORE);
+      return rand(GENERIC);
+    }
+    function fire(type) { if (active()) show(type, textFor()); }
+
+    function show(type, text) {
+      AudioFx.taunt();
+      if (type === 'banner') return banner(text);
+      if (type === 'sweep') return sweepTaunt(text);
+      if (type === 'glitch') return glitch(text);
+      return nudge(text);
+    }
+
+    function nudge(text) {
+      const el = document.createElement('div');
+      el.className = 'taunt taunt-nudge';
+      el.textContent = text;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 1600);
+    }
+    function banner(text) {
+      const host = arena() || document.body;
+      const el = document.createElement('div');
+      el.className = 'taunt taunt-banner ' + (Math.random() < 0.5 ? 'from-left' : 'from-right');
+      el.textContent = text;
+      host.appendChild(el);
+      setTimeout(() => el.remove(), 1500);
+    }
+    function sweepTaunt(text) {
+      const host = stage() || document.body;
+      const el = document.createElement('div');
+      el.className = 'taunt taunt-sweep';
+      el.innerHTML = '<span></span>';
+      el.querySelector('span').textContent = text;
+      host.appendChild(el);
+      if (State.hardcore) jolt(1.7, 380);
+      setTimeout(() => el.remove(), 1200);
+    }
+    function glitch(text) {
+      const el = document.createElement('div');
+      el.className = 'taunt taunt-glitch';
+      el.setAttribute('data-text', text);
+      el.textContent = text;
+      (arena() || document.body).appendChild(el);
+      document.body.classList.add('glitching');
+      if (State.hardcore) jolt(1.6, 320);
+      setTimeout(() => document.body.classList.remove('glitching'), 320);
+      setTimeout(() => el.remove(), 900);
+    }
+    function jolt(factor, ms) {
+      AudioFx.jolt();
+      State.jolt = factor;
+      setTimeout(() => { State.jolt = 1; }, ms);
+    }
+
+    return { start, stop, onMiss, provoke };
+  })();
 
   // ============================================================
   // GOD MODE — invisible creator/demo cheat.
