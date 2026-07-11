@@ -1024,7 +1024,7 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
   font-size: 15px;
   color: #fff;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .podium-score {
   font-family: 'Orbitron', sans-serif;
@@ -1093,7 +1093,7 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
   letter-spacing: 0.5px;
   color: #fff;
   display: flex; align-items: center; gap: 8px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .row-mode {
   font-family: 'Orbitron', sans-serif;
@@ -1474,4 +1474,58 @@ body.glitching #screen-game { animation: screenGlitch 0.3s steps(3); }
 @media (max-width: 500px) {
   .diff-opt { padding: 9px 16px; font-size: 12px; }
   .taunt-nudge { left: 8px; right: 8px; text-align: center; }
+}
+
+/* =====================================================================
+   LEADERBOARD — small-phone layout (stacked rows so names stay readable)
+   ===================================================================== */
+@media (max-width: 560px) {
+  .board-inner { padding: 24px 8px 60px; gap: 20px; }
+
+  /* Each row becomes a two-line card:
+       [ rank ] [ name spanning full width       ]
+       [ rank ] [ mode chip ]            [ score ]                       */
+  .board-row {
+    grid-template-columns: 34px 1fr auto;
+    grid-template-areas:
+      "rank name  name"
+      "rank mode  score";
+    row-gap: 7px;
+    column-gap: 10px;
+    padding: 12px 14px;
+  }
+  .row-rank  { grid-area: rank;  align-self: center; font-size: 20px; }
+  .row-name  {
+    grid-area: name;
+    font-size: 18px;
+    line-height: 1.15;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .row-mode  { grid-area: mode;  justify-self: start; }
+  .row-date  { display: none; }
+  .row-score { grid-area: score; justify-self: end; font-size: 20px; }
+  .board-row:hover { transform: none; } /* no sideways nudge under a thumb */
+
+  /* Podium: give the names room and let them wrap at spaces, not mid-word */
+  .podium { gap: 6px; }
+  .podium-card { padding: 16px 8px 0; border-radius: 14px 14px 0 0; }
+  .podium-medal { font-size: 38px; }
+  .podium-card.p1 .podium-medal { font-size: 48px; }
+  .podium-name { font-size: 13px; line-height: 1.2; hyphens: auto; }
+  .podium-score { font-size: 20px; }
+  .podium-card.p1 .podium-score { font-size: 26px; }
+  .podium-meta { font-size: 9px; }
+  .podium-base { font-size: 18px; padding: 8px 0 14px; }
+  .podium-card.p1 .podium-base { padding-bottom: 34px; }
+  .podium-card.p2 .podium-base { padding-bottom: 22px; }
+
+  .you-badge { font-size: 8px; padding: 2px 5px; }
+}
+
+@media (max-width: 380px) {
+  .row-name { font-size: 16px; }
+  .podium-name { font-size: 12px; }
+  .podium-medal { font-size: 34px; }
+  .podium-card.p1 .podium-medal { font-size: 44px; }
 }

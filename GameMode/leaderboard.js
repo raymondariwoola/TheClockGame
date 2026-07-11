@@ -328,8 +328,9 @@
     elNameForm.reset();
   }
 
+  // Cap each name part at 12 chars — benchmark "Raymond Ariwoola" fits comfortably
   const cleanName = (s) =>
-    s.replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+    s.replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12);
 
   elNameForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
