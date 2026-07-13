@@ -51,7 +51,10 @@ still be baked into the shipped files.
    | `GIST_ID` | Text | the gist id |
    | `GIST_FILE` | Text | `chronos-leaderboard.json` *(optional)* |
    | `ALLOW_ORIGIN` | Text | `https://<you>.github.io` *(optional; locks CORS to your site)* |
-   | `ADMIN_CODE` | **Secret** | your GOD-mode password *(optional; see below)* |
+   | `ADMIN_CODE` | **Secret** | your GOD-mode (admin/demo) password *(optional; see below)* |
+   | `CHEAT_CODE` | **Secret** | your Cheat-mode password *(optional; see below)* |
+   | `CHEAT_MULT` | Text | cheat score multiplier, default `3` *(optional)* |
+   | `CHEAT_UNLIMITED` | Text | `0`/`false` to disable unlimited lives, else on *(optional)* |
 
    Click **Deploy** again so the variables take effect.
 5. Copy your worker URL (**Settings → Domains & Routes**), e.g.
@@ -92,26 +95,39 @@ window.CHRONOS_LB_CONFIG = {
 
 ---
 
-## GOD mode (creator demo cheat)
+## Hidden access modes
 
-An invisible cheat for demoing the game without risk of failing. The password
-lives **only** in the worker's `ADMIN_CODE` secret — it never ships in the site.
+Tap the **CHRONOS** logo **5×** quickly to open a chooser with two options
+(each needs its own passphrase, both verified by the worker so they never ship
+in the site). You can also jump straight in by typing **`godmode`** (admin) or
+**`cheat`** anywhere on the keyboard.
 
-1. Add an `ADMIN_CODE` **Secret** in the worker (step 4 above) and **Deploy**.
-2. In the game, trigger the hidden prompt by either:
-   - tapping the **CHRONOS** logo **5×** quickly, or
-   - typing **`godmode`** anywhere on the keyboard.
-3. Enter the code. A small **◈** appears bottom-left. Every strike now lands
-   PERFECT and lives can't be lost. Tap **◈** for an **Autopilot** toggle or to
-   **Return to Normal**.
+### ◈ ADMIN · DEMO mode (`ADMIN_CODE`)
 
-Any run touched by GOD mode is flagged and **never submitted** to the leaderboard
-(and doesn't affect your local bests) — it shows `◈ DEMO RUN — NOT RANKED` at the
-end. Client-side cheats are inherently bypassable, so GOD mode is a convenience,
-not a security boundary; leaderboard fairness is what's actually protected.
+For demoing without any risk of failing. Every strike lands **PERFECT** and
+lives can't be lost. A small **◈** appears bottom-left — tap it for an
+**Autopilot** toggle or to **Return to Normal**. Admin runs are flagged and
+**never submitted** to the leaderboard (and don't touch your local bests) —
+they show `◈ DEMO RUN — NOT RANKED`.
 
-*No worker? For offline demos you can instead set `FALLBACK_HASH` in
-`game.js` to the SHA-256 hex of your code (`echo -n 'yourcode' | shasum -a 256`).*
+*No worker? For offline demos set `FALLBACK_HASH` in `game.js` to the SHA-256
+hex of your code (`echo -n 'yourcode' | shasum -a 256`).*
+
+### ❖ CHEAT mode (`CHEAT_CODE`)
+
+A **real, ranked** cheat: **unlimited lives** and a **score multiplier**. Unlike
+admin mode, cheat runs **are recorded on the leaderboard** exactly like a normal
+run. A green **❖** appears bottom-left; tap it to return to normal.
+
+The modifier values come **from the worker env** (`CHEAT_MULT`, default `3`; and
+unlimited lives unless `CHEAT_UNLIMITED` is `0`/`false`), so the exact numbers
+aren't baked into the shipped JS. Note this only hides them from the *source* —
+a determined player can still read them at runtime; client cheats are never
+truly secret.
+
+*In Classic (40 rounds) a cheat run reaches the end and submits its multiplied
+score. In Endless, unlimited lives means the run never ends on its own, so it
+won't auto-submit — quit to stop. Zen is never ranked regardless.*
 
 ## Notes
 

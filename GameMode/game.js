@@ -752,6 +752,7 @@
     if (State.bossRound) gained *= 2;
     if (State.hardcore) gained *= 2;   // hardcore reward: double points
     if (State.mode === 'endless') gained *= State.survivalMult; // deeper = richer
+    if (Cheat.isActive()) gained *= Cheat.getMult(); // cheat: score multiplier (server-defined)
     if (State.overdrive) gained *= 1.5;
     if (State.powers.double) gained *= 2;
     if (State.powers.triple) gained *= 3;
@@ -857,7 +858,8 @@
 
     Taunts.onMiss();
 
-    if (State.mode !== 'zen') {
+    // Cheat mode grants unlimited lives (still ranked) — skip the life loss entirely.
+    if (State.mode !== 'zen' && !Cheat.unlimitedLives()) {
       State.lives--;
       renderLives();
       if (State.lives <= 0) {
@@ -1360,6 +1362,131 @@
   })();
 
   // ============================================================
+  // CHEAT MODE — a real, RANKED cheat (unlike GOD/admin demo mode).
+  // The passphrase is verified by the Cloudflare Worker (CHEAT_CODE secret),
+  // and the modifiers themselves (score multiplier, unlimited lives) come
+  // back FROM the worker env — so the exact values aren't baked into this file.
+  // Cheat runs ARE submitted to the leaderboard like any normal run.
+  // ============================================================
+  const Cheat = (() => {
+    let active = false;
+    let mult = 3;          // score multiplier (overwritten by the worker response)
+    let unlimited = true;  // unlimited lives (overwritten by the worker response)
+    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.workerUrl) || '')
+      .trim().replace(/\/+$/, '');
+
+    const isActive = () => active;
+    const getMult = () => (active ? mult : 1);
+    const unlimitedLives = () => active && unlimited;
+
+    async function verify(code) {
+      code = (code || '').trim();
+      if (!code || !WORKER) return null;
+      try {
+        const res = await fetch(WORKER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verifyCheat', code }),
+        });
+        if (res.ok) { const d = await res.json().catch(() => null); if (d && d.ok) return d; }
+      } catch (e) {}
+      return null;
+    }
+
+    function enable(mods) {
+      active = true;
+      mods = mods || {};
+      mult = (typeof mods.mult === 'number' && mods.mult > 0) ? mods.mult : 3;
+      unlimited = mods.unlimited !== false;
+      if (typeof God !== 'undefined' && God.isActive()) God.disable(); // mutually exclusive
+      // top up lives if a run is already in progress
+      if (State.spinning && State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
+      showIndicator();
+    }
+    function disable() { active = false; hideIndicator(); }
+
+    // ---- tiny indicator (distinct from GOD's gold ◈) ----
+    let indicatorEl = null;
+    function showIndicator() {
+      if (!indicatorEl) {
+        indicatorEl = document.createElement('button');
+        indicatorEl.className = 'cheat-indicator';
+        indicatorEl.textContent = '❖';
+        indicatorEl.title = 'Cheat mode — click for options';
+        indicatorEl.setAttribute('aria-label', 'Cheat mode options');
+        indicatorEl.addEventListener('click', openPanel);
+        document.body.appendChild(indicatorEl);
+      }
+      indicatorEl.hidden = false;
+    }
+    function hideIndicator() { if (indicatorEl) indicatorEl.hidden = true; }
+
+    function buildOverlay(html) {
+      const ov = document.createElement('div');
+      ov.className = 'overlay god-overlay';
+      ov.innerHTML = html;
+      ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+      document.body.appendChild(ov);
+      return ov;
+    }
+    function toast(text) {
+      const t = document.createElement('div');
+      t.className = 'god-toast cheat-toast';
+      t.textContent = text;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('show'));
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 1800);
+    }
+
+    function promptCode() {
+      const ov = buildOverlay(`
+        <div class="overlay-card god-card cheat-card">
+          <div class="god-glyph cheat-glyph">❖</div>
+          <h2>CHEAT CODE</h2>
+          <input id="cheatCodeInput" type="password" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" />
+          <div class="god-error" id="cheatErr" hidden>Access denied.</div>
+          <div class="god-actions">
+            <button class="btn-primary" id="cheatGo">UNLOCK</button>
+            <button class="btn-secondary" id="cheatCancel">CANCEL</button>
+          </div>
+        </div>`);
+      const input = ov.querySelector('#cheatCodeInput');
+      const err = ov.querySelector('#cheatErr');
+      const go = ov.querySelector('#cheatGo');
+      setTimeout(() => input.focus(), 120);
+      const submit = async () => {
+        go.disabled = true; go.textContent = 'CHECKING…'; err.hidden = true;
+        const res = await verify(input.value);
+        if (res) { enable(res); ov.remove(); toast('❖ CHEAT ENGAGED'); }
+        else {
+          go.disabled = false; go.textContent = 'UNLOCK';
+          err.hidden = false; input.value = ''; input.focus();
+        }
+      };
+      go.addEventListener('click', submit);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+      ov.querySelector('#cheatCancel').addEventListener('click', () => ov.remove());
+    }
+
+    function openPanel() {
+      const ov = buildOverlay(`
+        <div class="overlay-card god-card cheat-card">
+          <div class="god-glyph cheat-glyph">❖</div>
+          <h2>CHEAT MODE</h2>
+          <p class="god-note">Modifiers active. This run <strong>counts</strong> on the leaderboard.</p>
+          <div class="god-actions">
+            <button class="btn-secondary" id="cheatClose">CLOSE</button>
+            <button class="btn-primary danger" id="cheatOff">RETURN TO NORMAL</button>
+          </div>
+        </div>`);
+      ov.querySelector('#cheatClose').addEventListener('click', () => ov.remove());
+      ov.querySelector('#cheatOff').addEventListener('click', () => { disable(); ov.remove(); toast('NORMAL MODE'); });
+    }
+
+    return { isActive, getMult, unlimitedLives, enable, disable, promptCode, openPanel };
+  })();
+
+  // ============================================================
   // GOD MODE — invisible creator/demo cheat.
   // Password is verified by the Cloudflare Worker (ADMIN_CODE secret),
   // so it never ships in this file. Enabling it forces every strike to
@@ -1403,6 +1530,7 @@
 
     function enable() {
       active = true;
+      if (typeof Cheat !== 'undefined' && Cheat.isActive()) Cheat.disable(); // mutually exclusive
       if (State.started) State.godTainted = true;
       // top up lives instantly if a run is already in progress
       if (State.spinning && State.mode !== 'zen') {
@@ -1525,10 +1653,34 @@
       setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 1800);
     }
 
-    // ---- secret triggers ----
+    // ---- direct admin entry (used by the typed 'godmode' shortcut) ----
     function open() { active ? openPanel() : promptCode(); }
+
+    // ---- chooser: pick ADMIN (demo) or CHEAT (ranked) before entering a code ----
+    function openChooser() {
+      if (active) return openPanel();                 // admin already on → its panel
+      if (Cheat.isActive()) return Cheat.openPanel();  // cheat already on → its panel
+      const ov = buildOverlay(`
+        <div class="overlay-card god-card">
+          <div class="god-glyph">◈</div>
+          <h2>ACCESS</h2>
+          <p class="god-note">Choose an access mode, then enter its passphrase.</p>
+          <div class="god-actions">
+            <button class="btn-primary" id="chCheat">❖ CHEAT CODE</button>
+            <button class="btn-primary" id="chAdmin">◈ ADMIN · DEMO</button>
+          </div>
+          <div class="god-actions">
+            <button class="btn-secondary" id="chCancel">CANCEL</button>
+          </div>
+        </div>`);
+      ov.querySelector('#chCheat').addEventListener('click', () => { ov.remove(); Cheat.promptCode(); });
+      ov.querySelector('#chAdmin').addEventListener('click', () => { ov.remove(); promptCode(); });
+      ov.querySelector('#chCancel').addEventListener('click', () => ov.remove());
+    }
+
+    // ---- secret triggers ----
     function armTriggers() {
-      // 1) tap the CHRONOS logo 5× within 1.5s
+      // 1) tap the CHRONOS logo 5× within 1.5s → chooser
       const logo = document.querySelector('.logo-title');
       if (logo) {
         let taps = [];
@@ -1536,10 +1688,11 @@
           const now = Date.now();
           taps = taps.filter(t => now - t < 1500);
           taps.push(now);
-          if (taps.length >= 5) { taps = []; open(); }
+          if (taps.length >= 5) { taps = []; openChooser(); }
         });
       }
-      // 2) type "godmode" anywhere (outside form fields)
+      // 2) typed shortcuts anywhere (outside form fields):
+      //    "godmode" → admin prompt, "cheat" → cheat prompt
       let buf = '', bufTimer = null;
       addEventListener('keydown', (e) => {
         if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
@@ -1549,6 +1702,7 @@
         clearTimeout(bufTimer);
         bufTimer = setTimeout(() => { buf = ''; }, 1200);
         if (buf.endsWith('godmode')) { buf = ''; open(); }
+        else if (buf.endsWith('cheat')) { buf = ''; Cheat.isActive() ? Cheat.openPanel() : Cheat.promptCode(); }
       });
     }
 
