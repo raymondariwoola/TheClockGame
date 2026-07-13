@@ -51,6 +51,7 @@
   const AudioFx = (() => {
     let ctx = null;
     let muted = false;
+    try { muted = localStorage.getItem('cs_mute_sfx') === '1'; } catch (e) {}
     const ensure = () => {
       if (!ctx) {
         try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -103,8 +104,75 @@
       taunt() { sweep(320, 90, 0.4, 'sawtooth', 0.14); tone(150, 0.2, 'square', 0.1); },
       jolt() { sweep(180, 900, 0.18, 'square', 0.12); },
       super() { tone(660, 0.1, 'triangle', 0.18); tone(880, 0.1, 'triangle', 0.16); tone(1320, 0.14, 'triangle', 0.18); tone(1760, 0.18, 'sine', 0.12); },
+      isMuted() { return muted; },
+      setMuted(v) { muted = !!v; try { localStorage.setItem('cs_mute_sfx', muted ? '1' : '0'); } catch (e) {} },
+      toggleMuted() { this.setMuted(!muted); return muted; },
     };
   })();
+
+  // -------- Soundtrack (Classic/Endless only, per-difficulty) --------
+  // The audio element streams the track from its URL (starts fast); the tiny
+  // service worker (sw.js) caches the soundtrack files so they aren't
+  // re-downloaded on later loads. Zen has no soundtrack.
+  const Music = (() => {
+    const TRACKS = { normal: 'soundtrack/Normal.wav', hardcore: 'soundtrack/Hardcore.wav' };
+    const VOLUME = 0.55;
+
+    let audio = null;
+    let curKey = null;    // 'normal' | 'hardcore'
+    let inGame = false;   // gameplay is active
+    let paused = false;   // game is paused
+    let muted = false;
+
+    try { muted = localStorage.getItem('cs_mute_music') === '1'; } catch (e) {}
+
+    const shouldPlay = () => inGame && !paused && !muted;
+
+    function ensure(key) {
+      if (audio && curKey === key) return audio;
+      if (audio) { try { audio.pause(); } catch (e) {} }
+      curKey = key;
+      audio = new Audio(TRACKS[key]);
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.volume = VOLUME;
+      return audio;
+    }
+
+    function apply() {
+      if (!curKey || !TRACKS[curKey]) return;
+      const a = ensure(curKey);
+      if (shouldPlay()) a.play().catch(() => {});   // autoplay can reject silently
+      else { try { a.pause(); } catch (e) {} }
+    }
+
+    // difficulty: 'normal' | 'hardcore' | null (zen → no soundtrack)
+    function start(difficulty) {
+      if (!difficulty || !TRACKS[difficulty]) { stop(); return; }
+      inGame = true; paused = false; curKey = difficulty;
+      apply();
+    }
+    function stop() {
+      inGame = false;
+      if (audio) { try { audio.pause(); audio.currentTime = 0; } catch (e) {} }
+    }
+    function pause() { paused = true; if (audio) { try { audio.pause(); } catch (e) {} } }
+    function resume() { paused = false; apply(); }
+    function setMuted(v) {
+      muted = !!v;
+      try { localStorage.setItem('cs_mute_music', muted ? '1' : '0'); } catch (e) {}
+      apply();
+    }
+    function isMuted() { return muted; }
+
+    return { start, stop, pause, resume, setMuted, isMuted };
+  })();
+
+  // Register the tiny service worker that caches ONLY the soundtrack files
+  // (everything else passes straight through — no stale HTML/JS).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
 
   // -------- Background starfield --------
   const Stars = (() => {
@@ -395,6 +463,7 @@
       document.body.classList.remove('hardcore', 'endless');
       document.documentElement.style.setProperty('--vig', '0');
     }
+    if (id !== 'game') Music.stop(); // soundtrack only lives on the game screen
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);
@@ -1056,6 +1125,8 @@
     renderLives();
     updatePowerups();
     showScreen('game');
+    // Soundtrack: Classic/Endless only, chosen by difficulty. Zen stays silent.
+    Music.start(mode === 'zen' ? null : (State.hardcore ? 'hardcore' : 'normal'));
     countdownThenStart();
   }
 
@@ -1159,6 +1230,7 @@
     if (!State.spinning) return;
     State.paused = force != null ? force : !State.paused;
     elPauseOverlay.hidden = !State.paused;
+    if (State.paused) Music.pause(); else Music.resume();
   }
 
   // -------- Bindings --------
@@ -1175,6 +1247,30 @@
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
   $('resumeBtn').addEventListener('click', () => togglePause(false));
+
+  // -------- Audio controls: mute music / SFX independently --------
+  (() => {
+    const btn = $('audioBtn'), pop = $('audioPop');
+    const mRow = $('toggleMusic'), sRow = $('toggleSfx');
+    const mState = $('musicState'), sState = $('sfxState');
+    if (!btn || !pop) return;
+    function sync() {
+      const mOn = !Music.isMuted(), sOn = !AudioFx.isMuted();
+      mState.textContent = mOn ? 'ON' : 'OFF';
+      sState.textContent = sOn ? 'ON' : 'OFF';
+      mRow.classList.toggle('off', !mOn);
+      sRow.classList.toggle('off', !sOn);
+      btn.textContent = (mOn || sOn) ? '🔊' : '🔇';
+      btn.classList.toggle('muted', !(mOn || sOn));
+    }
+    btn.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    mRow.addEventListener('click', () => { Music.setMuted(!Music.isMuted()); sync(); });
+    sRow.addEventListener('click', () => { AudioFx.setMuted(!AudioFx.isMuted()); sync(); });
+    document.addEventListener('click', (e) => {
+      if (!pop.hidden && !e.target.closest('.audio-ctrl')) pop.hidden = true;
+    });
+    sync();
+  })();
   $('quitBtn').addEventListener('click', () => {
     togglePause(false);
     stopSpin();

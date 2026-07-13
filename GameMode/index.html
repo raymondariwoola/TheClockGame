@@ -109,6 +109,17 @@
         <div class="lives" id="lives">
           <span class="life">●</span><span class="life">●</span><span class="life">●</span>
         </div>
+        <div class="audio-ctrl">
+          <button class="hud-btn" id="audioBtn" aria-label="Audio settings">🔊</button>
+          <div class="audio-pop" id="audioPop" hidden>
+            <button class="audio-row" id="toggleMusic" type="button">
+              <span class="ar-ic">🎵</span><span class="ar-label">Music</span><span class="ar-state" id="musicState">ON</span>
+            </button>
+            <button class="audio-row" id="toggleSfx" type="button">
+              <span class="ar-ic">🔊</span><span class="ar-label">Effects</span><span class="ar-state" id="sfxState">ON</span>
+            </button>
+          </div>
+        </div>
         <button class="hud-btn" id="pauseBtn" aria-label="Pause">⏸</button>
       </div>
     </div>

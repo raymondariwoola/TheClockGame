@@ -413,6 +413,41 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
   transition: all 0.2s;
 }
 .hud-btn:hover { background: rgba(0,240,255,0.18); transform: scale(1.05); }
+.hud-btn.muted { color: var(--ink-dim); border-color: rgba(230,239,255,0.2); }
+
+/* Audio controls popup (music / SFX toggles) */
+.audio-ctrl { position: relative; display: inline-flex; }
+.audio-pop {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  z-index: 40;
+  min-width: 158px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px;
+  background: rgba(8,12,30,0.97);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+}
+.audio-pop[hidden] { display: none; }
+.audio-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+  cursor: pointer;
+}
+.audio-row:hover { background: rgba(0,240,255,0.1); }
+.audio-row .ar-ic { font-size: 16px; }
+.audio-row .ar-label { flex: 1; text-align: left; }
+.audio-row .ar-state {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 1px;
+  color: var(--neon-green);
+}
+.audio-row.off .ar-state { color: var(--ink-dim); }
+.audio-row.off .ar-ic { opacity: 0.45; }
 
 /* Arena (clock + strike) */
 .arena {
