@@ -54,7 +54,7 @@ still be baked into the shipped files.
    | `ADMIN_CODE` | **Secret** | your GOD-mode (admin/demo) password *(optional; see below)* |
    | `CHEAT_CODE` | **Secret** | your Cheat-mode password *(optional; see below)* |
    | `CHEAT_MULT` | Text | cheat score multiplier, default `3` *(optional)* |
-   | `CHEAT_UNLIMITED` | Text | `0`/`false` to disable unlimited lives, else on *(optional)* |
+   | `CHEAT_UNLIMITED` | Text | cheat life count, e.g. `9999`, `100`, `50`, `5` (default `9999`) *(optional)* |
 
    Click **Deploy** again so the variables take effect.
 5. Copy your worker URL (**Settings → Domains & Routes**), e.g.
@@ -115,19 +115,25 @@ hex of your code (`echo -n 'yourcode' | shasum -a 256`).*
 
 ### ❖ CHEAT mode (`CHEAT_CODE`)
 
-A **real, ranked** cheat: **unlimited lives** and a **score multiplier**. Unlike
-admin mode, cheat runs **are recorded on the leaderboard** exactly like a normal
-run. A green **❖** appears bottom-left; tap it to return to normal.
+A **real, ranked** cheat: a big (hidden) **life pool** plus a **score
+multiplier**. Unlike admin mode, cheat runs **are recorded on the leaderboard**
+exactly like a normal run. A green **❖** appears bottom-left; tap it to return to
+normal.
 
-The modifier values come **from the worker env** (`CHEAT_MULT`, default `3`; and
-unlimited lives unless `CHEAT_UNLIMITED` is `0`/`false`), so the exact numbers
-aren't baked into the shipped JS. Note this only hides them from the *source* —
-a determined player can still read them at runtime; client cheats are never
-truly secret.
+The modifier values come **from the worker env**, so the exact numbers aren't
+baked into the shipped JS:
+
+- `CHEAT_MULT` — score multiplier (default `3`).
+- `CHEAT_UNLIMITED` — the **actual number of lives** (e.g. `9999`, `100`, `50`,
+  `5`; default `9999`). **The HUD always shows the normal hearts and never
+  changes** — misses silently draw down this hidden pool, so a watcher can't tell.
+
+Note this only hides the values from the *source* — a determined player can still
+read them at runtime; client cheats are never truly secret.
 
 *In Classic (40 rounds) a cheat run reaches the end and submits its multiplied
-score. In Endless, unlimited lives means the run never ends on its own, so it
-won't auto-submit — quit to stop. Zen is never ranked regardless.*
+score. In Endless (1 visible life), the hidden pool lets you survive that many
+misses before the run ends and submits. Zen is never ranked regardless.*
 
 ## Notes
 

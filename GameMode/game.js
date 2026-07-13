@@ -115,7 +115,7 @@
   // service worker (sw.js) caches the soundtrack files so they aren't
   // re-downloaded on later loads. Zen has no soundtrack.
   const Music = (() => {
-    const TRACKS = { normal: 'soundtrack/Normal.wav', hardcore: 'soundtrack/Hardcore.wav' };
+    const TRACKS = { normal: 'soundtrack/Normal.mp3', hardcore: 'soundtrack/Hardcore.mp3' };
     const VOLUME = 0.55;
 
     let audio = null;
@@ -927,14 +927,24 @@
 
     Taunts.onMiss();
 
-    // Cheat mode grants unlimited lives (still ranked) — skip the life loss entirely.
-    if (State.mode !== 'zen' && !Cheat.unlimitedLives()) {
-      State.lives--;
-      renderLives();
-      if (State.lives <= 0) {
-        stopSpin();
-        setTimeout(endGame, 600);
-        return;
+    if (State.mode !== 'zen') {
+      if (Cheat.isActive()) {
+        // Cheat lives are a hidden pool — the HUD keeps showing full hearts and
+        // never changes; only exhausting the whole pool ends the run.
+        if (Cheat.consumeLife() <= 0) {
+          State.lives = 0;            // so the game-over title reads correctly
+          stopSpin();
+          setTimeout(endGame, 600);
+          return;
+        }
+      } else {
+        State.lives--;
+        renderLives();
+        if (State.lives <= 0) {
+          stopSpin();
+          setTimeout(endGame, 600);
+          return;
+        }
       }
     }
   }
@@ -1105,6 +1115,7 @@
     State.jolt = 1;
     document.body.classList.toggle('hardcore', State.hardcore);
     document.body.classList.toggle('endless', mode === 'endless');
+    if (Cheat.isActive()) Cheat.resetLives(); // refill the hidden cheat pool for the new run
     State.perfectHits = 0;
     State.totalHits = 0;
     State.totalAttempts = 0;
@@ -1466,14 +1477,16 @@
   // ============================================================
   const Cheat = (() => {
     let active = false;
-    let mult = 3;          // score multiplier (overwritten by the worker response)
-    let unlimited = true;  // unlimited lives (overwritten by the worker response)
+    let mult = 3;          // score multiplier (from the worker)
+    let lives = 9999;      // total cheat lives (from the worker) — hidden from the HUD
+    let livesLeft = 9999;  // remaining this run
     const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.workerUrl) || '')
       .trim().replace(/\/+$/, '');
 
     const isActive = () => active;
     const getMult = () => (active ? mult : 1);
-    const unlimitedLives = () => active && unlimited;
+    const resetLives = () => { livesLeft = lives; };     // call at the start of each run
+    const consumeLife = () => --livesLeft;               // returns lives remaining
 
     async function verify(code) {
       code = (code || '').trim();
@@ -1493,9 +1506,10 @@
       active = true;
       mods = mods || {};
       mult = (typeof mods.mult === 'number' && mods.mult > 0) ? mods.mult : 3;
-      unlimited = mods.unlimited !== false;
+      lives = (typeof mods.lives === 'number' && mods.lives >= 1) ? Math.floor(mods.lives) : 9999;
+      livesLeft = lives;
       if (typeof God !== 'undefined' && God.isActive()) God.disable(); // mutually exclusive
-      // top up lives if a run is already in progress
+      // mask any hearts already lost — the HUD goes back to showing full lives
       if (State.spinning && State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
       showIndicator();
     }
@@ -1579,7 +1593,7 @@
       ov.querySelector('#cheatOff').addEventListener('click', () => { disable(); ov.remove(); toast('NORMAL MODE'); });
     }
 
-    return { isActive, getMult, unlimitedLives, enable, disable, promptCode, openPanel };
+    return { isActive, getMult, resetLives, consumeLife, enable, disable, promptCode, openPanel };
   })();
 
   // ============================================================

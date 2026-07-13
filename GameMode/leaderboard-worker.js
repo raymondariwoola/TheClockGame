@@ -63,14 +63,16 @@ export default {
 
         // Cheat code check — on success we hand back the modifiers themselves,
         // so the exact values live here (env), not in the shipped site.
-        // Optional env: CHEAT_MULT (default 3), CHEAT_UNLIMITED ('0'/'false' to disable).
+        // Optional env: CHEAT_MULT (score multiplier, default 3);
+        //               CHEAT_UNLIMITED (actual life count, e.g. 5 / 50 / 9999).
         if (body && body.action === 'verifyCheat') {
           const ok = !!(env.CHEAT_CODE && typeof body.code === 'string'
             && safeEqual(body.code, env.CHEAT_CODE));
           if (!ok) return json({ ok: false }, cors);
           const mult = Number(env.CHEAT_MULT) > 0 ? Number(env.CHEAT_MULT) : 3;
-          const unlimited = !(env.CHEAT_UNLIMITED === '0' || env.CHEAT_UNLIMITED === 'false');
-          return json({ ok: true, mult, unlimited }, cors);
+          const rawLives = Number(env.CHEAT_UNLIMITED);
+          const lives = (isFinite(rawLives) && rawLives >= 1) ? Math.floor(rawLives) : 9999;
+          return json({ ok: true, mult, lives }, cors);
         }
 
         const raw = body && body.entry ? body.entry : body;
