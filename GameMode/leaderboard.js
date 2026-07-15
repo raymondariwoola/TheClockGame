@@ -288,6 +288,7 @@
     }
 
     const rank = entries.filter(e => e.score >= stats.score).length + 1;
+    if (window.ChronosShare) window.ChronosShare.setRank(rank); // feeds the share card
     if (rank <= MAX_ENTRIES) {
       elLbCheck.textContent = `🏆 GLOBAL #${rank} — YOU MADE THE TOP 20!`;
       elLbCheck.classList.add('qualified');

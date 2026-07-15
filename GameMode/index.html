@@ -226,6 +226,7 @@
       <div class="lb-check" id="lbCheck" hidden></div>
       <div class="over-actions">
         <button class="btn-primary" id="retryBtn">RETRY</button>
+        <button class="btn-secondary" id="shareBtn">📤 SHARE</button>
         <button class="btn-secondary" id="overBoardBtn">🏆 LEADERBOARD</button>
         <button class="btn-secondary" id="menuBtn">MAIN MENU</button>
       </div>
@@ -288,9 +289,27 @@
     </div>
   </div>
 
+  <!-- Share card (top-20 / end-of-run) -->
+  <div id="shareOverlay" class="overlay" hidden>
+    <div class="overlay-card share-card">
+      <h2 class="share-title">SHARE YOUR RUN</h2>
+      <div class="share-preview">
+        <img id="sharePreview" alt="Your Chronos Strike score card">
+      </div>
+      <div class="share-hint" id="shareHint"></div>
+      <div class="share-actions">
+        <button class="btn-primary" id="shareNativeBtn">SHARE</button>
+        <button class="btn-secondary" id="shareDownloadBtn">DOWNLOAD</button>
+        <button class="btn-secondary" id="shareCopyBtn">COPY TEXT</button>
+        <button class="btn-secondary" id="shareCloseBtn">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
   <script src="leaderboard-config.js"></script>
   <script src="game.js"></script>
   <script src="leaderboard.js"></script>
+  <script src="share.js"></script>
 </body>
 </html>

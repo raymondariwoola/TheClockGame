@@ -1193,8 +1193,9 @@
     $('overCombo').textContent = State.bestCombo;
     $('overRound').textContent = State.round;
     const acc = State.totalAttempts ? Math.round(State.totalHits / State.totalAttempts * 100) : 0;
+    const rankLetter = computeRank(State.score, acc, State.perfectHits);
     $('overAcc').textContent = acc + '%';
-    $('overRank').textContent = computeRank(State.score, acc, State.perfectHits);
+    $('overRank').textContent = rankLetter;
     $('newBest').hidden = !newBestScore;
     $('overTitle').textContent = State.lives <= 0 ? 'GAME OVER' : 'RUN COMPLETE';
 
@@ -1206,19 +1207,23 @@
       anime({ targets: '.over-title', scale: [0.6, 1], opacity: [0, 1], duration: 700, easing: 'easeOutBack' });
     }
 
+    const runStats = {
+      score: State.score,
+      mode: State.mode,
+      round: State.round,
+      combo: State.bestCombo,
+      acc,
+      perfect: State.perfectHits,
+      god: State.godTainted,
+      hc: State.hardcore,
+      rankLetter,
+    };
+
+    // shareable score card (share.js) — gets the global rank later, if any
+    if (window.ChronosShare) window.ChronosShare.setStats(runStats);
+
     // global leaderboard qualification check (leaderboard.js)
-    if (window.ChronosLB) {
-      window.ChronosLB.onGameEnd({
-        score: State.score,
-        mode: State.mode,
-        round: State.round,
-        combo: State.bestCombo,
-        acc,
-        perfect: State.perfectHits,
-        god: State.godTainted,
-        hc: State.hardcore,
-      });
-    }
+    if (window.ChronosLB) window.ChronosLB.onGameEnd(runStats);
   }
 
   function computeRank(score, acc, perfect) {

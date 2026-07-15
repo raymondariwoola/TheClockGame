@@ -656,7 +656,7 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
 }
 @keyframes bestFlash { from { transform: scale(1); } to { transform: scale(1.08); } }
 
-.over-actions { display: flex; gap: 16px; }
+.over-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
 
 .btn-primary {
   background: linear-gradient(180deg, var(--neon-cyan), #0066ff);
@@ -1569,6 +1569,64 @@ body.glitching #screen-game { animation: screenGlitch 0.3s steps(3); }
 
 /* leaderboard hardcore marker */
 .hc-badge { font-size: 0.85em; margin-left: 4px; filter: drop-shadow(0 0 4px rgba(255,64,96,0.8)); }
+
+/* =====================================================================
+   SHARE CARD
+   ===================================================================== */
+.share-card {
+  max-width: 460px;
+  border-color: var(--neon-magenta);
+  box-shadow: 0 0 60px rgba(255,43,181,0.3);
+  gap: 14px;
+}
+.share-title {
+  font-size: 24px !important;
+  letter-spacing: 5px !important;
+  margin: 0 0 4px 0 !important;
+  background: linear-gradient(180deg, #fff, var(--neon-magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.share-preview {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(0,240,255,0.25);
+  background: rgba(0,0,0,0.4);
+  min-height: 120px;
+  display: flex; align-items: center; justify-content: center;
+}
+.share-preview img {
+  display: block;
+  width: 100%; height: auto;
+  max-height: 46vh;
+  object-fit: contain;
+}
+.share-actions {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+  width: 100%;
+}
+.share-actions .btn-primary,
+.share-actions .btn-secondary { font-size: 14px; padding: 12px 22px; letter-spacing: 2px; }
+.share-actions .btn-primary { background: linear-gradient(180deg, var(--neon-magenta), #8b1e6b); box-shadow: 0 0 26px rgba(255,43,181,0.55); color: #fff; }
+.share-actions .btn-primary:hover { box-shadow: 0 0 40px rgba(255,43,181,0.85); }
+.share-actions .btn-primary[hidden] { display: none; }
+.share-hint {
+  min-height: 16px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px; letter-spacing: 1px;
+  color: var(--ink-dim);
+  text-align: center;
+}
+.share-hint.ok { color: var(--neon-green); }
+.share-hint.error { color: var(--neon-red); }
+
+@media (max-width: 500px) {
+  .share-preview img { max-height: 40vh; }
+  .share-actions .btn-primary,
+  .share-actions .btn-secondary { font-size: 12px; padding: 11px 16px; letter-spacing: 1px; }
+}
 
 /* =====================================================================
    SUPER POWERS (Classic) — announcement banner, chips, star theme
