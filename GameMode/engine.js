@@ -78,6 +78,26 @@
     return 'F';
   }
 
+  // Precision Lab: signed angular + timing error of a strike relative to a
+  // zone centre. Convention: negative = EARLY (hand hadn't reached the centre
+  // for its travel direction), positive = LATE. `speed` is degrees/second.
+  function strikeError(handAngle, zoneCenter, handDir, speed) {
+    // signed shortest angle from hand → centre, in (-180, 180]
+    const diff = ((zoneCenter - handAngle + 540) % 360) - 180;
+    const deg = Math.abs(diff);
+    // early = the centre is still ahead of the hand along its travel direction
+    const early = deg === 0 ? false : (handDir === 1 ? diff > 0 : diff < 0);
+    const late = deg !== 0 && !early;
+    const ms = speed > 0 ? (deg / speed) * 1000 : 0;
+    return {
+      deg,                                   // magnitude, degrees
+      ms,                                    // magnitude, milliseconds
+      early, late,
+      signedDeg: early ? -deg : deg,         // − early / + late
+      signedMs: early ? -ms : ms,
+    };
+  }
+
   // ---------- deterministic round generation ----------
   // MODIFIER_IDS order MUST match the MODIFIERS array in game.js so that a
   // selected index maps to the same modifier in both places.
@@ -111,6 +131,15 @@
   // Is this a boss round for the given mode? (deterministic, no RNG)
   function isBossRound(round, mode) {
     return mode !== 'zen' && round > 1 && round % 5 === 0;
+  }
+
+  // Did the hand sweep through `center` this frame (prev → cur, travelling
+  // in `dir`)? Used by the Precision Lab metronome. Ignores implausibly large
+  // jumps (≥180°/frame) so a stutter can't produce a phantom tick.
+  function passedCenter(prev, cur, center, dir) {
+    const fwd = ((cur - prev) * dir + 360) % 360;    // forward distance travelled
+    const toC = ((center - prev) * dir + 360) % 360; // forward distance to centre
+    return fwd > 0 && fwd < 180 && toC <= fwd;
   }
 
   // Main-stream RNG draws performed inside a modifier's apply() in game.js.
@@ -167,6 +196,6 @@
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, scoreFor, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound,
-    simulateRun, riftPreview,
+    simulateRun, riftPreview, strikeError, passedCenter,
   };
 });

@@ -174,6 +174,9 @@
           <!-- Target zones (filled in by JS) -->
           <g id="zoneLayer"></g>
 
+          <!-- Precision Lab strike heat-map (Zen only, filled by JS) -->
+          <g id="labHeat"></g>
+
           <!-- Hands -->
           <g id="handLayer" transform="translate(300 300)">
             <g id="hand">
@@ -192,6 +195,7 @@
 
         <div class="strike-zone" id="strikeRingHint"></div>
         <div class="judgment" id="judgment"></div>
+        <div class="lab-readout" id="labReadout" aria-live="polite"></div>
       </div>
 
       <button id="strikeBtn" class="strike-btn">
@@ -200,6 +204,34 @@
       </button>
 
       <div class="powerups" id="powerups"></div>
+
+      <!-- Precision Lab controls (Zen only) -->
+      <aside class="lab-panel" id="labPanel" hidden aria-label="Precision Lab controls">
+        <div class="lab-title">🧪 PRECISION LAB</div>
+        <div class="lab-row">
+          <label>Speed <span id="labSpeedVal">130</span>°/s</label>
+          <input type="range" id="labSpeed" min="60" max="600" step="10" value="130">
+        </div>
+        <div class="lab-row">
+          <label>Zone width <span id="labSizeVal">40</span>°</label>
+          <input type="range" id="labSize" min="10" max="70" step="2" value="40">
+        </div>
+        <div class="lab-toggles">
+          <button class="lab-btn" id="labDir" type="button">↻ CW</button>
+          <button class="lab-btn" id="labSlow" type="button">🐢 Slow-mo</button>
+          <button class="lab-btn" id="labMetro" type="button">🎵 Metronome</button>
+        </div>
+        <div class="lab-presets">
+          <span class="lab-presets-label">Presets:</span>
+          <button data-preset="slow" type="button">Slow</button>
+          <button data-preset="fast" type="button">Fast</button>
+          <button data-preset="reverse" type="button">Reverse</button>
+          <button data-preset="tight" type="button">Tight</button>
+          <button data-preset="boss" type="button">Boss</button>
+        </div>
+        <div class="lab-summary" id="labSummary">No strikes yet — start striking to profile your timing.</div>
+        <button class="lab-btn lab-reset" id="labReset" type="button">Reset stats</button>
+      </aside>
     </div>
 
     <div class="round-progress">

@@ -43,7 +43,7 @@ The highest-value next step is to make mastery more replayable and competition m
 |---|---|---|---|
 | P0 | Baseline fixes, configuration cleanup, and tests | High | Small–Medium |
 | P1 | Daily Time Rift — ✅ MVP (global board pending) | Very high | Medium |
-| P1 | Precision Lab + ghost replay | High | Medium |
+| P1 | Precision Lab ✅ (+ ghost replay to do) | High | Medium |
 | P1 | Versioned seeded runs and leaderboard payloads | Very high | Medium |
 | P2 | True multi-phase bosses | High | Medium–Large |
 | P2 | Hall of Time achievements and cosmetics | High | Medium |
@@ -74,6 +74,8 @@ Everyone receives the same seeded sequence of hand speeds, directions, zones, mo
 **Fairness requirements:** store and submit the seed ID, game version, input timestamps, score components, and enabled accessibility assists. Assisted runs should remain playable and celebrated, but an assist that materially changes timing should place the run in a clearly labeled board category.
 
 ### 2. Precision Lab and ghost replay
+
+**Precision Lab ✅ shipped** (ghost replay still to do). Zen now opens a training lab: live controls for **speed, zone width, and direction**, **slow-motion** and a **metronome** that ticks as the hand crosses the target, quick **presets** (Slow / Fast / Reverse / Tight / Boss, persisted per device), a per-strike **angular + timing error** readout ("1.8° early · 14 ms early" — math in `ChronosEngine.strikeError`), a clock-face **heat-map** of the last 100 strikes, and a **tendency summary** ("Avg: 18 ms early · 62% perfect"). Remaining: ghost replay + Rival Codes.
 
 Turn Zen from “no lives” into a genuine training environment.
 
@@ -268,10 +270,10 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 
 ### Release 2 — Train with purpose
 
-- Upgrade Zen into Precision Lab.
-- Add angular/timing error feedback and heat maps.
-- Record local replays and race a personal-best ghost.
-- Add control and visual accessibility settings.
+- ✅ Upgrade Zen into Precision Lab.
+- ✅ Add angular/timing error feedback and heat maps.
+- ⬜ Record local replays and race a personal-best ghost.
+- ⬜ Add control and visual accessibility settings.
 
 ### Release 3 — One challenge for everyone
 

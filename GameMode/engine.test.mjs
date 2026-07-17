@@ -63,6 +63,51 @@ eq(E.computeRank(RANKS, 500, 0), 'D', 'rank D edge');
 eq(E.computeRank(RANKS, 499, 100), 'F', 'rank below D → F');
 eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
 
+// ---------- strikeError (Precision Lab) ----------
+(() => {
+  // hand at 10°, centre at 20°, moving clockwise (dir +1): centre is ahead → EARLY by 10°
+  let e = E.strikeError(10, 20, 1, 180);
+  approx(e.deg, 10, 1e-9, 'strikeError magnitude 10°');
+  ok(e.early && !e.late, 'strikeError early when centre ahead (dir +1)');
+  eq(e.signedDeg, -10, 'strikeError signedDeg negative when early');
+  approx(e.ms, 10 / 180 * 1000, 1e-6, 'strikeError ms = deg/speed*1000');
+  ok(e.signedMs < 0, 'strikeError signedMs negative when early');
+
+  // hand at 30°, centre at 20°, dir +1: hand passed centre → LATE by 10°
+  e = E.strikeError(30, 20, 1, 180);
+  ok(e.late && !e.early, 'strikeError late when hand passed centre (dir +1)');
+  eq(e.signedDeg, 10, 'strikeError signedDeg positive when late');
+
+  // reversed direction flips early/late
+  e = E.strikeError(10, 20, -1, 180);
+  ok(e.late, 'strikeError dir −1 flips: centre ahead is now LATE');
+
+  // dead centre → neither early nor late, zero error
+  e = E.strikeError(45, 45, 1, 180);
+  eq(e.deg, 0, 'strikeError dead-centre deg 0');
+  ok(!e.early && !e.late, 'strikeError dead-centre neither early nor late');
+
+  // wrap-around: hand 359, centre 1, dir +1 → centre 2° ahead → EARLY
+  e = E.strikeError(359, 1, 1, 180);
+  approx(e.deg, 2, 1e-9, 'strikeError wraps 359→1 as 2°');
+  ok(e.early, 'strikeError wrap early');
+
+  // zero speed → ms 0 (no divide-by-zero)
+  e = E.strikeError(10, 25, 1, 0);
+  eq(e.ms, 0, 'strikeError speed 0 → ms 0');
+})();
+
+// ---------- passedCenter (metronome crossing) ----------
+(() => {
+  ok(E.passedCenter(10, 20, 15, 1), 'crossed centre 15 going 10→20 cw');
+  ok(!E.passedCenter(10, 20, 25, 1), 'did not cross centre 25 going 10→20 cw');
+  ok(E.passedCenter(358, 4, 0, 1), 'crossed 0 across the wrap (358→4 cw)');
+  ok(E.passedCenter(20, 10, 15, -1), 'crossed centre 15 going 20→10 ccw');
+  ok(!E.passedCenter(20, 10, 5, -1), 'did not cross centre 5 going 20→10 ccw');
+  ok(!E.passedCenter(10, 200, 100, 1), 'implausible 190° jump ignored (no phantom tick)');
+  ok(E.passedCenter(10, 10.5, 10.2, 1), 'crossed centre within a tiny frame step');
+})();
+
 // ---------- RNG determinism & distribution ----------
 (() => {
   const id = '1.1.0|1|classic|n|seedXYZ';

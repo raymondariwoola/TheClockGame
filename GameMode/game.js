@@ -26,8 +26,8 @@
         desc: 'No end. One life. How far can you go?',
       },
       zen: {
-        emoji: '🌀', title: 'Zen',
-        desc: 'No lives, no rush. Practice your timing.',
+        emoji: '🌀', title: 'Zen · Precision Lab',
+        desc: 'Training lab — tune speed & zones, read your timing error, heat-map your strikes.',
       },
     },
     ranks: [
@@ -168,6 +168,7 @@
       o.stop(c.currentTime + dur + 0.02);
     };
     return {
+      metro()   { tone(1500, 0.03, 'sine', 0.06); },   // Precision Lab metronome tick
       perfect() { tone(1320, 0.18, 'triangle', 0.22); tone(1980, 0.16, 'sine', 0.14); },
       great()   { tone(990, 0.16, 'triangle', 0.2); },
       good()    { tone(660, 0.14, 'sine', 0.18); },
@@ -682,6 +683,7 @@
       document.documentElement.style.setProperty('--vig', '0');
     }
     if (id !== 'game') Music.stop(); // soundtrack only lives on the game screen
+    if (id !== 'game' && typeof Lab !== 'undefined') Lab.exit(); // Precision Lab is game-screen only
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);
@@ -758,9 +760,20 @@
       else if (State.powers.slowmo) speed *= 0.35;
       if (State.pulse) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
       if (State.jolt !== 1) speed *= State.jolt;
+      // Precision Lab slow-mo (a deliberate practice aid, not a power).
+      if (State.mode === 'zen' && Lab.isActive() && Lab.getConfig().slowmo) speed *= 0.4;
+      const prevAngle = State.handAngle;
       State.handAngle = (State.handAngle + speed * State.handDir * dt + 360) % 360;
       if (State.multiHand) {
         State.hand2Angle = (State.hand2Angle + State.hand2Speed * State.hand2Dir * dt + 360) % 360;
+      }
+      // Metronome: tick each time the hand sweeps through the target centre.
+      if (State.mode === 'zen' && Lab.isActive() && Lab.getConfig().metronome && State.zones[0]) {
+        if (passedAngle(prevAngle, State.handAngle, State.zones[0].center, State.handDir)) {
+          AudioFx.metro();
+          elStrikeHint.classList.add('metro-flash');
+          setTimeout(() => elStrikeHint.classList.remove('metro-flash'), 90);
+        }
       }
       applyHandRotation();
     }
@@ -856,6 +869,15 @@
       }
     }
 
+    // Precision Lab: Zen rounds use fixed, player-chosen parameters (the random
+    // zone centre is kept for variety). No modifiers/bosses ever run in Zen.
+    if (State.mode === 'zen' && Lab.isActive()) {
+      const c = Lab.getConfig();
+      State.handSpeed = c.speed;
+      State.handDir = c.dir;
+      if (State.zones[0]) State.zones[0].size = c.size;
+    }
+
     renderZones(State.zones);
     elRoundLabel.textContent = State.mode === 'endless' ? `WAVE ${State.round}` : `ROUND ${State.round}`;
     elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / CLASSIC_ROUNDS * 100) + '%' : '100%';
@@ -918,6 +940,7 @@
   // -------- Strike logic (timing/scoring math in engine.js) --------
   const angularDistance = ChronosEngine.angularDistance;
   const classify = ChronosEngine.classify;
+  const passedAngle = ChronosEngine.passedCenter;   // Precision Lab metronome crossing
 
   let lastStrikeTs = 0;
   function strike() {
@@ -948,6 +971,12 @@
     if (State.powers.deadeye || State.powers.star) kind = 'perfect'; // super powers
 
     State.totalAttempts++;
+
+    // Precision Lab: log angular + timing error against the nearest zone.
+    if (State.mode === 'zen' && Lab.isActive()) {
+      const err = ChronosEngine.strikeError(ang, best.center, State.handDir, State.handSpeed);
+      Precision.record(err, kind, ang);
+    }
 
     // strike point on screen for popup
     const rect = elClockSvg.getBoundingClientRect();
@@ -1355,6 +1384,8 @@
     elComboBlock.classList.remove('active');
     renderLives();
     updatePowerups();
+    // Precision Lab lives on the Zen game screen; hide it for other modes.
+    if (mode === 'zen') Lab.enter(); else Lab.exit();
     showScreen('game');
     // Soundtrack: Classic/Endless only, chosen by difficulty. Zen stays silent.
     Music.start(mode === 'zen' ? null : (State.hardcore ? 'hardcore' : 'normal'));
@@ -2066,6 +2097,177 @@
   God.armTriggers();
 
   // Expose the bits leaderboard.js needs for navigation
+  // ============================================================
+  // PRECISION LAB — Zen becomes a training environment.
+  //   • Precision: per-strike angular/timing error, heat-map, tendency summary.
+  //   • Lab: live config (speed / zone width / direction / slow-mo / metronome)
+  //     + quick presets, persisted per device.
+  // Strike-error math is pure and lives in engine.js (strikeError), so it's
+  // unit-tested and identical to what the game shows.
+  // ============================================================
+  const Precision = (() => {
+    const MAX = 100;                 // rolling window of recent strikes
+    let strikes = [];
+    const heatEl = () => document.getElementById('labHeat');
+
+    function reset() {
+      strikes = [];
+      const h = heatEl(); if (h) h.innerHTML = '';
+      const r = document.getElementById('labReadout'); if (r) { r.textContent = ''; r.className = 'lab-readout'; }
+      renderSummary();
+    }
+
+    function record(err, kind, angle) {
+      strikes.push({ signedMs: err.signedMs, deg: err.deg, ms: err.ms, early: err.early, late: err.late, kind });
+      if (strikes.length > MAX) strikes.shift();
+      showReadout(err, kind);
+      addHeat(angle, kind);
+      renderSummary();
+    }
+
+    function showReadout(err, kind) {
+      const el = document.getElementById('labReadout'); if (!el) return;
+      if (err.deg < 0.05) {
+        el.textContent = 'PERFECT · dead centre';
+      } else {
+        const dir = err.early ? 'early' : 'late';
+        el.textContent = `${err.deg.toFixed(1)}° ${dir} · ${Math.round(err.ms)} ms ${dir}`;
+      }
+      const tone = kind === 'perfect' ? 'perfect' : kind === 'miss' ? 'miss' : 'ok';
+      el.className = 'lab-readout show ' + tone;
+      void el.offsetWidth;             // retrigger the pop animation
+      el.classList.add('flash');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show', 'flash'), 1500);
+    }
+
+    function addHeat(angle, kind) {
+      const h = heatEl(); if (!h) return;
+      const a = (angle - 90) * Math.PI / 180;
+      const r = 230;
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', 300 + Math.cos(a) * r);
+      c.setAttribute('cy', 300 + Math.sin(a) * r);
+      c.setAttribute('r', kind === 'perfect' ? 7 : 5);
+      const color = kind === 'perfect' ? '#2dffaa' : kind === 'great' ? '#00f0ff'
+        : kind === 'good' ? '#ffe066' : '#ff4060';
+      c.setAttribute('fill', color);
+      c.setAttribute('opacity', 0.55);
+      h.appendChild(c);
+      // fade older dots by lowering opacity, and cap DOM to MAX
+      const dots = h.childNodes;
+      for (let i = 0; i < dots.length; i++) {
+        const age = dots.length - i;
+        dots[i].setAttribute('opacity', Math.max(0.12, 0.6 - age * 0.006).toFixed(3));
+      }
+      while (h.childNodes.length > MAX) h.removeChild(h.firstChild);
+    }
+
+    function renderSummary() {
+      const el = document.getElementById('labSummary'); if (!el) return;
+      const n = strikes.length;
+      if (!n) { el.textContent = 'No strikes yet — start striking to profile your timing.'; return; }
+      const meanMs = strikes.reduce((s, x) => s + x.signedMs, 0) / n;
+      const perfects = strikes.filter(x => x.kind === 'perfect').length;
+      const hits = strikes.filter(x => x.kind !== 'miss').length;
+      const bias = Math.abs(meanMs) < 3 ? 'dead on' : `${Math.abs(meanMs).toFixed(0)} ms ${meanMs < 0 ? 'early' : 'late'}`;
+      el.innerHTML = `Avg: <b>${bias}</b> · ${Math.round(perfects / n * 100)}% perfect · ` +
+        `${Math.round(hits / n * 100)}% on target · ${n} strike${n === 1 ? '' : 's'}`;
+    }
+
+    return { record, reset, renderSummary };
+  })();
+
+  const Lab = (() => {
+    const STORE = 'cs_lab_v1';
+    const DEFAULTS = { speed: 130, size: 40, dir: 1, slowmo: false, metronome: false };
+    const PRESETS = {
+      slow:    { speed: 90,  size: 46, dir: 1,  slowmo: false },
+      fast:    { speed: 420, size: 34, dir: 1,  slowmo: false },
+      reverse: { speed: 180, size: 40, dir: -1, slowmo: false },
+      tight:   { speed: 200, size: 16, dir: 1,  slowmo: false },
+      boss:    { speed: 300, size: 22, dir: -1, slowmo: false },
+    };
+    let cfg = load();
+    let wired = false;
+
+    function load() {
+      try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE) || '{}')); }
+      catch { return Object.assign({}, DEFAULTS); }
+    }
+    function save() { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch {} }
+    function getConfig() { return cfg; }
+    function isActive() { return State.mode === 'zen'; }
+
+    function enter() {
+      const panel = document.getElementById('labPanel');
+      if (panel) panel.hidden = false;
+      document.body.classList.add('lab');
+      Precision.reset();
+      wire();
+      paint();
+    }
+    function exit() {
+      const panel = document.getElementById('labPanel');
+      if (panel) panel.hidden = true;
+      document.body.classList.remove('lab');
+    }
+
+    // Apply live changes to the running round without waiting for the next one.
+    function applyLive() {
+      if (!isActive()) return;
+      State.handSpeed = cfg.speed;
+      State.handDir = cfg.dir;
+      if (State.zones[0]) { State.zones[0].size = cfg.size; renderZones(State.zones); }
+    }
+
+    function paint() {
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      const val = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      val('labSpeed', cfg.speed); set('labSpeedVal', cfg.speed);
+      val('labSize', cfg.size); set('labSizeVal', cfg.size);
+      const dirBtn = document.getElementById('labDir');
+      if (dirBtn) dirBtn.textContent = cfg.dir === 1 ? '↻ CW' : '↺ CCW';
+      const slow = document.getElementById('labSlow');
+      if (slow) slow.classList.toggle('on', cfg.slowmo);
+      const metro = document.getElementById('labMetro');
+      if (metro) metro.classList.toggle('on', cfg.metronome);
+    }
+
+    function wire() {
+      if (wired) return; wired = true;
+      const speed = document.getElementById('labSpeed');
+      const size = document.getElementById('labSize');
+      if (speed) speed.addEventListener('input', () => {
+        cfg.speed = parseInt(speed.value, 10);
+        document.getElementById('labSpeedVal').textContent = cfg.speed;
+        save(); applyLive();
+      });
+      if (size) size.addEventListener('input', () => {
+        cfg.size = parseInt(size.value, 10);
+        document.getElementById('labSizeVal').textContent = cfg.size;
+        save(); applyLive();
+      });
+      const dirBtn = document.getElementById('labDir');
+      if (dirBtn) dirBtn.addEventListener('click', () => { cfg.dir = -cfg.dir; save(); paint(); applyLive(); AudioFx.newRound(); });
+      const slow = document.getElementById('labSlow');
+      if (slow) slow.addEventListener('click', () => { cfg.slowmo = !cfg.slowmo; save(); paint(); });
+      const metro = document.getElementById('labMetro');
+      if (metro) metro.addEventListener('click', () => { cfg.metronome = !cfg.metronome; save(); paint(); });
+      document.querySelectorAll('.lab-presets [data-preset]').forEach(b => {
+        b.addEventListener('click', () => {
+          const p = PRESETS[b.dataset.preset]; if (!p) return;
+          cfg = Object.assign({}, DEFAULTS, cfg, p);
+          save(); paint(); applyLive(); AudioFx.powerup();
+        });
+      });
+      const reset = document.getElementById('labReset');
+      if (reset) reset.addEventListener('click', () => { Precision.reset(); AudioFx.strike(); });
+    }
+
+    return { enter, exit, getConfig, isActive, applyLive };
+  })();
+
   // ============================================================
   // DAILY TIME RIFT — one deterministic, globally-fair challenge per UTC day.
   // Built entirely on the seeded engine: everyone on the same rulesetVersion
