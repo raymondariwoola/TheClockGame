@@ -101,6 +101,12 @@
         <span class="mb-arrow">→</span>
       </button>
 
+      <button class="menu-board-btn ach" id="menuAchBtn">
+        <span class="mb-icon">🏅</span>
+        <span class="mb-text">ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
+        <span class="mb-arrow">→</span>
+      </button>
+
       <div class="menu-controls">
         <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
       </div>
@@ -321,6 +327,19 @@
       <h2>PAUSED</h2>
       <button class="btn-primary" id="resumeBtn">RESUME</button>
       <button class="btn-secondary" id="quitBtn">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- Achievements gallery (Hall of Time) -->
+  <div id="achievementsOverlay" class="overlay" hidden>
+    <div class="overlay-card ach-card-modal">
+      <h2 class="ach-title">🏅 HALL OF TIME</h2>
+      <div class="ach-progress-row">
+        <span id="achProgress">0 / 0 unlocked</span>
+        <div class="ach-progress-bar"><div class="ach-progress-fill" id="achProgressFill"></div></div>
+      </div>
+      <div class="ach-grid" id="achGrid"></div>
+      <button class="btn-primary" id="achCloseBtn">CLOSE</button>
     </div>
   </div>
 

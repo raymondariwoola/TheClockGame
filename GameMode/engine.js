@@ -78,6 +78,54 @@
     return 'F';
   }
 
+  // ---------- Hall of Time achievements ----------
+  // Data-driven so the game renders the gallery and the evaluator both read one
+  // list. Each `cond` is a pure predicate over a snapshot that merges this run's
+  // stats with lifetime totals (see evaluateAchievements). Cosmetic only — an
+  // achievement never changes gameplay, score, or leaderboard visibility.
+  const ACHIEVEMENTS = [
+    { id: 'first-strike', name: 'First Strike', icon: '🎯', desc: 'Play your first run.',
+      cond: s => (s.totalRuns || 0) >= 1 },
+    { id: 'hairline', name: 'Hairline', icon: '✂️', desc: '10 perfect strikes in a single run.',
+      cond: s => (s.perfectHits || 0) >= 10 },
+    { id: 'sharpshooter', name: 'Sharpshooter', icon: '🏹', desc: '25 perfect strikes in a single run.',
+      cond: s => (s.perfectHits || 0) >= 25 },
+    { id: 'combo-master', name: 'Combo Master', icon: '🔗', desc: 'Reach a ×10 combo.',
+      cond: s => (s.bestCombo || 0) >= 10 },
+    { id: 'overdrive', name: 'Overclocked', icon: '⚡', desc: 'Trigger Overdrive in a run.',
+      cond: s => !!s.overdriveReached },
+    { id: 'against-the-current', name: 'Against the Current', icon: '🔄', desc: 'Land a perfect hit during a Reverse round.',
+      cond: s => !!s.reversePerfect },
+    { id: 'untouchable', name: 'Untouchable', icon: '💀', desc: 'Clear a boss on Hardcore.',
+      cond: s => !!s.hardcore && (s.bossesCleared || 0) >= 1 },
+    { id: 'unbroken', name: 'Unbroken', icon: '🛡️', desc: 'Finish the Classic campaign without losing a life.',
+      cond: s => !!s.completedClassic && (s.livesLost || 0) === 0 },
+    { id: 'no-crutches', name: 'No Crutches', icon: '🚫', desc: 'Finish Classic without activating a power.',
+      cond: s => !!s.completedClassic && (s.powersUsed || 0) === 0 },
+    { id: 'time-lord', name: 'Time Lord', icon: '👑', desc: 'Finish the Classic campaign.',
+      cond: s => !!s.completedClassic },
+    { id: 'century', name: 'Century', icon: '💯', desc: 'Reach wave 100 in Endless.',
+      cond: s => s.mode === 'endless' && (s.round || 0) >= 100 },
+    { id: 'boss-slayer', name: 'Boss Slayer', icon: '⚔️', desc: 'Clear 10 bosses in total.',
+      cond: s => (s.totalBossClears || 0) >= 10 },
+    { id: 'perfectionist', name: 'Perfectionist', icon: '🌟', desc: '100 perfect strikes across all runs.',
+      cond: s => (s.totalPerfects || 0) >= 100 },
+    { id: 'veteran', name: 'Veteran', icon: '🎖️', desc: 'Play 25 runs.',
+      cond: s => (s.totalRuns || 0) >= 25 },
+    { id: 'daily-devotee', name: 'Daily Devotee', icon: '🗓️', desc: 'Complete a Daily Rift.',
+      cond: s => (s.dailyCompletions || 0) >= 1 },
+  ];
+
+  // Returns the ids newly satisfied by `snapshot` that aren't already unlocked.
+  function evaluateAchievements(unlocked, snapshot) {
+    const have = unlocked || {};
+    const out = [];
+    for (const a of ACHIEVEMENTS) {
+      if (!have[a.id]) { try { if (a.cond(snapshot || {})) out.push(a.id); } catch {} }
+    }
+    return out;
+  }
+
   // ---------- Rival Codes (portable, offline) ----------
   // A ghost recording is packed into a compact, paste-safe token so a friend
   // can race the EXACT same challenge (the RNG identity is encoded, so their
@@ -295,6 +343,6 @@
     angularDistance, classify, scoreFor, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
-    encodeRival, decodeRival,
+    encodeRival, decodeRival, ACHIEVEMENTS, evaluateAchievements,
   };
 });

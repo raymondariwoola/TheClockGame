@@ -118,6 +118,40 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   ok(E.indexReplay(null).maxRound === 0, 'indexReplay null-safe');
 })();
 
+// ---------- Hall of Time achievements ----------
+(() => {
+  ok(Array.isArray(E.ACHIEVEMENTS) && E.ACHIEVEMENTS.length >= 12, 'achievement roster present');
+  ok(E.ACHIEVEMENTS.every(a => a.id && a.name && a.icon && a.desc && typeof a.cond === 'function'), 'each achievement is well-formed');
+  ok(new Set(E.ACHIEVEMENTS.map(a => a.id)).size === E.ACHIEVEMENTS.length, 'achievement ids are unique');
+
+  // fresh profile, first run → only first-strike
+  let newly = E.evaluateAchievements({}, { totalRuns: 1, perfectHits: 2, bestCombo: 3 });
+  ok(newly.includes('first-strike'), 'first run unlocks first-strike');
+  ok(!newly.includes('hairline'), 'no hairline with 2 perfects');
+
+  // 10 perfects in a run
+  ok(E.evaluateAchievements({}, { perfectHits: 10 }).includes('hairline'), 'hairline at 10 perfects');
+  ok(!E.evaluateAchievements({}, { perfectHits: 9 }).includes('hairline'), 'no hairline at 9');
+
+  // already-unlocked are not re-emitted
+  ok(!E.evaluateAchievements({ 'first-strike': '2026-01-01' }, { totalRuns: 5 }).includes('first-strike'), 'already-unlocked skipped');
+
+  // conditional gates
+  ok(E.evaluateAchievements({}, { completedClassic: true, livesLost: 0 }).includes('unbroken'), 'unbroken: classic clear no lives lost');
+  ok(!E.evaluateAchievements({}, { completedClassic: true, livesLost: 2 }).includes('unbroken'), 'no unbroken if a life was lost');
+  ok(E.evaluateAchievements({}, { completedClassic: true, powersUsed: 0 }).includes('no-crutches'), 'no-crutches: classic clear no powers');
+  ok(!E.evaluateAchievements({}, { completedClassic: true, powersUsed: 1 }).includes('no-crutches'), 'no no-crutches if a power used');
+  ok(E.evaluateAchievements({}, { hardcore: true, bossesCleared: 1 }).includes('untouchable'), 'untouchable: hardcore boss clear');
+  ok(!E.evaluateAchievements({}, { hardcore: false, bossesCleared: 3 }).includes('untouchable'), 'no untouchable on normal');
+  ok(E.evaluateAchievements({}, { mode: 'endless', round: 100 }).includes('century'), 'century at wave 100');
+  ok(!E.evaluateAchievements({}, { mode: 'classic', round: 100 }).includes('century'), 'century is endless-only');
+  ok(E.evaluateAchievements({}, { reversePerfect: true }).includes('against-the-current'), 'against-the-current on reverse perfect');
+  ok(E.evaluateAchievements({}, { totalBossClears: 10 }).includes('boss-slayer'), 'boss-slayer lifetime');
+  ok(E.evaluateAchievements({}, { dailyCompletions: 1 }).includes('daily-devotee'), 'daily-devotee');
+  // cond errors never throw the evaluator
+  ok(Array.isArray(E.evaluateAchievements({}, null)), 'evaluate is null-safe');
+})();
+
 // ---------- Rival Codes (encode/decode round-trip) ----------
 (() => {
   const rec = {

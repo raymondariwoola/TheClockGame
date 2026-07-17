@@ -618,6 +618,12 @@
     dailyRun: false,     // this run is today's Daily Rift
     rivalRun: false,     // this run is racing an imported Rival Code
     rivalRecord: null,   // the decoded rival ghost being raced
+    // Per-run achievement counters (reset each run in startMode).
+    livesLostThisRun: 0,
+    powersUsedThisRun: 0,
+    bossesClearedThisRun: 0,
+    reversePerfectThisRun: false,
+    overdriveReachedThisRun: false,
   };
 
   // -------- Modifiers --------
@@ -1120,6 +1126,7 @@
     const wasOverdrive = State.overdrive;
     State.overdrive = State.combo >= 4;
     if (State.overdrive && !wasOverdrive) {
+      State.overdriveReachedThisRun = true;   // achievement: Overclocked
       AudioFx.overdrive();
       document.body.classList.add('overdrive');
       setTimeout(() => flashJudgment('⚡ OVERDRIVE ⚡', 'perfect'), 500);
@@ -1128,6 +1135,8 @@
     // consecutive perfects build an escalating flat bonus
     if (kind === 'perfect') State.perfectStreak++;
     else State.perfectStreak = 0;
+    // achievement: a perfect landed during a Reverse/Inverted round
+    if (kind === 'perfect' && State.modifier && State.modifier.id === 'invert') State.reversePerfectThisRun = true;
 
     let gained = scoreFor(kind) * State.combo;
     if (State.modifier) gained *= 1.5;
@@ -1199,6 +1208,7 @@
 
     if (State.hitsDone >= State.hitsRequired) {
       // round complete
+      if (State.bossRound) State.bossesClearedThisRun++;   // achievement tracking
       stopSpin();
       setTimeout(nextRound, 500);
     }
@@ -1267,6 +1277,7 @@
         }
       } else {
         State.lives--;
+        State.livesLostThisRun++;   // achievement: Unbroken (0 lives lost)
         renderLives();
         if (State.lives <= 0) {
           stopSpin();
@@ -1332,6 +1343,7 @@
   function applyPower(id, silent) {
     const p = POWER_BY_ID[id];
     if (!p) return;
+    State.powersUsedThisRun++;   // achievement: No Crutches (0 powers used)
     if (p.kind === 'timed') {
       State.powers[id] = p.dur;
       if (id === 'star') document.body.classList.add('starpower');
@@ -1494,6 +1506,11 @@
     State.totalHits = 0;
     State.totalAttempts = 0;
     State.bestCombo = 1;
+    State.livesLostThisRun = 0;
+    State.powersUsedThisRun = 0;
+    State.bossesClearedThisRun = 0;
+    State.reversePerfectThisRun = false;
+    State.overdriveReachedThisRun = false;
     State.powers = {};
     State.zoneBoost = 1;
     document.body.classList.remove('starpower');
@@ -1624,6 +1641,21 @@
     // a recorded run (Daily or Rival) with at least one strike.
     updateChallengeButton();
 
+    // Hall of Time — update lifetime totals + evaluate achievements. GOD/cheat
+    // runs are excluded so unlocks stay earned (they trivialise the conditions).
+    const cheating = typeof Cheat !== 'undefined' && Cheat.isActive();
+    if (!State.godTainted && !cheating) {
+      const completedClassic = State.mode === 'classic' && State.lives > 0 && State.round >= CLASSIC_ROUNDS;
+      Achievements.recordRun({
+        mode: State.mode, hardcore: State.hardcore, score: State.score, round: State.round,
+        perfectHits: State.perfectHits, bestCombo: State.bestCombo,
+        overdriveReached: State.overdriveReachedThisRun, reversePerfect: State.reversePerfectThisRun,
+        livesLost: State.livesLostThisRun, powersUsed: State.powersUsedThisRun,
+        bossesCleared: State.bossesClearedThisRun, completedClassic,
+        dailyCompleted: State.dailyRun && completedClassic,
+      });
+    }
+
     // shareable score card (share.js) — gets the global rank later, if any
     if (window.ChronosShare) window.ChronosShare.setStats(runStats);
 
@@ -1656,6 +1688,8 @@
     $('menuBest').textContent = loadInt(LS.bestScore);
     $('menuCombo').textContent = loadInt(LS.bestCombo);
     $('menuRound').textContent = loadInt(LS.bestRound);
+    const achCount = document.getElementById('menuAchCount');
+    if (achCount) achCount.textContent = `${Achievements.unlockedCount()} / ${Achievements.total()}`;
     Daily.render();
   }
 
@@ -1705,6 +1739,14 @@
   }
   if (rivalRaceBtn) rivalRaceBtn.addEventListener('click', doRivalRace);
   if (rivalInput) rivalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doRivalRace(); });
+
+  // Hall of Time achievements gallery
+  const menuAchBtn = $('menuAchBtn');
+  if (menuAchBtn) menuAchBtn.addEventListener('click', () => Achievements.openGallery());
+  const achCloseBtn = $('achCloseBtn');
+  if (achCloseBtn) achCloseBtn.addEventListener('click', () => Achievements.closeGallery());
+  const achOverlay = $('achievementsOverlay');
+  if (achOverlay) achOverlay.addEventListener('click', (e) => { if (e.target === achOverlay) Achievements.closeGallery(); });
 
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
@@ -2650,6 +2692,107 @@
   })();
 
   // ============================================================
+  // HALL OF TIME — achievements + lifetime profile.
+  // Lifetime totals and unlocked achievements persist locally; the roster and
+  // evaluation logic live in engine.js (ChronosEngine.ACHIEVEMENTS). Cosmetic
+  // recognition only — nothing here touches gameplay or the leaderboard.
+  // ============================================================
+  const Achievements = (() => {
+    const PROFILE_KEY = 'cs_profile_v1';
+    const UNLOCK_KEY = 'cs_achievements_v1';
+
+    function loadProfile() {
+      try { return Object.assign(defaults(), JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')); }
+      catch { return defaults(); }
+    }
+    function defaults() {
+      return { totalRuns: 0, totalPerfects: 0, totalScore: 0, bestEndlessWave: 0, totalBossClears: 0, dailyCompletions: 0 };
+    }
+    function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch {} }
+    function loadUnlocked() {
+      try { const u = JSON.parse(localStorage.getItem(UNLOCK_KEY) || '{}'); return (u && typeof u === 'object') ? u : {}; }
+      catch { return {}; }
+    }
+    function saveUnlocked(u) { try { localStorage.setItem(UNLOCK_KEY, JSON.stringify(u)); } catch {} }
+
+    function unlockedCount() { return Object.keys(loadUnlocked()).length; }
+    function total() { return ChronosEngine.ACHIEVEMENTS.length; }
+
+    // Called once per run end. Updates lifetime totals, evaluates the roster,
+    // persists + announces any new unlocks.
+    function recordRun(run) {
+      const p = loadProfile();
+      p.totalRuns += 1;
+      p.totalPerfects += run.perfectHits || 0;
+      p.totalScore += run.score || 0;
+      p.totalBossClears += run.bossesCleared || 0;
+      if (run.mode === 'endless') p.bestEndlessWave = Math.max(p.bestEndlessWave, run.round || 0);
+      if (run.dailyCompleted) p.dailyCompletions += 1;
+      saveProfile(p);
+
+      const snapshot = Object.assign({}, p, run);
+      const unlocked = loadUnlocked();
+      const newly = ChronosEngine.evaluateAchievements(unlocked, snapshot);
+      if (newly.length) {
+        const now = new Date().toISOString();
+        newly.forEach(id => { unlocked[id] = now; });
+        saveUnlocked(unlocked);
+        announce(newly);
+      }
+      return newly;
+    }
+
+    // ---- unlock announcement (staggered toasts) ----
+    function announce(ids) {
+      ids.forEach((id, i) => {
+        const a = ChronosEngine.ACHIEVEMENTS.find(x => x.id === id);
+        if (!a) return;
+        setTimeout(() => {
+          AudioFx.super();
+          const el = document.createElement('div');
+          el.className = 'ach-toast';
+          el.innerHTML = `<span class="ach-toast-ic">${a.icon}</span>` +
+            `<span class="ach-toast-txt"><b>Achievement unlocked</b>${a.name}</span>`;
+          document.body.appendChild(el);
+          requestAnimationFrame(() => el.classList.add('show'));
+          setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3200);
+        }, 700 + i * 900);
+      });
+    }
+
+    // ---- gallery overlay ----
+    function openGallery() {
+      const ov = document.getElementById('achievementsOverlay');
+      if (!ov) return;
+      const grid = document.getElementById('achGrid');
+      const unlocked = loadUnlocked();
+      const count = Object.keys(unlocked).length;
+      const totalN = total();
+      document.getElementById('achProgress').textContent = `${count} / ${totalN} unlocked`;
+      const bar = document.getElementById('achProgressFill');
+      if (bar) bar.style.width = (totalN ? (count / totalN * 100) : 0) + '%';
+      grid.innerHTML = '';
+      ChronosEngine.ACHIEVEMENTS.forEach(a => {
+        const got = !!unlocked[a.id];
+        const card = document.createElement('div');
+        card.className = 'ach-card' + (got ? ' unlocked' : ' locked');
+        const when = got ? new Date(unlocked[a.id]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        card.innerHTML =
+          `<div class="ach-ic">${got ? a.icon : '🔒'}</div>` +
+          `<div class="ach-name">${a.name}</div>` +
+          `<div class="ach-desc">${a.desc}</div>` +
+          (got ? `<div class="ach-date">✓ ${when}</div>` : '');
+        grid.appendChild(card);
+      });
+      ov.hidden = false;
+      if (window.anime) anime({ targets: '.ach-card', scale: [0.8, 1], opacity: [0, 1], delay: anime.stagger(25), duration: 350, easing: 'easeOutQuad' });
+    }
+    function closeGallery() { const ov = document.getElementById('achievementsOverlay'); if (ov) ov.hidden = true; }
+
+    return { recordRun, openGallery, closeGallery, unlockedCount, total };
+  })();
+
+  // ============================================================
   // DAILY TIME RIFT — one deterministic, globally-fair challenge per UTC day.
   // Built entirely on the seeded engine: everyone on the same rulesetVersion
   // faces the identical sequence. Local best/attempts only for now — the global
@@ -2792,6 +2935,11 @@
       ghostMarkers: (document.getElementById('ghostLayer') || {}).childElementCount || 0,
       hudHidden: (document.getElementById('ghostHud') || {}).hidden,
     }),
+    debugAchievements: (run) => {
+      const newly = Achievements.recordRun(run || { mode: 'classic', perfectHits: 12, score: 100, round: 1 });
+      return { newly, unlocked: Achievements.unlockedCount(), total: Achievements.total() };
+    },
+    openAchievements: () => Achievements.openGallery(),
     // Run the REAL setupRound for a given round and return a snapshot (no
     // gameplay side effects persist). Used to verify boss cycling.
     debugSetupRound: (round, mode = 'classic', hardcore = false, seed = 'test') => {
