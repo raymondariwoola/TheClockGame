@@ -42,7 +42,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | Priority | Feature | Impact | Effort |
 |---|---|---|---|
 | P0 | Baseline fixes, configuration cleanup, and tests | High | Small–Medium |
-| P1 | Daily Time Rift | Very high | Medium |
+| P1 | Daily Time Rift — ✅ MVP (global board pending) | Very high | Medium |
 | P1 | Precision Lab + ghost replay | High | Medium |
 | P1 | Versioned seeded runs and leaderboard payloads | Very high | Medium |
 | P2 | True multi-phase bosses | High | Medium–Large |
@@ -54,7 +54,9 @@ The highest-value next step is to make mastery more replayable and competition m
 
 ## Signature features
 
-### 1. Daily Time Rift
+### 1. Daily Time Rift — ✅ MVP shipped
+
+**Shipped:** menu card with a deterministic daily rift name ("Savage Gravity Friday"), a truthful preview line (opening direction, modifier count, boss count — computed from the real seeded run via `ChronosEngine.riftPreview`), live countdown to the next UTC rift, and local Daily best/attempts/cleared tracking. A Daily run is fixed to Classic + Normal and seeded by `daily|{rulesetVersion}|{UTC-date}` (independent of gameVersion, so a patch never forks the day). Daily runs stay off the global Classic board for now; RETRY replays the same day. **Still to do:** global Daily leaderboard (pending submission validation), seed-aware share card, friends-code comparison, best-of-three.
 
 Create one deterministic, globally comparable challenge per calendar day.
 

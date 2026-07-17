@@ -1299,7 +1299,10 @@
   // exact same generated challenge. (Placeholder until assists ship.)
   function collectAssists() { return {}; }
   // The identity that seeds the deterministic stream. Same identity ⇒ same run.
+  // A Daily Rift depends only on rulesetVersion + date (NOT gameVersion), so the
+  // day plays identically for everyone regardless of which patch they're on.
   function runIdentityString(mode) {
+    if (State.dailyRun) return Daily.seedFor(State.dailyDate);
     const diff = State.hardcore ? 'hc' : 'n';
     return [CONFIG.gameVersion, CONFIG.rulesetVersion, mode, diff, State.seed].join('|');
   }
@@ -1311,6 +1314,12 @@
     State.combo = 1;
     State.comboStreak = 0;
     State.hardcore = (mode === 'zen') ? false : Difficulty.isHardcore();
+    // Daily Rift: fixed Normal difficulty and a date-pinned seed so the
+    // challenge is identical for everyone (re-pinned here so RETRY replays it).
+    if (State.dailyRun) {
+      State.hardcore = false;
+      State.forcedSeed = Daily.seedFor(State.dailyDate);
+    }
     // Seed the deterministic run. A Daily/custom run can pin State.forcedSeed
     // before calling startMode; otherwise we mint a fresh, shareable seed.
     State.seed = State.forcedSeed || newSeed();
@@ -1436,7 +1445,14 @@
       runId: State.runId,
       assists: State.assists || {},
       cheat: (typeof Cheat !== 'undefined' && Cheat.isActive()) || false,
+      // Daily Rift metadata (present only on daily runs).
+      daily: !!State.dailyRun,
+      dailyDate: State.dailyRun ? State.dailyDate : null,
+      riftName: State.dailyRun ? Daily.nameFor(State.dailyDate) : null,
     };
+
+    // Daily Rift: record the local best/attempts for today (never global yet).
+    if (State.dailyRun) Daily.recordResult(runStats);
 
     // shareable score card (share.js) — gets the global rank later, if any
     if (window.ChronosShare) window.ChronosShare.setStats(runStats);
@@ -1454,6 +1470,7 @@
     $('menuBest').textContent = loadInt(LS.bestScore);
     $('menuCombo').textContent = loadInt(LS.bestCombo);
     $('menuRound').textContent = loadInt(LS.bestRound);
+    Daily.render();
   }
 
   // -------- Pause --------
@@ -1468,11 +1485,19 @@
   $$('.mode-card').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
+      State.dailyRun = false;   // a normal mode pick leaves the Daily Rift
       if (window.anime) {
         anime({ targets: btn, scale: [1, 1.1, 1], duration: 250 });
       }
       setTimeout(() => startMode(mode), 200);
     });
+  });
+
+  // Daily Rift launch
+  const dailyPlayBtn = $('dailyPlayBtn');
+  if (dailyPlayBtn) dailyPlayBtn.addEventListener('click', (e) => {
+    if (window.anime) anime({ targets: dailyPlayBtn, scale: [1, 1.08, 1], duration: 220 });
+    setTimeout(() => Daily.play(e), 180);
   });
 
   elStrikeBtn.addEventListener('click', strike);
@@ -2041,6 +2066,112 @@
   God.armTriggers();
 
   // Expose the bits leaderboard.js needs for navigation
+  // ============================================================
+  // DAILY TIME RIFT — one deterministic, globally-fair challenge per UTC day.
+  // Built entirely on the seeded engine: everyone on the same rulesetVersion
+  // faces the identical sequence. Local best/attempts only for now — the global
+  // Daily board waits until submission validation is ready (see roadmap).
+  // ============================================================
+  const Daily = (() => {
+    const STORE = 'cs_daily_v1';
+    const ROUNDS = CONFIG.classicRounds;
+    const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    // Flavour pools — the name is deterministic per date, purely cosmetic.
+    const ADJ = ['Reverse', 'Shattered', 'Frozen', 'Blazing', 'Twin', 'Phantom', 'Quantum',
+      'Warped', 'Neon', 'Silent', 'Savage', 'Crimson', 'Golden', 'Hollow', 'Fractured', 'Astral'];
+    const NOUN = ['Gravity', 'Eclipse', 'Vortex', 'Cascade', 'Paradox', 'Mirage', 'Circuit',
+      'Horizon', 'Tempest', 'Meridian', 'Threshold', 'Requiem', 'Spiral', 'Lattice', 'Zenith', 'Rift'];
+
+    // UTC calendar-day key, e.g. "2026-07-17".
+    function todayKey(d = new Date()) {
+      return d.getUTCFullYear() + '-' +
+        String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getUTCDate()).padStart(2, '0');
+    }
+    // Seed identity depends ONLY on rulesetVersion + date (not gameVersion).
+    function seedFor(dateKey) { return `daily|${CONFIG.rulesetVersion}|${dateKey}`; }
+
+    function nameFor(dateKey) {
+      const r = ChronosEngine.makeRNG('riftname|' + dateKey);
+      const adj = r.pick(ADJ), noun = r.pick(NOUN);
+      const wd = WEEKDAYS[new Date(dateKey + 'T00:00:00Z').getUTCDay()];
+      return `${adj} ${noun} ${wd}`;
+    }
+    function previewFor(dateKey) {
+      return ChronosEngine.riftPreview(seedFor(dateKey), 'classic', false, ROUNDS);
+    }
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; }
+    }
+    function save(v) { try { localStorage.setItem(STORE, JSON.stringify(v)); } catch {} }
+    // Today's record, resetting automatically when the UTC day rolls over.
+    function today() {
+      const key = todayKey();
+      let rec = load();
+      if (!rec || rec.date !== key) { rec = { date: key, best: 0, attempts: 0, bestRank: '—', completed: false }; save(rec); }
+      return rec;
+    }
+
+    function recordResult(stats) {
+      const rec = today();
+      rec.attempts++;
+      if (stats.score > rec.best) { rec.best = stats.score; rec.bestRank = stats.rankLetter || '—'; }
+      if (stats.mode === 'classic' && stats.round >= ROUNDS) rec.completed = true;
+      save(rec);
+    }
+
+    function play(origin) {
+      State.dailyRun = true;
+      State.dailyDate = todayKey();
+      AudioFx.newRound();
+      startMode('classic');   // Daily is Classic/Normal; startMode pins the seed
+    }
+
+    // ---- menu card rendering + live countdown ----
+    let countdownTimer = null;
+    function msUntilNextUTCDay() {
+      const now = new Date();
+      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
+      return next - now.getTime();
+    }
+    function fmtCountdown(ms) {
+      const s = Math.max(0, Math.floor(ms / 1000));
+      const h = String(Math.floor(s / 3600)).padStart(2, '0');
+      const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return `${h}:${m}:${ss}`;
+    }
+    function tickCountdown() {
+      const el = document.getElementById('dailyCountdown');
+      if (!el) return;
+      const ms = msUntilNextUTCDay();
+      el.textContent = 'Next rift in ' + fmtCountdown(ms);
+      if (ms <= 1000) { render(); }   // rolled over → refresh the whole card
+    }
+
+    function render() {
+      const card = document.getElementById('dailyCard');
+      if (!card) return;
+      const key = todayKey();
+      const rec = today();
+      const prev = previewFor(key);
+      const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+      set('dailyName', nameFor(key));
+      const bits = [`Opens ${prev.opensDir}`, `${prev.modifierCount} modifiers`, `${prev.bossCount} bosses`];
+      set('dailyPreview', 'Classic · Normal · ' + bits.join(' · '));
+      set('dailyBest', rec.best > 0 ? `Best today: ${rec.best.toLocaleString()} (${rec.bestRank})` : 'Best today: —');
+      set('dailyAttempts', `Attempts: ${rec.attempts}`);
+      const badge = document.getElementById('dailyDone');
+      if (badge) badge.hidden = !rec.completed;
+      card.hidden = false;
+      tickCountdown();
+      if (!countdownTimer) countdownTimer = setInterval(tickCountdown, 1000);
+    }
+
+    return { todayKey, seedFor, nameFor, previewFor, recordResult, play, render };
+  })();
+
   window.ChronosGame = {
     showScreen, refreshMenuStats,
     // Deterministic-run surface (used by share cards, Daily Rift, and tests).

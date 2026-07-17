@@ -269,6 +269,14 @@
       elLbCheck.textContent = '◈ DEMO RUN — NOT RANKED';
       return;
     }
+    // Daily Rift: tracked locally for now; the global Daily board arrives once
+    // submission validation is ready, so keep it off the standard Classic board.
+    if (stats.daily) {
+      elLbCheck.hidden = false;
+      elLbCheck.className = 'lb-check qualified';
+      elLbCheck.textContent = `🗓️ DAILY RIFT — "${stats.riftName || 'Today'}" · LOCAL BEST SAVED`;
+      return;
+    }
     // Zen has no lives, so scores are unbounded — keep it off the global board
     if (stats.mode === 'zen' || stats.score <= 0) { elLbCheck.hidden = true; return; }
 

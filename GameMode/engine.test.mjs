@@ -134,35 +134,9 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
 })();
 
 // ---------- 1000-round seeded simulation + determinism ----------
-// Faithfully mirrors the main-stream RNG draw ORDER of setupRound() in game.js
-// so this reproduces the exact challenge a seed produces. If setupRound's draw
-// order changes, update this model (and bump CONFIG.rulesetVersion).
-function simulateRun(identity, mode, hardcore, rounds) {
-  const rng = E.makeRNG(identity);
-  const count = E.MODIFIER_IDS.length;
-  // per-modifier main-stream draw counts inside apply() (see MODIFIERS in game.js)
-  const APPLY_DRAWS = { double: 1, multi: 1, decoy: 2 }; // others draw 0 on the main stream
-  const out = [];
-  for (let r = 1; r <= rounds; r++) {
-    const p = E.roundParams(r, mode, hardcore, rng);   // draw: dir
-    const handAngle = rng.next() * 360;                // draw: hand angle
-    const zoneCenter = rng.next() * 360;               // draw: base zone centre (always)
-    const boss = E.isBossRound(r, mode);
-    let bossBase = null, modId = null;
-    if (boss) {
-      bossBase = rng.next() * 360;                     // draw: boss second-zone base
-    } else {
-      const i = E.pickModifier(r, mode, rng, count);   // draw(s): prob (+ index)
-      if (i >= 0) {
-        modId = E.MODIFIER_IDS[i];
-        const extra = APPLY_DRAWS[modId] || 0;
-        for (let k = 0; k < extra; k++) rng.next();     // draw(s): modifier.apply
-      }
-    }
-    out.push({ r, speed: p.speed, size: p.size, dir: p.dir, handAngle, zoneCenter, boss, modId });
-  }
-  return out;
-}
+// Uses the engine's own simulateRun (the single source of the draw model) so
+// the game, the Daily preview, and these tests can never disagree.
+const simulateRun = E.simulateRun;
 
 (() => {
   const identity = '1.1.0|1|classic|n|dailySeed42';
@@ -190,6 +164,19 @@ function simulateRun(identity, mode, hardcore, rounds) {
 
   // modifiers only reference real ids
   ok(runA.every(s => s.modId === null || E.MODIFIER_IDS.includes(s.modId)), 'all modifier ids are valid');
+})();
+
+// ---------- Daily rift preview ----------
+(() => {
+  const id = 'daily|1|2026-07-17';
+  const p1 = E.riftPreview(id, 'classic', false, 40);
+  const p2 = E.riftPreview(id, 'classic', false, 40);
+  ok(JSON.stringify(p1) === JSON.stringify(p2), 'rift preview is deterministic for a date');
+  ok(p1.opensDir === 'clockwise' || p1.opensDir === 'counter-clockwise', 'rift opensDir valid');
+  ok(p1.bossCount >= 1, 'a 40-round classic rift has at least one boss');
+  ok(p1.modifiers.every(m => E.MODIFIER_IDS.includes(m)), 'rift preview modifiers are real');
+  const other = E.riftPreview('daily|1|2026-07-18', 'classic', false, 40);
+  ok(JSON.stringify(p1) !== JSON.stringify(other), 'different day → different rift');
 })();
 
 // ---------- report ----------

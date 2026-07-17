@@ -1378,6 +1378,53 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 /* =====================================================================
    DIFFICULTY TOGGLE (menu)
    ===================================================================== */
+/* ---- Daily Time Rift card ---- */
+.daily-card {
+  width: 100%; max-width: 600px;
+  background: linear-gradient(160deg, rgba(139,92,255,0.12), rgba(0,240,255,0.05));
+  border: 1px solid rgba(139,92,255,0.35);
+  border-radius: var(--rad);
+  padding: 16px 20px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-glow) rgba(139,92,255,0.18);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.daily-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.daily-badge {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
+  letter-spacing: 2px; color: var(--neon-violet);
+}
+.daily-done {
+  font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 1px;
+  color: var(--bg-0); background: var(--neon-green);
+  padding: 2px 8px; border-radius: 20px; font-weight: 800;
+}
+.daily-countdown {
+  margin-left: auto; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.daily-name {
+  font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 800;
+  background: linear-gradient(180deg, #fff, var(--neon-violet), var(--neon-magenta));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.daily-preview { font-family: 'Rajdhani', sans-serif; font-size: 14px; color: var(--ink); opacity: 0.85; }
+.daily-stats {
+  display: flex; gap: 18px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 13px; color: var(--ink-dim);
+}
+.daily-play {
+  margin-top: 4px; align-self: flex-start;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800; letter-spacing: 1px;
+  color: var(--bg-0);
+  background: linear-gradient(120deg, var(--neon-violet), var(--neon-cyan));
+  border: none; border-radius: 40px; padding: 12px 26px; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.daily-play:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow) rgba(139,92,255,0.5); }
+.daily-note { font-family: 'Rajdhani', sans-serif; font-size: 11px; color: var(--ink-dim); margin: 0; }
+
 .difficulty-row {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   width: 100%; max-width: 560px;

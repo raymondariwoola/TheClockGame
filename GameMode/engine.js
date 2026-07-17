@@ -113,9 +113,60 @@
     return mode !== 'zen' && round > 1 && round % 5 === 0;
   }
 
+  // Main-stream RNG draws performed inside a modifier's apply() in game.js.
+  // (Others draw 0 on the main stream; quantum uses an independent sub-stream.)
+  const MODIFIER_APPLY_DRAWS = { double: 1, multi: 1, decoy: 2 };
+
+  // Reproduce the exact per-round generation a run identity produces, mirroring
+  // the RNG draw ORDER of setupRound() in game.js. Same identity ⇒ same run, so
+  // this powers Daily previews, replay validation, and the test simulations.
+  // If setupRound's draw order changes, update this (and bump rulesetVersion).
+  function simulateRun(identity, mode, hardcore, rounds) {
+    const rng = makeRNG(identity);
+    const count = MODIFIER_IDS.length;
+    const out = [];
+    for (let r = 1; r <= rounds; r++) {
+      const p = roundParams(r, mode, hardcore, rng);   // draw: dir
+      const handAngle = rng.next() * 360;              // draw: hand angle
+      const zoneCenter = rng.next() * 360;             // draw: base zone centre (always)
+      const boss = isBossRound(r, mode);
+      let bossBase = null, modId = null;
+      if (boss) {
+        bossBase = rng.next() * 360;                   // draw: boss second-zone base
+      } else {
+        const i = pickModifier(r, mode, rng, count);   // draw(s): prob (+ index)
+        if (i >= 0) {
+          modId = MODIFIER_IDS[i];
+          const extra = MODIFIER_APPLY_DRAWS[modId] || 0;
+          for (let k = 0; k < extra; k++) rng.next();  // draw(s): modifier.apply
+        }
+      }
+      out.push({ r, speed: p.speed, size: p.size, dir: p.dir, handAngle, zoneCenter, boss, bossBase, modId });
+    }
+    return out;
+  }
+
+  // Truthful, compact summary of what a run identity actually plays like —
+  // used for the Daily Rift preview so the card never lies about the day.
+  function riftPreview(identity, mode, hardcore, rounds) {
+    const run = simulateRun(identity, mode, hardcore, rounds);
+    const mods = new Set();
+    let bossCount = 0;
+    run.forEach(s => { if (s.modId) mods.add(s.modId); if (s.boss) bossCount++; });
+    return {
+      opensDir: run[0] ? (run[0].dir === 1 ? 'clockwise' : 'counter-clockwise') : 'clockwise',
+      topSpeed: Math.round(run[run.length - 1] ? run[run.length - 1].speed : 0),
+      tightest: Math.round(Math.min(...run.map(s => s.size))),
+      modifiers: [...mods],
+      modifierCount: mods.size,
+      bossCount,
+    };
+  }
+
   return {
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, scoreFor, computeRank,
-    MODIFIER_IDS, roundParams, pickModifier, isBossRound,
+    MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound,
+    simulateRun, riftPreview,
   };
 });
