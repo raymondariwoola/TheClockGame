@@ -34,7 +34,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | ✅ **Done** | Anime.js and Google Fonts are remote dependencies | Offline startup and visual consistency are not guaranteed | Vendored `vendor/anime.min.js` + self-hosted fonts in `vendor/fonts/`; index.html has zero remote refs |
 | ✅ **Done** | Random runs cannot be reproduced | Bug reports, competition, and score validation are harder | Added versioned seeded RNG (`engine.js` xmur3+mulberry32); all gameplay generation draws from one deterministic stream keyed by run identity |
 | ✅ **Done** | Leaderboards do not encode every ruleset variable | Scores can become incomparable after balance changes | Submissions now carry `gameVersion`, `rulesetVersion`, `seed`, `assists`, `cheat`; worker sanitises + persists them |
-| ⬜ **Todo (P2)** | Boss rounds reuse one core dual-zone pattern | Campaign milestones become predictable | Add data-driven boss encounters with distinct phases |
+| ✅ **Done** | Boss rounds reuse one core dual-zone pattern | Campaign milestones become predictable | Boss roster with 4 distinct, telegraphed encounters (Twins / Chronophage / Pulse Engine / Orbit Warden) on a fixed learnable cycle (`ChronosEngine.bossTypeIndex`); each has its own colour, sound, mechanic, and time-based `tick()` |
 | ✅ **Done** | There is no automated test suite | Scoring and multiplier changes can silently invalidate competition | `engine.test.mjs` (1646 assertions): scoring, classification, rank boundaries, RNG determinism/distribution, and a 1000-round seeded generation simulation. Run with `npm test` |
 
 ## Priority roadmap
@@ -45,7 +45,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | P1 | Daily Time Rift — ✅ MVP (global board pending) | Very high | Medium |
 | P1 | Precision Lab ✅ (+ ghost replay to do) | High | Medium |
 | P1 | Versioned seeded runs and leaderboard payloads | Very high | Medium |
-| P2 | True multi-phase bosses | High | Medium–Large |
+| P2 | True multi-phase bosses — ✅ first 4 shipped (3 more + phase bars to do) | High | Medium–Large |
 | P2 | Hall of Time achievements and cosmetics | High | Medium |
 | P2 | Act-break run upgrades | High | Medium |
 | P2 | Accessibility and control customization | High | Medium |
@@ -92,7 +92,17 @@ Turn Zen from “no lives” into a genuine training environment.
 
 The same replay format can later power **Rival Codes**: export a small encoded run, send it to a friend, and race the exact challenge asynchronously.
 
-### 3. Real boss encounters
+### 3. Real boss encounters — ✅ first wave shipped
+
+**Shipped:** a boss roster on a fixed, learnable cycle (`ChronosEngine.bossTypeIndex` — deterministic, unit-tested), each with a unique name, palette, sound, telegraphed mechanic hint, and a time-based `tick()`:
+- **⚔ The Twins** — two opposite targets, strike both (the classic boss, kept as the intro).
+- **🕳 Chronophage** — the safe zone shrinks while the hand accelerates.
+- **💓 Pulse Engine** — the zone opens and closes rhythmically; strike when wide.
+- **🛸 Orbit Warden** — the target drifts around the face; track it.
+
+Each boss still pays 2× and draws exactly one RNG value at setup, so seeded determinism is preserved. **Still to do:** Mirror Warden, The Twelve, Final Paradox; per-boss phase/stability bar; best-clear records; Precision Lab boss presets.
+
+The original design notes below remain the backlog for the next wave:
 
 Current boss rounds use two opposite zones and a score multiplier. Keep that as the introductory boss, then add readable, learnable patterns every five rounds:
 
@@ -277,10 +287,10 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 
 ### Release 3 — One challenge for everyone
 
-- Launch Daily Time Rift and Daily leaderboards.
-- Add seed-aware share cards and next-rival comparison.
-- Ship the first two true bosses.
-- Add the initial Hall of Time achievements.
+- ✅ Launch Daily Time Rift (Daily leaderboards still pending validation).
+- ⬜ Add seed-aware share cards and next-rival comparison.
+- ✅ Ship the first true bosses (4 distinct encounters shipped, more to come).
+- ⬜ Add the initial Hall of Time achievements.
 
 ### Release 4 — Every run has a build
 

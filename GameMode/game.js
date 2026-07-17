@@ -612,6 +612,8 @@
     survivalMult: 1,     // endless-only: grows each wave + on streaks, scales all score
     powers: {},          // active super powers: id -> seconds left (Infinity = until used)
     zoneBoost: 1,        // magnet/star widen the target zones
+    boss: null,          // active boss encounter: { def, data } (see BOSSES)
+    roundElapsed: 0,     // seconds since the current round's spin began (boss ticks)
   };
 
   // -------- Modifiers --------
@@ -674,6 +676,74 @@
         });
       } },
     { id: 'pulse',    name: '💓 PULSE',        apply: (st) => { st.pulse = true; } },
+  ];
+
+  // -------- Bosses (distinct, telegraphed, deterministic every 5th round) --------
+  // Each boss draws exactly ONE main-stream RNG value at setup (the placement
+  // `base`), so the engine's determinism model stays valid — all variety comes
+  // from the fixed cycle (ChronosEngine.bossTypeIndex) + time-based tick(), not
+  // extra RNG. tick(st, dt, t) mutates zones/speed over the round (t = seconds
+  // since the round began) and returns true when the zones need re-rendering.
+  const BOSSES = [
+    {
+      id: 'twins', name: '⚔ THE TWINS', hint: 'Two targets — strike both!',
+      color: 'rgba(255,224,102,0.95)',
+      setup(st, base, size) {
+        st.handSpeed *= 1.3; st.hitsRequired = 2;
+        st.zones = [0, 180].map(off => ({
+          center: (base + off) % 360, size: Math.max(16, size * 0.9), color: this.color, hit: false,
+        }));
+      },
+    },
+    {
+      id: 'chronophage', name: '🕳 CHRONOPHAGE', hint: 'The zone is shrinking — strike fast!',
+      color: 'rgba(139,92,255,0.95)',
+      setup(st, base, size) {
+        st.handSpeed *= 1.1; st.hitsRequired = 1;
+        const start = Math.min(64, size * 1.4);
+        st.zones = [{ center: base, size: start, color: this.color, hit: false }];
+        st.boss.data = { start, floor: 12 };
+      },
+      tick(st, dt, t) {
+        const d = st.boss.data, z = st.zones[0];
+        if (!z || z.hit) return false;
+        z.size = Math.max(d.floor, d.start - t * (d.start - d.floor) / 6); // gone by ~6s
+        st.handSpeed += 12 * dt;                                           // and it speeds up
+        return true;
+      },
+    },
+    {
+      id: 'pulse', name: '💓 PULSE ENGINE', hint: 'Strike when the zone opens wide.',
+      color: 'rgba(45,255,170,0.95)',
+      setup(st, base, size) {
+        st.handSpeed *= 1.15; st.hitsRequired = 1;
+        const mid = Math.max(18, size * 0.8);
+        st.zones = [{ center: base, size: mid, color: this.color, hit: false }];
+        st.boss.data = { mid, amp: mid * 0.7, freq: 3.0 };
+      },
+      tick(st, dt, t) {
+        const d = st.boss.data, z = st.zones[0];
+        if (!z || z.hit) return false;
+        z.size = Math.max(6, d.mid + d.amp * Math.sin(t * d.freq));
+        return true;
+      },
+    },
+    {
+      id: 'orbit', name: '🛸 ORBIT WARDEN', hint: 'The target is drifting — track it.',
+      color: 'rgba(0,240,255,0.95)',
+      setup(st, base, size) {
+        st.handSpeed *= 1.1; st.hitsRequired = 1;
+        st.zones = [{ center: base, size: Math.max(16, size * 0.95), color: this.color, hit: false }];
+        // drift direction is deterministic from `base` (no extra RNG draw)
+        st.boss.data = { base, drift: 42 * (Math.floor(base) % 2 === 0 ? 1 : -1) };
+      },
+      tick(st, dt, t) {
+        const d = st.boss.data, z = st.zones[0];
+        if (!z || z.hit) return false;
+        z.center = (d.base + t * d.drift + 360) % 360;
+        return true;
+      },
+    },
   ];
 
   // -------- Screen transitions --------
@@ -755,6 +825,11 @@
     State.lastTs = ts;
     if (!State.paused) {
       tickPowers(dt);
+      State.roundElapsed += dt;
+      // Boss encounters evolve over the round (shrink / pulse / drift).
+      if (State.boss && State.boss.def.tick) {
+        if (State.boss.def.tick(State, dt, State.roundElapsed)) renderZones(State.zones);
+      }
       let speed = State.handSpeed;
       if (State.powers.freeze) speed = 0;
       else if (State.powers.slowmo) speed *= 0.35;
@@ -822,6 +897,8 @@
     State.multiHand = false;
     State.modifier = null;
     State.pulse = false;
+    State.boss = null;
+    State.roundElapsed = 0;
     State.bossRound = State.mode !== 'zen' && State.round > 1 && State.round % 5 === 0;
     elModifierTag.hidden = true;
     elModifierTag.classList.remove('boss');
@@ -839,20 +916,20 @@
     }];
 
     if (State.bossRound) {
-      // boss: two gold zones on opposite sides, faster hand, 2× score
-      State.handSpeed = speed * 1.3;
-      State.hitsRequired = 2;
+      // Distinct boss encounter, chosen by a fixed cycle (learnable order).
+      // Exactly one RNG draw here (`base`) keeps engine determinism intact.
       const base = RNG.next() * 360;
-      State.zones = [0, 180].map(off => ({
-        center: (base + off) % 360,
-        size: Math.max(16, size * 0.9),
-        color: 'rgba(255,224,102,0.9)',
-        hit: false,
-      }));
-      elModifierTag.textContent = '⚠ BOSS ROUND — 2× SCORE';
+      const idx = ChronosEngine.bossTypeIndex(State.round, State.mode, BOSSES.length);
+      const boss = BOSSES[idx] || BOSSES[0];
+      State.boss = { def: boss, data: {} };
+      boss.setup(State, base, size);
+      elModifierTag.textContent = `${boss.name} · 2× SCORE`;
       elModifierTag.classList.add('boss');
       elModifierTag.hidden = false;
       AudioFx.boss();
+      flashJudgment(boss.name, 'great');
+      // Telegraph the mechanic a beat later so it's readable, not noise.
+      setTimeout(() => { if (State.spinning && State.boss && State.boss.def === boss) flashJudgment(boss.hint, 'good'); }, 800);
       if (window.anime) {
         anime({ targets: elModifierTag, scale: [0.5, 1.1, 1], opacity: [0, 1], duration: 600, easing: 'easeOutBack' });
       }
@@ -2389,6 +2466,21 @@
     }),
     // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
     setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
+    // Dev/test hook: run the REAL setupRound for a given round and return a
+    // snapshot (no gameplay side effects persist). Used to verify boss cycling.
+    debugSetupRound: (round, mode = 'classic', hardcore = false, seed = 'test') => {
+      State.mode = mode; State.hardcore = hardcore; State.round = round;
+      State.dailyRun = false; State.spinning = false;
+      RNG.seed([CONFIG.gameVersion, CONFIG.rulesetVersion, mode, hardcore ? 'hc' : 'n', seed].join('|'));
+      setupRound();
+      return {
+        bossRound: State.bossRound,
+        bossId: State.boss ? State.boss.def.id : null,
+        hitsRequired: State.hitsRequired,
+        zoneCount: State.zones.length,
+        zones: State.zones.map(z => ({ center: Math.round(z.center), size: Math.round(z.size), type: z.type || null })),
+      };
+    },
   };
 
   // Initial menu render

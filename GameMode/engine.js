@@ -133,6 +133,15 @@
     return mode !== 'zen' && round > 1 && round % 5 === 0;
   }
 
+  // Which boss type plays this round — a fixed cycle through the roster so the
+  // order is learnable and identical for everyone (roadmap: bosses must be
+  // deterministic and practiceable). Returns an index into the boss roster, or
+  // -1 when the round is not a boss round. No RNG: purely a function of round.
+  function bossTypeIndex(round, mode, typeCount) {
+    if (!isBossRound(round, mode) || typeCount <= 0) return -1;
+    return (Math.floor(round / 5) - 1) % typeCount;   // rounds 5,10,15 → 0,1,2,…
+  }
+
   // Did the hand sweep through `center` this frame (prev → cur, travelling
   // in `dir`)? Used by the Precision Lab metronome. Ignores implausibly large
   // jumps (≥180°/frame) so a stutter can't produce a phantom tick.
@@ -195,7 +204,7 @@
   return {
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, scoreFor, computeRank,
-    MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound,
+    MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter,
   };
 });

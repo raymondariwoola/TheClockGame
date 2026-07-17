@@ -97,6 +97,23 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   eq(e.ms, 0, 'strikeError speed 0 → ms 0');
 })();
 
+// ---------- bossTypeIndex (deterministic boss cycle) ----------
+(() => {
+  const N = 4;
+  eq(E.bossTypeIndex(1, 'classic', N), -1, 'round 1 is not a boss');
+  eq(E.bossTypeIndex(4, 'classic', N), -1, 'round 4 is not a boss');
+  eq(E.bossTypeIndex(5, 'classic', N), 0, 'round 5 → boss 0');
+  eq(E.bossTypeIndex(10, 'classic', N), 1, 'round 10 → boss 1');
+  eq(E.bossTypeIndex(15, 'classic', N), 2, 'round 15 → boss 2');
+  eq(E.bossTypeIndex(20, 'classic', N), 3, 'round 20 → boss 3');
+  eq(E.bossTypeIndex(25, 'classic', N), 0, 'round 25 → cycles back to boss 0');
+  eq(E.bossTypeIndex(40, 'classic', N), 3, 'round 40 (final) → boss 3');
+  eq(E.bossTypeIndex(5, 'zen', N), -1, 'zen never has bosses');
+  eq(E.bossTypeIndex(10, 'endless', N), 1, 'endless bosses cycle too');
+  // deterministic + stable
+  ok(E.bossTypeIndex(15, 'classic', N) === E.bossTypeIndex(15, 'classic', N), 'boss index stable');
+})();
+
 // ---------- passedCenter (metronome crossing) ----------
 (() => {
   ok(E.passedCenter(10, 20, 15, 1), 'crossed centre 15 going 10→20 cw');
