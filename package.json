@@ -1,0 +1,9 @@
+{
+  "name": "theclockgame",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Clock Quest + Chronos Strike — browser games (no build step).",
+  "scripts": {
+    "test": "node GameMode/engine.test.mjs"
+  }
+}

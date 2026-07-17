@@ -357,6 +357,13 @@
       combo: pendingStats.combo,
       acc: pendingStats.acc,
       hc: !!pendingStats.hc,
+      // Full ruleset identity — keeps scores comparable across balance changes
+      // and enables Daily/replay validation and assisted-run categorisation.
+      gameVersion: pendingStats.gameVersion || null,
+      rulesetVersion: pendingStats.rulesetVersion != null ? pendingStats.rulesetVersion : null,
+      seed: pendingStats.seed || null,
+      assists: pendingStats.assists || {},
+      cheat: !!pendingStats.cheat,
       date: new Date().toISOString(),
     };
 

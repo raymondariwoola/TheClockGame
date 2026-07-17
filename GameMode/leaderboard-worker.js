@@ -109,8 +109,38 @@ function sanitizeEntry(e) {
     combo: clampInt(e.combo, 0, 99999),
     acc: clampInt(e.acc, 0, 100),
     hc: !!e.hc,
+    // Ruleset identity — kept so scores stay comparable across balance changes
+    // and to support Daily/replay validation + assisted-run categorisation.
+    gameVersion: cleanToken(e.gameVersion, 16),
+    rulesetVersion: (e.rulesetVersion == null ? null : clampInt(e.rulesetVersion, 0, 9999)),
+    seed: cleanToken(e.seed, 64),
+    assists: sanitizeAssists(e.assists),
+    cheat: !!e.cheat,
     date,
   };
+}
+
+// Short alphanumeric token (version / seed). Returns null if empty.
+function cleanToken(v, max) {
+  if (v == null) return null;
+  const s = String(v).replace(/[^\w.\-]/g, '').slice(0, max);
+  return s || null;
+}
+
+// Shallow, size-capped map of assist flags. Values coerced to primitives.
+function sanitizeAssists(a) {
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return {};
+  const out = {};
+  let n = 0;
+  for (const k of Object.keys(a)) {
+    if (n++ >= 12) break;
+    const key = String(k).replace(/[^\w.\-]/g, '').slice(0, 24);
+    if (!key) continue;
+    const v = a[k];
+    if (typeof v === 'boolean' || typeof v === 'number') out[key] = v;
+    else out[key] = String(v).slice(0, 24);
+  }
+  return out;
 }
 
 function sanitizeList(list) {

@@ -4,6 +4,13 @@ A beautifully gamified, voice-interactive clock-learning suite for young childre
 
 Built originally for a 7-year-old learning to read analog clocks for his Grade 1 final exams, Clock Quest has grown into a **full activity library** that covers everything in a typical Year 1 / Grade 1 telling-time curriculum: reading the clock, drawing the hands, matching clocks to written phrases, ticking the correct clock, ordering durations, time arithmetic, turns and direction, word problems, and free-play. Wrapped in a Duolingo-grade aesthetic: glowing midnight palette, bouncy buttons, a friendly owl mascot ("Professor Hoot"), confetti bursts, screen-warping clock transitions, and a fully human-sounding voice teacher powered by the Web Speech API.
 
+## 🗺️ What's next
+
+The enhancement plans are split by game:
+
+- [Clock Quest Enhancement Roadmap](docs/CLOCK_QUEST_ENHANCEMENT_ROADMAP.md) — adaptive learning, the time-travel campaign, parent tools, real-world time activities, accessibility, and offline installation.
+- [Chronos Strike Enhancement Roadmap](docs/CHRONOS_STRIKE_ENHANCEMENT_ROADMAP.md) — daily challenges, Precision Lab, ghost replays, bosses, competitive systems, creator tools, and score validation.
+
 ---
 
 ## ✨ Features

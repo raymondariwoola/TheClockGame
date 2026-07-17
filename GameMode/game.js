@@ -4,6 +4,85 @@
 (() => {
   'use strict';
 
+  // ============================================================
+  // CONFIG — single source of truth for tunable game constants.
+  // Menu copy, difficulty scaling, and rank thresholds are all
+  // rendered from here so the UI can never drift out of sync
+  // (e.g. the old "25 rounds" label vs the real 40-round campaign).
+  // ============================================================
+  const CONFIG = {
+    gameVersion: '1.1.0',   // bumped whenever balance/rules change
+    rulesetVersion: 1,      // increment when scoring/generation changes competitively
+    classicRounds: 40,      // length of the Classic campaign
+    lives: { classic: 3, endless: 1, zen: 0 },
+    modes: {
+      classic: {
+        emoji: '⚡', title: 'Classic',
+        // {rounds} is interpolated so the copy always matches classicRounds
+        desc: '{rounds} rounds, 3 lives, escalating mayhem',
+      },
+      endless: {
+        emoji: '∞', title: 'Endless',
+        desc: 'No end. One life. How far can you go?',
+      },
+      zen: {
+        emoji: '🌀', title: 'Zen',
+        desc: 'No lives, no rush. Practice your timing.',
+      },
+    },
+    ranks: [
+      { letter: 'S', minScore: 8000, minAcc: 90 },
+      { letter: 'A', minScore: 5000, minAcc: 80 },
+      { letter: 'B', minScore: 3000, minAcc: 65 },
+      { letter: 'C', minScore: 1500, minAcc: 0 },
+      { letter: 'D', minScore: 500,  minAcc: 0 },
+      { letter: 'F', minScore: 0,    minAcc: 0 },
+    ],
+  };
+
+  // ============================================================
+  // RNG — versioned, seeded pseudo-random generator.
+  // ALL gameplay generation (round params, modifiers, boss order,
+  // power drops) draws from this single deterministic stream so a
+  // given run identity reproduces the exact same challenge. Cosmetic
+  // randomness (particles, starfield, taunts) stays on Math.random.
+  //
+  // Run identity that seeds the stream:
+  //   gameVersion | rulesetVersion | mode | difficulty | seed
+  // (assists are recorded in metadata but deliberately DO NOT change
+  //  the seed, so an assisted run faces the identical challenge.)
+  // ============================================================
+  const RNG = (() => {
+    const E = window.ChronosEngine;   // pure PRNG lives in engine.js (single source)
+    let baseSeed = '';
+    let main = E.wrap(Math.random);   // pre-seed fallback = native randomness
+
+    return {
+      seed(seedStr) { baseSeed = String(seedStr); main = E.makeRNG(baseSeed); },
+      getSeed() { return baseSeed; },
+      next: () => main.next(),
+      range: (min, max) => main.range(min, max),
+      int: (a, b) => main.int(a, b),
+      pick: (arr) => main.pick(arr),
+      chance: (p) => main.chance(p),
+      // Independent sub-stream (e.g. for time-based modifier effects) that
+      // won't disturb the main generation stream's ordering.
+      spawn(label) { return E.makeRNG(baseSeed + '::' + label); },
+    };
+  })();
+
+  // Render the mode-card descriptions from CONFIG so copy stays in sync.
+  function applyMenuCopy() {
+    Object.entries(CONFIG.modes).forEach(([mode, m]) => {
+      const card = document.querySelector(`.mode-card[data-mode="${mode}"]`);
+      if (!card) return;
+      const descEl = card.querySelector('.mode-desc');
+      if (descEl) descEl.textContent = m.desc.replace('{rounds}', CONFIG.classicRounds);
+      const titleEl = card.querySelector('.mode-title');
+      if (titleEl && m.title) titleEl.textContent = m.title;
+    });
+  }
+
   // -------- Storage --------
   const LS = {
     bestScore: 'cs_best_score',
@@ -110,13 +189,130 @@
     };
   })();
 
+  // -------- Procedural music bed (WebAudio, fully offline) --------
+  // A gentle generative loop used when a soundtrack file is missing or won't
+  // play (e.g. there is no Normal.mp3). Guarantees every mode still has a
+  // musical bed without shipping a binary asset. Per-mood so a future missing
+  // Hardcore.mp3 would fall back to a darker, faster variant automatically.
+  const ProceduralMusic = (() => {
+    let ac = null, master = null;
+    let playing = false, mood = 'normal';
+    let timer = null, nextTime = 0, step = 0;
+
+    const LOOKAHEAD = 0.12;   // seconds of audio scheduled ahead of the clock
+    const TICK = 25;          // scheduler poll interval (ms)
+    const A4 = 440;
+    const hz = (semi) => A4 * Math.pow(2, semi / 12);   // semitones from A4 → Hz
+
+    // Minor-key palettes: one triad chord per bar (semitones from A4), looped,
+    // plus an 8-step eighth-note arpeggio pattern added onto the chord root.
+    const MOODS = {
+      normal: {
+        bpm: 80, wave: 'triangle', cutoff: 1500, master: 0.16,
+        chords: [[-12, -8, -5], [-3, 1, 4], [-8, -4, -1], [-10, -6, -3]],
+        arp: [0, 7, 12, 7, 3, 10, 7, 12],
+      },
+      hardcore: {
+        bpm: 128, wave: 'sawtooth', cutoff: 1000, master: 0.12,
+        chords: [[-12, -9, -5], [-13, -10, -6], [-15, -12, -8], [-10, -7, -3]],
+        arp: [0, 12, 7, 12, 0, 15, 7, 12],
+      },
+    };
+
+    function ensure() {
+      if (ac) return ac;
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { ac = null; return null; }
+      master = ac.createGain();
+      master.gain.value = 0;
+      master.connect(ac.destination);
+      return ac;
+    }
+
+    function voice(freq, t, dur, wave, gain, cutoff) {
+      const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = cutoff;
+      o.type = wave; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(f).connect(g).connect(master);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+
+    function pad(chordSemis, t, dur, cfg) {
+      chordSemis.forEach(s => {
+        const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = cfg.cutoff * 0.8;
+        o.type = 'sine'; o.frequency.value = hz(s + 12);
+        o.detune.value = Math.random() * 6 - 3;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.06, t + dur * 0.3);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(f).connect(g).connect(master);
+        o.start(t); o.stop(t + dur + 0.05);
+      });
+    }
+
+    function scheduleStep(cfg, stepIdx, t) {
+      const eighth = (60 / cfg.bpm) / 2;
+      const barLen = eighth * 8;
+      const chord = cfg.chords[Math.floor(stepIdx / 8) % cfg.chords.length];
+      const inBar = stepIdx % 8;
+      if (inBar === 0) {                                 // bass + pad on the downbeat
+        voice(hz(chord[0] - 12), t, barLen * 0.9, cfg.wave, 0.10, cfg.cutoff * 0.6);
+        pad(chord, t, barLen * 0.98, cfg);
+      }
+      const arpSemi = chord[0] + cfg.arp[inBar % cfg.arp.length];
+      voice(hz(arpSemi), t, eighth * 0.9, cfg.wave, 0.05, cfg.cutoff);
+    }
+
+    function scheduler() {
+      if (!playing || !ac) return;
+      const cfg = MOODS[mood] || MOODS.normal;
+      const eighth = (60 / cfg.bpm) / 2;
+      while (nextTime < ac.currentTime + LOOKAHEAD) {
+        scheduleStep(cfg, step, nextTime);
+        nextTime += eighth;
+        step++;
+      }
+    }
+
+    function play(m) {
+      mood = (m && MOODS[m]) ? m : 'normal';
+      if (!ensure()) return;
+      if (ac.state === 'suspended') ac.resume().catch(() => {});
+      master.gain.cancelScheduledValues(ac.currentTime);
+      master.gain.setTargetAtTime(MOODS[mood].master, ac.currentTime, 0.4);
+      if (playing) return;                               // running already; mood updated live
+      playing = true;
+      nextTime = ac.currentTime + 0.08;
+      if (!timer) timer = setInterval(scheduler, TICK);
+    }
+
+    function pause() {
+      playing = false;
+      if (timer) { clearInterval(timer); timer = null; }
+      if (ac && master) {
+        master.gain.cancelScheduledValues(ac.currentTime);
+        master.gain.setTargetAtTime(0, ac.currentTime, 0.2);
+      }
+    }
+
+    function stop() { pause(); step = 0; }
+
+    return { play, pause, stop };
+  })();
+
   // -------- Soundtrack (Classic/Endless only, per-difficulty) --------
-  // The audio element streams the track from its URL (starts fast); the tiny
-  // service worker (sw.js) caches the soundtrack files so they aren't
-  // re-downloaded on later loads. Zen has no soundtrack.
+  // Streams the track from its URL (starts fast); the tiny service worker
+  // (sw.js) caches the files so they aren't re-downloaded later. Zen has no
+  // soundtrack. If a track file is missing/unplayable, we fall back to the
+  // ProceduralMusic bed above so the mode is never silent by accident.
   const Music = (() => {
     const TRACKS = { normal: 'soundtrack/Normal.mp3', hardcore: 'soundtrack/Hardcore.mp3' };
     const VOLUME = 0.55;
+    const unavailable = Object.create(null);   // track keys whose file failed to load
 
     let audio = null;
     let curKey = null;    // 'normal' | 'hardcore'
@@ -127,36 +323,54 @@
     try { muted = localStorage.getItem('cs_mute_music') === '1'; } catch (e) {}
 
     const shouldPlay = () => inGame && !paused && !muted;
+    const useProcedural = (key) => !TRACKS[key] || unavailable[key];
 
     function ensure(key) {
-      if (audio && curKey === key) return audio;
+      if (audio && audio._key === key) return audio;
       if (audio) { try { audio.pause(); } catch (e) {} }
-      curKey = key;
       audio = new Audio(TRACKS[key]);
+      audio._key = key;
       audio.loop = true;
       audio.preload = 'auto';
       audio.volume = VOLUME;
+      // Missing/unplayable file → remember it and switch to the procedural bed.
+      audio.addEventListener('error', () => {
+        unavailable[key] = true;
+        if (curKey === key) { try { audio.pause(); } catch (e) {} audio = null; apply(); }
+      }, { once: true });
       return audio;
     }
 
     function apply() {
-      if (!curKey || !TRACKS[curKey]) return;
+      if (!curKey) return;
+      if (useProcedural(curKey)) {
+        if (audio) { try { audio.pause(); } catch (e) {} }
+        if (shouldPlay()) ProceduralMusic.play(curKey);
+        else ProceduralMusic.pause();
+        return;
+      }
+      ProceduralMusic.pause();                          // silence synth when a real track plays
       const a = ensure(curKey);
-      if (shouldPlay()) a.play().catch(() => {});   // autoplay can reject silently
+      if (shouldPlay()) a.play().catch(() => {});       // autoplay can reject silently
       else { try { a.pause(); } catch (e) {} }
     }
 
     // difficulty: 'normal' | 'hardcore' | null (zen → no soundtrack)
     function start(difficulty) {
-      if (!difficulty || !TRACKS[difficulty]) { stop(); return; }
+      if (!difficulty) { stop(); return; }
       inGame = true; paused = false; curKey = difficulty;
       apply();
     }
     function stop() {
       inGame = false;
       if (audio) { try { audio.pause(); audio.currentTime = 0; } catch (e) {} }
+      ProceduralMusic.stop();
     }
-    function pause() { paused = true; if (audio) { try { audio.pause(); } catch (e) {} } }
+    function pause() {
+      paused = true;
+      if (audio) { try { audio.pause(); } catch (e) {} }
+      ProceduralMusic.pause();
+    }
     function resume() { paused = false; apply(); }
     function setMuted(v) {
       muted = !!v;
@@ -406,7 +620,7 @@
     { id: 'invert',   name: '🔄 INVERTED',     apply: (st) => { st.handDir = -1; } },
     { id: 'double',   name: '👯 DOUBLE HANDS', apply: (st) => {
         st.multiHand = true;
-        st.hand2Angle = Math.random() * 360;
+        st.hand2Angle = RNG.next() * 360;
         st.hand2Speed = st.handSpeed * 0.7;
         st.hand2Dir = -st.handDir;
       } },
@@ -426,7 +640,7 @@
     { id: 'multi',    name: '✨ MULTI-STRIKE', apply: (st) => {
         st.hitsRequired = 3;
         // place 3 zones distributed
-        const base = Math.random() * 360;
+        const base = RNG.next() * 360;
         st.zones = [0, 120, 240].map(off => ({
           center: (base + off) % 360,
           size: 36,
@@ -434,9 +648,13 @@
         }));
       } },
     { id: 'quantum',  name: '⚛ QUANTUM',       apply: (st) => {
+        // Teleports fire on a player-timed interval, so they draw from an
+        // independent per-round sub-stream — that keeps the main generation
+        // stream's ordering deterministic regardless of how long the player takes.
+        const qr = RNG.spawn('quantum-r' + st.round);
         const teleport = () => {
           if (!st.spinning) return;
-          st.zones.forEach(z => { if (!z.hit) z.center = Math.random() * 360; });
+          st.zones.forEach(z => { if (!z.hit) z.center = qr.next() * 360; });
           renderZones(st.zones);
           st.quantumTimeout = setTimeout(teleport, 1200);
         };
@@ -447,7 +665,7 @@
         const real = st.zones[0];
         [1, 2].forEach(k => {
           st.zones.push({
-            center: (real.center + 90 * k + Math.random() * 90) % 360,
+            center: (real.center + 90 * k + RNG.next() * 90) % 360,
             size: Math.max(18, real.size),
             type: 'decoy',
             color: 'rgba(255,64,96,0.75)',
@@ -567,31 +785,21 @@
     Taunts.stop();
   }
 
-  const CLASSIC_ROUNDS = 40; // longer campaign
+  const CLASSIC_ROUNDS = CONFIG.classicRounds; // single source of truth (see CONFIG)
 
-  // -------- Difficulty curve --------
+  // -------- Difficulty curve (deterministic; logic in engine.js) --------
+  // Classic/zen speed CAPS (beatable); Endless never caps — it keeps
+  // accelerating until you crack, which is the whole point of survival.
   function roundParams(round, mode) {
-    const hc = State.hardcore && mode !== 'zen';
-    // Base speed grows with round; hardcore starts faster and keeps climbing longer
-    const base = mode === 'zen' ? 130 : (hc ? 175 : 150);
-    // Classic/zen speed CAPS (beatable). Endless NEVER caps — it just keeps
-    // accelerating until you crack, which is the whole point of survival.
-    const ramp = (mode === 'endless')
-      ? round * (hc ? 16 : 13)
-      : Math.min(round * 13, hc ? 540 : 430);
-    const speed = (base + ramp) * (hc ? 1.12 : 1);
-    // Zone shrinks; hardcore shrinks faster to a tighter floor
-    const floor = hc ? 10 : 13;
-    const size = Math.max(floor, (hc ? 56 : 60) - round * (hc ? 1.9 : 1.55));
-    const dir = Math.random() < 0.5 ? -1 : 1;
-    return { speed, size, dir };
+    return ChronosEngine.roundParams(round, mode, State.hardcore, RNG);
   }
 
+  // Returns a MODIFIER object or null. Selection index comes from the engine so
+  // it's deterministic and unit-testable; we map it back to the local object
+  // (whose .apply carries the visual/State side effects).
   function pickModifier(round, mode) {
-    if (mode === 'zen') return null;
-    if (round < 3) return null;
-    if (Math.random() > Math.min(0.18 + round * 0.04, 0.85)) return null;
-    return MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+    const i = ChronosEngine.pickModifier(round, mode, RNG, MODIFIERS.length);
+    return i >= 0 ? MODIFIERS[i] : null;
   }
 
   // -------- Round setup --------
@@ -608,10 +816,10 @@
     const { speed, size, dir } = roundParams(State.round, State.mode);
     State.handSpeed = speed;
     State.handDir = dir;
-    State.handAngle = Math.random() * 360;
+    State.handAngle = RNG.next() * 360;
 
     State.zones = [{
-      center: Math.random() * 360,
+      center: RNG.next() * 360,
       size,
       color: 'rgba(45,255,170,0.85)',
       hit: false,
@@ -621,7 +829,7 @@
       // boss: two gold zones on opposite sides, faster hand, 2× score
       State.handSpeed = speed * 1.3;
       State.hitsRequired = 2;
-      const base = Math.random() * 360;
+      const base = RNG.next() * 360;
       State.zones = [0, 180].map(off => ({
         center: (base + off) % 360,
         size: Math.max(16, size * 0.9),
@@ -707,22 +915,9 @@
     flashJudgment(`ACT ${roman}`, 'great');
   }
 
-  // -------- Strike logic --------
-  function angularDistance(a, b) {
-    let d = Math.abs(a - b) % 360;
-    if (d > 180) d = 360 - d;
-    return d;
-  }
-
-  function classify(distToCenter, zoneHalf) {
-    // distToCenter is degrees; zoneHalf = z.size/2
-    const perfectBand = Math.min(3, zoneHalf * 0.25);
-    const greatBand = zoneHalf * 0.55;
-    if (distToCenter <= perfectBand) return 'perfect';
-    if (distToCenter <= greatBand) return 'great';
-    if (distToCenter <= zoneHalf) return 'good';
-    return 'miss';
-  }
+  // -------- Strike logic (timing/scoring math in engine.js) --------
+  const angularDistance = ChronosEngine.angularDistance;
+  const classify = ChronosEngine.classify;
 
   let lastStrikeTs = 0;
   function strike() {
@@ -787,12 +982,7 @@
     handleHit(kind, best, bestIdx, sx, sy);
   }
 
-  function scoreFor(kind) {
-    if (kind === 'perfect') return 100;
-    if (kind === 'great') return 60;
-    if (kind === 'good') return 30;
-    return 0;
-  }
+  const scoreFor = ChronosEngine.scoreFor;   // base hit-quality points (engine.js)
 
   function handleHit(kind, zone, idx, x, y) {
     zone.hit = true;
@@ -996,7 +1186,7 @@
     if (State.lives >= State.maxLives) pool = pool.filter(p => p.id !== 'life' && p.id !== 'heal');
     if (!pool.length) return;
     const total = pool.reduce((s, p) => s + p.weight, 0);
-    let r = Math.random() * total, chosen = pool[pool.length - 1];
+    let r = RNG.next() * total, chosen = pool[pool.length - 1];
     for (const p of pool) { r -= p.weight; if (r <= 0) { chosen = p; break; } }
     applyPower(chosen.id, silent);
   }
@@ -1100,6 +1290,20 @@
     startSpin();
   }
 
+  // Fresh random seed for a normal run (stored so it can be shared/replayed).
+  function newSeed() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  // Accessibility assists that materially change timing — recorded in run
+  // metadata but NOT folded into the RNG seed, so an assisted run faces the
+  // exact same generated challenge. (Placeholder until assists ship.)
+  function collectAssists() { return {}; }
+  // The identity that seeds the deterministic stream. Same identity ⇒ same run.
+  function runIdentityString(mode) {
+    const diff = State.hardcore ? 'hc' : 'n';
+    return [CONFIG.gameVersion, CONFIG.rulesetVersion, mode, diff, State.seed].join('|');
+  }
+
   function startMode(mode) {
     State.mode = mode;
     State.round = 1;
@@ -1107,6 +1311,13 @@
     State.combo = 1;
     State.comboStreak = 0;
     State.hardcore = (mode === 'zen') ? false : Difficulty.isHardcore();
+    // Seed the deterministic run. A Daily/custom run can pin State.forcedSeed
+    // before calling startMode; otherwise we mint a fresh, shareable seed.
+    State.seed = State.forcedSeed || newSeed();
+    State.forcedSeed = null;                 // one-shot
+    State.assists = collectAssists();
+    State.runId = 'r_' + State.seed;
+    RNG.seed(runIdentityString(mode));
     // Classic always has 3 lives (hardcore adds pressure via speed + taunts,
     // not fewer lives); endless is a single-life survival run.
     State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : 3);
@@ -1217,6 +1428,14 @@
       god: State.godTainted,
       hc: State.hardcore,
       rankLetter,
+      // Ruleset identity — lets scores stay comparable across balance changes,
+      // powers Daily/replay validation, and categorises assisted runs.
+      gameVersion: CONFIG.gameVersion,
+      rulesetVersion: CONFIG.rulesetVersion,
+      seed: State.seed,
+      runId: State.runId,
+      assists: State.assists || {},
+      cheat: (typeof Cheat !== 'undefined' && Cheat.isActive()) || false,
     };
 
     // shareable score card (share.js) — gets the global rank later, if any
@@ -1227,12 +1446,8 @@
   }
 
   function computeRank(score, acc, perfect) {
-    if (score >= 8000 && acc >= 90) return 'S';
-    if (score >= 5000 && acc >= 80) return 'A';
-    if (score >= 3000 && acc >= 65) return 'B';
-    if (score >= 1500) return 'C';
-    if (score >= 500) return 'D';
-    return 'F';
+    // Thresholds live in CONFIG.ranks (ordered best → worst); logic in engine.js.
+    return ChronosEngine.computeRank(CONFIG.ranks, score, acc);
   }
 
   function refreshMenuStats() {
@@ -1826,9 +2041,25 @@
   God.armTriggers();
 
   // Expose the bits leaderboard.js needs for navigation
-  window.ChronosGame = { showScreen, refreshMenuStats };
+  window.ChronosGame = {
+    showScreen, refreshMenuStats,
+    // Deterministic-run surface (used by share cards, Daily Rift, and tests).
+    RNG,
+    getRunInfo: () => ({
+      gameVersion: CONFIG.gameVersion,
+      rulesetVersion: CONFIG.rulesetVersion,
+      mode: State.mode,
+      hardcore: !!State.hardcore,
+      seed: State.seed,
+      runId: State.runId,
+      assists: State.assists || {},
+    }),
+    // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
+    setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
+  };
 
   // Initial menu render
+  applyMenuCopy();
   refreshMenuStats();
   if (window.anime) {
     anime({ targets: '.logo-ring', rotate: '360deg', duration: 12000, loop: true, easing: 'linear' });
