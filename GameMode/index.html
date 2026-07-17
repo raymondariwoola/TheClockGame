@@ -53,6 +53,7 @@
         <div class="daily-stats">
           <span id="dailyBest">Best today: —</span>
           <span id="dailyAttempts">Attempts: 0</span>
+          <span id="dailyGhost" hidden></span>
         </div>
         <button class="daily-play" id="dailyPlayBtn" type="button">▶ PLAY TODAY'S RIFT</button>
         <p class="daily-note">Same seed for everyone · one fair challenge per day</p>
@@ -118,6 +119,7 @@
         <div class="round-label" id="roundLabel">ROUND 1</div>
         <div class="round-sub" id="roundSub" hidden></div>
         <div class="modifier-tag" id="modifierTag" hidden></div>
+        <div class="ghost-hud" id="ghostHud" hidden></div>
       </div>
 
       <div class="hud-right">
@@ -176,6 +178,9 @@
 
           <!-- Precision Lab strike heat-map (Zen only, filled by JS) -->
           <g id="labHeat"></g>
+
+          <!-- Ghost-replay markers (Daily only, filled by JS) — behind the hand -->
+          <g id="ghostLayer"></g>
 
           <!-- Hands -->
           <g id="handLayer" transform="translate(300 300)">

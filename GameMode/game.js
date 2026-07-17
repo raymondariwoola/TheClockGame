@@ -169,6 +169,7 @@
     };
     return {
       metro()   { tone(1500, 0.03, 'sine', 0.06); },   // Precision Lab metronome tick
+      ghost()   { tone(700, 0.04, 'sine', 0.045); },    // ghost-replay strike marker
       perfect() { tone(1320, 0.18, 'triangle', 0.22); tone(1980, 0.16, 'sine', 0.14); },
       great()   { tone(990, 0.16, 'triangle', 0.2); },
       good()    { tone(660, 0.14, 'sine', 0.18); },
@@ -754,6 +755,7 @@
     }
     if (id !== 'game') Music.stop(); // soundtrack only lives on the game screen
     if (id !== 'game' && typeof Lab !== 'undefined') Lab.exit(); // Precision Lab is game-screen only
+    if (id !== 'game' && typeof Ghost !== 'undefined') Ghost.clear(); // ghost markers are game-screen only
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);
@@ -830,6 +832,8 @@
       if (State.boss && State.boss.def.tick) {
         if (State.boss.def.tick(State, dt, State.roundElapsed)) renderZones(State.zones);
       }
+      // Ghost replay: reveal the ghost's strike as its moment arrives.
+      if (State.dailyRun) Ghost.tick(State.round, State.roundElapsed * 1000);
       let speed = State.handSpeed;
       if (State.powers.freeze) speed = 0;
       else if (State.powers.slowmo) speed *= 0.35;
@@ -971,6 +975,12 @@
       anime({ targets: '.warp-ring', scale: [0.8, 1], opacity: [0, 0.6, 0], duration: 900, delay: anime.stagger(100), easing: 'easeOutQuad' });
     }
 
+    // Ghost replay (Daily): draw this round's ghost strike markers + refresh HUD.
+    if (State.dailyRun) {
+      Ghost.renderRound(State.round);
+      Ghost.updateHud(State.round, State.score);
+    }
+
     AudioFx.newRound();
     applyHandRotation();
   }
@@ -1048,6 +1058,10 @@
     if (State.powers.deadeye || State.powers.star) kind = 'perfect'; // super powers
 
     State.totalAttempts++;
+
+    // Remember this strike's angle + time-into-round for ghost recording,
+    // captured now (the hand keeps moving before scoring resolves).
+    State._lastStrike = { angle: ang, t: State.roundElapsed };
 
     // Precision Lab: log angular + timing error against the nearest zone.
     if (State.mode === 'zen' && Lab.isActive()) {
@@ -1178,11 +1192,21 @@
     // taunt: goad the player when they're on a hot streak (nastier in hardcore)
     if (State.comboStreak >= 6 && State.comboStreak % 6 === 0) Taunts.provoke(State.combo);
 
+    logGhost(kind);
+
     if (State.hitsDone >= State.hitsRequired) {
       // round complete
       stopSpin();
       setTimeout(nextRound, 500);
     }
+  }
+
+  // Ghost replay: record the just-resolved strike (Daily only) and refresh HUD.
+  function logGhost(kind) {
+    if (!State.dailyRun) return;
+    const ls = State._lastStrike;
+    Ghost.recordStrike(State.round, ls ? ls.angle : State.handAngle, kind, ls ? ls.t : State.roundElapsed, State.score);
+    Ghost.updateHud(State.round, State.score);
   }
 
   function handleMiss(x, y, label = 'MISS') {
@@ -1222,6 +1246,8 @@
     }
 
     Taunts.onMiss();
+
+    logGhost('miss');
 
     if (State.mode !== 'zen') {
       if (Cheat.isActive()) {
@@ -1433,6 +1459,13 @@
     State.assists = collectAssists();
     State.runId = 'r_' + State.seed;
     RNG.seed(runIdentityString(mode));
+    // Ghost replay: record this Daily run and load the best prior ghost to race.
+    if (State.dailyRun) {
+      Ghost.startRecording(runIdentityString(mode), { mode, hardcore: false, date: State.dailyDate });
+      Ghost.loadForToday(State.dailyDate);
+    } else {
+      Ghost.clear();
+    }
     // Classic always has 3 lives (hardcore adds pressure via speed + taunts,
     // not fewer lives); endless is a single-life survival run.
     State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : 3);
@@ -1560,7 +1593,11 @@
     };
 
     // Daily Rift: record the local best/attempts for today (never global yet).
-    if (State.dailyRun) Daily.recordResult(runStats);
+    if (State.dailyRun) {
+      Daily.recordResult(runStats);
+      runStats.ghostBeaten = Ghost.hasGhost() && State.score > Ghost.ghostScore();
+      Ghost.saveIfBest();   // keep the best run of the day as the ghost
+    }
 
     // shareable score card (share.js) — gets the global rank later, if any
     if (window.ChronosShare) window.ChronosShare.setStats(runStats);
@@ -2346,6 +2383,138 @@
   })();
 
   // ============================================================
+  // GHOST REPLAY — race your best Daily run.
+  // A run's absolute timeline is player-paced (rounds only advance on a hit),
+  // so ghosts are stored PER ROUND: for each round we keep where and how long
+  // into the round the previous best run struck. Because the Daily seed is
+  // fixed, round N's zones/hand are identical between runs, so the ghost's
+  // strike angle is a directly comparable target on the same clock.
+  // ============================================================
+  const Ghost = (() => {
+    const STORE = 'cs_ghost_daily_v1';
+    const NS = 'http://www.w3.org/2000/svg';
+    let recording = null;   // the run currently being recorded (Daily only)
+    let playback = null;    // the loaded best-run ghost for today (indexed)
+    let revealed = null;    // Set of ghost-strike keys already pulsed this round
+    const layer = () => document.getElementById('ghostLayer');
+
+    // ---- recording ----
+    function startRecording(identity, meta) {
+      recording = {
+        identity, mode: meta.mode, hardcore: !!meta.hardcore, date: meta.date,
+        gameVersion: CONFIG.gameVersion, rulesetVersion: CONFIG.rulesetVersion,
+        score: 0, rounds: 0, strikes: [],
+      };
+    }
+    function recordStrike(round, angle, kind, tSeconds, cumScore) {
+      if (!recording) return;
+      recording.strikes.push({ round, angle: +(+angle).toFixed(2), kind, t: Math.round(tSeconds * 1000), s: cumScore });
+      recording.score = cumScore;
+      recording.rounds = round;
+    }
+    function recordedCount() { return recording ? recording.strikes.length : 0; }
+
+    // ---- persistence ----
+    function saveIfBest() {
+      if (!recording || !recording.strikes.length) return false;
+      let prev = null; try { prev = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch {}
+      if (prev && prev.date === recording.date && prev.score >= recording.score) return false;
+      try { localStorage.setItem(STORE, JSON.stringify(recording)); } catch {}
+      return true;
+    }
+    function storedForDate(dateKey) {
+      let g = null; try { g = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch {}
+      return (g && g.date === dateKey && Array.isArray(g.strikes) && g.strikes.length) ? g : null;
+    }
+
+    // ---- playback ----
+    function loadForToday(dateKey) {
+      const g = storedForDate(dateKey);
+      if (!g) { playback = null; return null; }
+      const idx = ChronosEngine.indexReplay(g.strikes);
+      playback = { score: g.score, rounds: g.rounds, byRound: idx.byRound, scoreByRound: idx.scoreByRound, maxRound: idx.maxRound };
+      return playback;
+    }
+    function hasGhost() { return !!playback; }
+    function ghostScore() { return playback ? playback.score : 0; }
+    function ghostScoreThroughRound(r) {
+      if (!playback) return 0;
+      if (r >= playback.maxRound) return playback.score;
+      return playback.scoreByRound[r] != null ? playback.scoreByRound[r] : 0;
+    }
+
+    // Draw this round's ghost strike markers (faint until their moment arrives).
+    function renderRound(round) {
+      revealed = new Set();
+      const l = layer(); if (!l) return;
+      l.innerHTML = '';
+      if (!playback || !playback.byRound[round]) return;
+      playback.byRound[round].forEach((s, i) => {
+        const a = (s.angle - 90) * Math.PI / 180;
+        const x2 = 300 + Math.cos(a) * 230, y2 = 300 + Math.sin(a) * 230;
+        const line = document.createElementNS(NS, 'line');
+        line.setAttribute('x1', 300); line.setAttribute('y1', 300);
+        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+        line.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+        line.setAttribute('stroke-width', 3);
+        line.setAttribute('stroke-dasharray', '4 7');
+        line.setAttribute('stroke-linecap', 'round');
+        l.appendChild(line);
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', x2); dot.setAttribute('cy', y2); dot.setAttribute('r', 8);
+        dot.setAttribute('fill', 'none');
+        dot.setAttribute('stroke', 'rgba(255,255,255,0.45)');
+        dot.setAttribute('stroke-width', 2);
+        dot.dataset.key = 'g' + round + '-' + i;
+        l.appendChild(dot);
+      });
+    }
+
+    // Called each frame: when the ghost's strike time passes, pulse its marker.
+    function tick(round, elapsedMs) {
+      if (!playback || !revealed || !playback.byRound[round]) return;
+      playback.byRound[round].forEach((s, i) => {
+        const key = 'g' + round + '-' + i;
+        if (!revealed.has(key) && elapsedMs >= s.t) {
+          revealed.add(key);
+          AudioFx.ghost();
+          const dot = layer() && layer().querySelector(`[data-key="${key}"]`);
+          if (dot) {
+            dot.setAttribute('stroke', s.kind === 'miss' ? 'rgba(255,64,96,0.9)' : 'rgba(255,255,255,0.95)');
+            dot.setAttribute('stroke-width', 4);
+            dot.setAttribute('r', 11);
+          }
+        }
+      });
+    }
+
+    // Live "you vs ghost" HUD, refreshed after each of your strikes.
+    function updateHud(currentRound, yourScore) {
+      const el = document.getElementById('ghostHud');
+      if (!el) return;
+      if (!playback) { el.hidden = true; return; }
+      const gAt = ghostScoreThroughRound(currentRound);
+      const delta = yourScore - gAt;
+      const sign = delta >= 0 ? '+' : '−';
+      el.hidden = false;
+      el.className = 'ghost-hud' + (delta >= 0 ? ' ahead' : ' behind');
+      el.innerHTML = `👻 ${ghostScore().toLocaleString()} · <b>${sign}${Math.abs(delta).toLocaleString()}</b>`;
+    }
+
+    function clear() {
+      const l = layer(); if (l) l.innerHTML = '';
+      revealed = null;
+      const el = document.getElementById('ghostHud'); if (el) el.hidden = true;
+    }
+
+    return {
+      startRecording, recordStrike, recordedCount, saveIfBest, storedForDate,
+      loadForToday, hasGhost, ghostScore, ghostScoreThroughRound,
+      renderRound, tick, updateHud, clear,
+    };
+  })();
+
+  // ============================================================
   // DAILY TIME RIFT — one deterministic, globally-fair challenge per UTC day.
   // Built entirely on the seeded engine: everyone on the same rulesetVersion
   // faces the identical sequence. Local best/attempts only for now — the global
@@ -2441,6 +2610,13 @@
       set('dailyPreview', 'Classic · Normal · ' + bits.join(' · '));
       set('dailyBest', rec.best > 0 ? `Best today: ${rec.best.toLocaleString()} (${rec.bestRank})` : 'Best today: —');
       set('dailyAttempts', `Attempts: ${rec.attempts}`);
+      // Ghost line: if a best-run ghost exists for today, advertise the race.
+      const ghostEl = document.getElementById('dailyGhost');
+      if (ghostEl) {
+        const g = Ghost.storedForDate(key);
+        if (g) { ghostEl.hidden = false; ghostEl.textContent = `👻 Ghost: ${g.score.toLocaleString()}`; }
+        else ghostEl.hidden = true;
+      }
       const badge = document.getElementById('dailyDone');
       if (badge) badge.hidden = !rec.completed;
       card.hidden = false;
@@ -2466,8 +2642,17 @@
     }),
     // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
     setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
-    // Dev/test hook: run the REAL setupRound for a given round and return a
-    // snapshot (no gameplay side effects persist). Used to verify boss cycling.
+    // Dev/test hooks.
+    debugGhost: () => ({
+      todayKey: Daily.todayKey(),
+      recorded: Ghost.recordedCount(),
+      hasGhost: Ghost.hasGhost(),
+      ghostScore: Ghost.ghostScore(),
+      ghostMarkers: (document.getElementById('ghostLayer') || {}).childElementCount || 0,
+      hudHidden: (document.getElementById('ghostHud') || {}).hidden,
+    }),
+    // Run the REAL setupRound for a given round and return a snapshot (no
+    // gameplay side effects persist). Used to verify boss cycling.
     debugSetupRound: (round, mode = 'classic', hardcore = false, seed = 'test') => {
       State.mode = mode; State.hardcore = hardcore; State.round = round;
       State.dailyRun = false; State.spinning = false;

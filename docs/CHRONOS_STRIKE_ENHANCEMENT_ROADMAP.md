@@ -43,7 +43,7 @@ The highest-value next step is to make mastery more replayable and competition m
 |---|---|---|---|
 | P0 | Baseline fixes, configuration cleanup, and tests | High | Small–Medium |
 | P1 | Daily Time Rift — ✅ MVP (global board pending) | Very high | Medium |
-| P1 | Precision Lab ✅ (+ ghost replay to do) | High | Medium |
+| P1 | Precision Lab ✅ + ghost replay ✅ (Daily) | High | Medium |
 | P1 | Versioned seeded runs and leaderboard payloads | Very high | Medium |
 | P2 | True multi-phase bosses — ✅ first 4 shipped (3 more + phase bars to do) | High | Medium–Large |
 | P2 | Hall of Time achievements and cosmetics | High | Medium |
@@ -88,7 +88,9 @@ Turn Zen from “no lives” into a genuine training environment.
 - Summarize tendencies: “You strike about 18 ms early at high speed.”
 - Save presets for boss, Hardcore, reverse, and high-speed practice.
 
-**Ghost replay:** save a compact event stream for the best run—seed, round starts, strike timestamps, pause events, settings, and game version. On retry, a translucent marker shows where the previous run struck. This creates a personal rival without requiring live multiplayer.
+**Ghost replay ✅ shipped (Daily Rift):** each Daily run records a compact per-round strike stream (round, angle, kind, time-into-round, cumulative score). Because the Daily seed is fixed, round N is identical between runs, so the ghost's strike angle is a directly comparable target. On the next attempt the best run's ghost appears as translucent per-round markers that pulse at the exact moment the ghost struck (`ChronosEngine.indexReplay` builds the per-round index), plus a live **👻 you-vs-ghost** score-delta HUD and a ghost line on the menu card. Remaining: extend beyond Daily (fixed-seed rematch for Classic) and export as **Rival Codes**.
+
+Original design note: save a compact event stream for the best run—seed, round starts, strike timestamps, pause events, settings, and game version. On retry, a translucent marker shows where the previous run struck. This creates a personal rival without requiring live multiplayer.
 
 The same replay format can later power **Rival Codes**: export a small encoded run, send it to a friend, and race the exact challenge asynchronously.
 
@@ -282,7 +284,7 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 
 - ✅ Upgrade Zen into Precision Lab.
 - ✅ Add angular/timing error feedback and heat maps.
-- ⬜ Record local replays and race a personal-best ghost.
+- ✅ Record local replays and race a personal-best ghost (Daily Rift).
 - ⬜ Add control and visual accessibility settings.
 
 ### Release 3 — One challenge for everyone

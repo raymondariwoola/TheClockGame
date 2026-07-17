@@ -97,6 +97,27 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   eq(e.ms, 0, 'strikeError speed 0 → ms 0');
 })();
 
+// ---------- indexReplay (ghost replay indexing) ----------
+(() => {
+  const strikes = [
+    { round: 1, angle: 10, kind: 'perfect', t: 300, s: 100 },
+    { round: 2, angle: 40, kind: 'great',   t: 250, s: 160 },
+    { round: 2, angle: 45, kind: 'good',    t: 500, s: 190 }, // round 2 has two strikes (e.g. boss)
+    { round: 4, angle: 90, kind: 'miss',    t: 200, s: 190 }, // round 3 had no recorded strike
+  ];
+  const idx = E.indexReplay(strikes);
+  eq(idx.maxRound, 4, 'indexReplay maxRound');
+  eq(idx.byRound[2].length, 2, 'indexReplay groups multiple strikes per round');
+  eq(idx.byRound[1].length, 1, 'indexReplay round 1 single strike');
+  eq(idx.scoreByRound[1], 100, 'scoreByRound round 1');
+  eq(idx.scoreByRound[2], 190, 'scoreByRound round 2 = last strike total');
+  eq(idx.scoreByRound[3], 190, 'scoreByRound round 3 forward-fills (no strike)');
+  eq(idx.scoreByRound[4], 190, 'scoreByRound round 4');
+  const empty = E.indexReplay([]);
+  eq(empty.maxRound, 0, 'indexReplay empty maxRound 0');
+  ok(E.indexReplay(null).maxRound === 0, 'indexReplay null-safe');
+})();
+
 // ---------- bossTypeIndex (deterministic boss cycle) ----------
 (() => {
   const N = 4;

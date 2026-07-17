@@ -78,6 +78,26 @@
     return 'F';
   }
 
+  // Ghost replay: index a recorded strike stream by round, and forward-fill the
+  // cumulative score at the end of each round (so a live run can be compared to
+  // its ghost at the same progress point). Pure — unit-tested.
+  function indexReplay(strikes) {
+    const byRound = {};
+    const scoreByRound = {};
+    let maxRound = 0;
+    for (const s of (strikes || [])) {
+      (byRound[s.round] || (byRound[s.round] = [])).push(s);
+      if (s.round > maxRound) maxRound = s.round;
+    }
+    let last = 0;
+    for (let r = 1; r <= maxRound; r++) {
+      const arr = byRound[r];
+      if (arr && arr.length) last = arr[arr.length - 1].s;
+      scoreByRound[r] = last;   // forward-filled: rounds with no strike inherit prior total
+    }
+    return { byRound, scoreByRound, maxRound };
+  }
+
   // Precision Lab: signed angular + timing error of a strike relative to a
   // zone centre. Convention: negative = EARLY (hand hadn't reached the centre
   // for its travel direction), positive = LATE. `speed` is degrees/second.
@@ -205,6 +225,6 @@
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, scoreFor, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
-    simulateRun, riftPreview, strikeError, passedCenter,
+    simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
   };
 });

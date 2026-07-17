@@ -1425,6 +1425,22 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 .daily-play:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow) rgba(139,92,255,0.5); }
 .daily-note { font-family: 'Rajdhani', sans-serif; font-size: 11px; color: var(--ink-dim); margin: 0; }
 
+/* ---- Ghost replay ---- */
+#ghostLayer { pointer-events: none; }
+#ghostLayer line, #ghostLayer circle { transition: stroke 0.15s, stroke-width 0.15s, r 0.15s; }
+.ghost-hud {
+  margin-top: 6px; font-family: 'Orbitron', sans-serif; font-weight: 800;
+  font-size: 13px; letter-spacing: 1px; color: var(--ink-dim);
+  padding: 3px 12px; border-radius: 20px; display: inline-block;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+}
+.ghost-hud b { font-variant-numeric: tabular-nums; }
+.ghost-hud.ahead { color: var(--neon-green); border-color: rgba(45,255,170,0.4); }
+.ghost-hud.ahead b { color: var(--neon-green); }
+.ghost-hud.behind { color: var(--neon-red); border-color: rgba(255,64,96,0.4); }
+.ghost-hud.behind b { color: var(--neon-red); }
+#dailyGhost { color: var(--neon-violet); font-weight: 700; }
+
 /* ---- Precision Lab ---- */
 .lab-panel {
   position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
