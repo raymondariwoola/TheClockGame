@@ -49,7 +49,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | P2 | Hall of Time achievements and cosmetics | High | Medium |
 | P2 | Act-break run upgrades | High | Medium |
 | P2 | Accessibility and control customization | High | Medium |
-| P3 | Custom Rift creator and Rival Codes | Medium–High | Large |
+| P3 | Rival Codes ✅ · Custom Rift creator (to do) | Medium–High | Large |
 | P3 | Weekly leagues and spectator replays | Medium–High | Large |
 
 ## Signature features
@@ -92,7 +92,7 @@ Turn Zen from “no lives” into a genuine training environment.
 
 Original design note: save a compact event stream for the best run—seed, round starts, strike timestamps, pause events, settings, and game version. On retry, a translucent marker shows where the previous run struck. This creates a personal rival without requiring live multiplayer.
 
-The same replay format can later power **Rival Codes**: export a small encoded run, send it to a friend, and race the exact challenge asynchronously.
+**Rival Codes ✅ shipped.** A ghost is packed into a paste-safe base64url token (`ChronosEngine.encodeRival` / `decodeRival`, portable browser+Node, unit-tested round-trip + tamper-safety) that carries the run's RNG identity — so the recipient reproduces the exact challenge. Share from the Daily card or the game-over "🏁 Challenge a friend" button; paste into the menu's Rival Code box to race. A rival race shows the opponent's ghost + a live you-vs-rival delta HUD, reports the head-to-head result, and never touches the global board. Remaining: shorter codes (compression) and curated community sharing.
 
 ### 3. Real boss encounters — ✅ first wave shipped
 
@@ -303,7 +303,7 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 
 ### Release 5 — Create, rival, spectate
 
-- Launch Custom Rift creation and Rival Codes.
+- ✅ Rival Codes shipped. ⬜ Launch Custom Rift creation.
 - Add weekly leagues and friends boards.
 - Verify and expose spectator replays for top runs.
 - Expand achievement, cosmetic, and community challenge content.

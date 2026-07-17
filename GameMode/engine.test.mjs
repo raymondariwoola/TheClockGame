@@ -118,6 +118,45 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   ok(E.indexReplay(null).maxRound === 0, 'indexReplay null-safe');
 })();
 
+// ---------- Rival Codes (encode/decode round-trip) ----------
+(() => {
+  const rec = {
+    identity: 'daily|1|2026-07-18', mode: 'classic', hardcore: false, name: 'Ada L',
+    score: 4210, rounds: 12,
+    strikes: [
+      { round: 1, angle: 33.4, kind: 'perfect', t: 420, s: 100 },
+      { round: 2, angle: 128.9, kind: 'great', t: 300, s: 160 },
+      { round: 5, angle: 200.1, kind: 'miss', t: 250, s: 160 },
+    ],
+  };
+  const code = E.encodeRival(rec);
+  ok(typeof code === 'string' && code.startsWith('CR'), 'rival code is a CR-prefixed string');
+  ok(/^CR[A-Za-z0-9_-]+$/.test(code), 'rival code is paste-safe (base64url)');
+  const back = E.decodeRival(code);
+  ok(back, 'rival code decodes');
+  eq(back.identity, rec.identity, 'identity round-trips (challenge reproducible)');
+  eq(back.mode, 'classic', 'mode round-trips');
+  eq(back.hardcore, false, 'hardcore round-trips');
+  eq(back.name, 'Ada L', 'name round-trips');
+  eq(back.score, 4210, 'score round-trips');
+  eq(back.rounds, 12, 'rounds round-trips');
+  eq(back.strikes.length, 3, 'all strikes round-trip');
+  eq(back.strikes[0].kind, 'perfect', 'strike kind round-trips');
+  eq(back.strikes[0].angle, 33, 'strike angle rounds to int');
+  eq(back.strikes[2].kind, 'miss', 'miss kind round-trips');
+  // hardcore flag + unicode name
+  const back2 = E.decodeRival(E.encodeRival({ identity: 'x', hardcore: true, name: 'Zoë ✨', score: 1, rounds: 1, strikes: [] }));
+  eq(back2.hardcore, true, 'hardcore true round-trips');
+  eq(back2.name, 'Zoë ✨', 'unicode name round-trips');
+  eq(back2.strikes.length, 0, 'empty strike list ok');
+  // robustness: garbage and tampering return null, never throw
+  eq(E.decodeRival('not a code'), null, 'garbage → null');
+  eq(E.decodeRival('CR@@@@'), null, 'invalid base64url chars → null');
+  eq(E.decodeRival(''), null, 'empty → null');
+  eq(E.decodeRival(null), null, 'null → null');
+  eq(E.decodeRival('CR' + 'AAAA'), null, 'valid b64 but wrong shape → null');
+})();
+
 // ---------- bossTypeIndex (deterministic boss cycle) ----------
 (() => {
   const N = 4;

@@ -55,8 +55,17 @@
           <span id="dailyAttempts">Attempts: 0</span>
           <span id="dailyGhost" hidden></span>
         </div>
-        <button class="daily-play" id="dailyPlayBtn" type="button">▶ PLAY TODAY'S RIFT</button>
+        <div class="daily-cta">
+          <button class="daily-play" id="dailyPlayBtn" type="button">▶ PLAY TODAY'S RIFT</button>
+          <button class="daily-challenge" id="dailyChallengeBtn" type="button" hidden>🏁 Challenge a friend</button>
+        </div>
         <p class="daily-note">Same seed for everyone · one fair challenge per day</p>
+
+        <div class="rival-row">
+          <input id="rivalInput" type="text" placeholder="Paste a Rival Code to race…" autocomplete="off" spellcheck="false">
+          <button id="rivalRaceBtn" type="button">RACE</button>
+        </div>
+        <div class="rival-error" id="rivalError" hidden></div>
       </div>
 
       <div class="difficulty-row">
@@ -278,6 +287,7 @@
       <div class="lb-check" id="lbCheck" hidden></div>
       <div class="over-actions">
         <button class="btn-primary" id="retryBtn">RETRY</button>
+        <button class="btn-secondary" id="challengeBtn" hidden>🏁 CHALLENGE A FRIEND</button>
         <button class="btn-secondary" id="shareBtn">📤 SHARE</button>
         <button class="btn-secondary" id="overBoardBtn">🏆 LEADERBOARD</button>
         <button class="btn-secondary" id="menuBtn">MAIN MENU</button>

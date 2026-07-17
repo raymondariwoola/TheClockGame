@@ -78,6 +78,75 @@
     return 'F';
   }
 
+  // ---------- Rival Codes (portable, offline) ----------
+  // A ghost recording is packed into a compact, paste-safe token so a friend
+  // can race the EXACT same challenge (the RNG identity is encoded, so their
+  // run reproduces your rounds/bosses/modifiers bit-for-bit). Base64url of a
+  // delimited text payload — works identically in the browser and in Node.
+  const _KIND_TO_CODE = { perfect: 0, great: 1, good: 2, miss: 3 };
+  const _CODE_TO_KIND = ['perfect', 'great', 'good', 'miss'];
+
+  function _b64urlEncode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let b64;
+    if (typeof Buffer !== 'undefined') b64 = Buffer.from(bytes).toString('base64');
+    else { let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]); b64 = btoa(bin); }
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function _b64urlDecode(b) {
+    b = String(b).replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    let bytes;
+    if (typeof Buffer !== 'undefined') bytes = new Uint8Array(Buffer.from(b, 'base64'));
+    else { const bin = atob(b); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+    return new TextDecoder().decode(bytes);
+  }
+
+  // record: { identity, mode, hardcore, name, score, rounds, strikes:[{round,angle,kind,t,s}] }
+  // Top-level fields are newline-separated (a run identity contains '|' and '.',
+  // but never a newline), strikes are ';'-separated, values ','-separated.
+  function encodeRival(record) {
+    const r = record || {};
+    const strikes = (r.strikes || [])
+      .map(s => [s.round, Math.round(s.angle), (_KIND_TO_CODE[s.kind] != null ? _KIND_TO_CODE[s.kind] : 3), s.t, s.s].join(','))
+      .join(';');
+    const clean = (v) => String(v == null ? '' : v).replace(/[\n;,]/g, ' ');
+    const parts = [
+      1,                              // code format version
+      String(r.identity == null ? '' : r.identity).replace(/\n/g, ''),  // keep '|' — needed to seed
+      clean(r.mode || 'classic'),
+      r.hardcore ? 1 : 0,
+      clean(r.name).slice(0, 24),
+      Math.max(0, Math.round(r.score || 0)),
+      Math.max(0, Math.round(r.rounds || 0)),
+      strikes,
+    ];
+    return 'CR' + _b64urlEncode(parts.join('\n'));
+  }
+
+  function decodeRival(code) {
+    if (typeof code !== 'string') return null;
+    code = code.trim();
+    if (!/^CR[A-Za-z0-9_-]+$/.test(code)) return null;
+    let text;
+    try { text = _b64urlDecode(code.slice(2)); } catch { return null; }
+    const p = text.split('\n');
+    if (p.length < 8 || String(+p[0]) !== p[0]) return null;
+    if (!p[1]) return null;   // identity is required to reproduce the challenge
+    let strikes;
+    try {
+      strikes = p[7] ? p[7].split(';').map(x => {
+        const [round, angle, k, t, s] = x.split(',').map(Number);
+        if (![round, angle, k, t, s].every(Number.isFinite)) throw 0;
+        return { round, angle, kind: _CODE_TO_KIND[k] || 'miss', t, s };
+      }) : [];
+    } catch { return null; }
+    return {
+      v: +p[0], identity: p[1], mode: p[2] || 'classic', hardcore: p[3] === '1',
+      name: p[4] || 'Rival', score: +p[5] || 0, rounds: +p[6] || 0, strikes,
+    };
+  }
+
   // Ghost replay: index a recorded strike stream by round, and forward-fill the
   // cumulative score at the end of each round (so a live run can be compared to
   // its ghost at the same progress point). Pure — unit-tested.
@@ -226,5 +295,6 @@
     angularDistance, classify, scoreFor, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
+    encodeRival, decodeRival,
   };
 });

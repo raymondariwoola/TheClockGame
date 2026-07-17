@@ -615,6 +615,9 @@
     zoneBoost: 1,        // magnet/star widen the target zones
     boss: null,          // active boss encounter: { def, data } (see BOSSES)
     roundElapsed: 0,     // seconds since the current round's spin began (boss ticks)
+    dailyRun: false,     // this run is today's Daily Rift
+    rivalRun: false,     // this run is racing an imported Rival Code
+    rivalRecord: null,   // the decoded rival ghost being raced
   };
 
   // -------- Modifiers --------
@@ -833,7 +836,7 @@
         if (State.boss.def.tick(State, dt, State.roundElapsed)) renderZones(State.zones);
       }
       // Ghost replay: reveal the ghost's strike as its moment arrives.
-      if (State.dailyRun) Ghost.tick(State.round, State.roundElapsed * 1000);
+      if (ghostActive()) Ghost.tick(State.round, State.roundElapsed * 1000);
       let speed = State.handSpeed;
       if (State.powers.freeze) speed = 0;
       else if (State.powers.slowmo) speed *= 0.35;
@@ -975,8 +978,8 @@
       anime({ targets: '.warp-ring', scale: [0.8, 1], opacity: [0, 0.6, 0], duration: 900, delay: anime.stagger(100), easing: 'easeOutQuad' });
     }
 
-    // Ghost replay (Daily): draw this round's ghost strike markers + refresh HUD.
-    if (State.dailyRun) {
+    // Ghost replay (Daily or Rival): draw this round's markers + refresh HUD.
+    if (ghostActive()) {
       Ghost.renderRound(State.round);
       Ghost.updateHud(State.round, State.score);
     }
@@ -1201,9 +1204,12 @@
     }
   }
 
-  // Ghost replay: record the just-resolved strike (Daily only) and refresh HUD.
+  // Ghost recording/playback runs for both Daily Rift and Rival Code races.
+  function ghostActive() { return State.dailyRun || State.rivalRun; }
+
+  // Ghost replay: record the just-resolved strike and refresh HUD.
   function logGhost(kind) {
-    if (!State.dailyRun) return;
+    if (!ghostActive()) return;
     const ls = State._lastStrike;
     Ghost.recordStrike(State.round, ls ? ls.angle : State.handAngle, kind, ls ? ls.t : State.roundElapsed, State.score);
     Ghost.updateHud(State.round, State.score);
@@ -1434,6 +1440,7 @@
   // A Daily Rift depends only on rulesetVersion + date (NOT gameVersion), so the
   // day plays identically for everyone regardless of which patch they're on.
   function runIdentityString(mode) {
+    if (State.rivalRun && State.rivalRecord) return State.rivalRecord.identity;
     if (State.dailyRun) return Daily.seedFor(State.dailyDate);
     const diff = State.hardcore ? 'hc' : 'n';
     return [CONFIG.gameVersion, CONFIG.rulesetVersion, mode, diff, State.seed].join('|');
@@ -1452,6 +1459,11 @@
       State.hardcore = false;
       State.forcedSeed = Daily.seedFor(State.dailyDate);
     }
+    // Rival Code race: adopt the encoded difficulty so the rules match exactly
+    // (the identity is supplied by runIdentityString → identical challenge).
+    if (State.rivalRun && State.rivalRecord) {
+      State.hardcore = !!State.rivalRecord.hardcore;
+    }
     // Seed the deterministic run. A Daily/custom run can pin State.forcedSeed
     // before calling startMode; otherwise we mint a fresh, shareable seed.
     State.seed = State.forcedSeed || newSeed();
@@ -1459,10 +1471,13 @@
     State.assists = collectAssists();
     State.runId = 'r_' + State.seed;
     RNG.seed(runIdentityString(mode));
-    // Ghost replay: record this Daily run and load the best prior ghost to race.
+    // Ghost replay: record this run and load a ghost to race, if any.
     if (State.dailyRun) {
       Ghost.startRecording(runIdentityString(mode), { mode, hardcore: false, date: State.dailyDate });
       Ghost.loadForToday(State.dailyDate);
+    } else if (State.rivalRun) {
+      Ghost.startRecording(runIdentityString(mode), { mode, hardcore: State.hardcore, date: 'rival' });
+      Ghost.loadFromRecord(State.rivalRecord);   // race the imported rival ghost
     } else {
       Ghost.clear();
     }
@@ -1598,6 +1613,16 @@
       runStats.ghostBeaten = Ghost.hasGhost() && State.score > Ghost.ghostScore();
       Ghost.saveIfBest();   // keep the best run of the day as the ghost
     }
+    // Rival Code race: annotate the result (never touches the global board).
+    if (State.rivalRun && State.rivalRecord) {
+      runStats.rival = true;
+      runStats.rivalName = State.rivalRecord.name || 'Rival';
+      runStats.rivalScore = State.rivalRecord.score || 0;
+      runStats.beatRival = State.score > runStats.rivalScore;
+    }
+    // "Challenge a friend" — offer to copy this run as a Rival Code when it was
+    // a recorded run (Daily or Rival) with at least one strike.
+    updateChallengeButton();
 
     // shareable score card (share.js) — gets the global rank later, if any
     if (window.ChronosShare) window.ChronosShare.setStats(runStats);
@@ -1609,6 +1634,22 @@
   function computeRank(score, acc, perfect) {
     // Thresholds live in CONFIG.ranks (ordered best → worst); logic in engine.js.
     return ChronosEngine.computeRank(CONFIG.ranks, score, acc);
+  }
+
+  // Show/wire the game-over "Challenge a friend" button for recorded runs.
+  function updateChallengeButton() {
+    const btn = document.getElementById('challengeBtn');
+    if (!btn) return;
+    const canShare = ghostActive() && Ghost.recordedCount() > 0;
+    btn.hidden = !canShare;
+    if (!canShare) return;
+    btn.onclick = async () => {
+      const code = Rival.encodeCurrentRun();
+      if (!code) { Rival.toast('Nothing to share yet'); return; }
+      const ok = await Rival.copy(code);
+      Rival.toast(ok ? '🏁 Rival Code copied — challenge a friend!' : 'Copy failed — see console');
+      if (!ok) console.log('Rival Code:', code);
+    };
   }
 
   function refreshMenuStats() {
@@ -1630,7 +1671,7 @@
   $$('.mode-card').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
-      State.dailyRun = false;   // a normal mode pick leaves the Daily Rift
+      State.dailyRun = false; State.rivalRun = false;   // a normal mode pick leaves Daily/Rival
       if (window.anime) {
         anime({ targets: btn, scale: [1, 1.1, 1], duration: 250 });
       }
@@ -1644,6 +1685,26 @@
     if (window.anime) anime({ targets: dailyPlayBtn, scale: [1, 1.08, 1], duration: 220 });
     setTimeout(() => Daily.play(e), 180);
   });
+
+  // Rival Codes: share your best Daily ghost, or paste a code to race one.
+  const dailyChallengeBtn = $('dailyChallengeBtn');
+  if (dailyChallengeBtn) dailyChallengeBtn.addEventListener('click', async () => {
+    const code = Rival.encodeStoredDaily(Daily.todayKey());
+    if (!code) { Rival.toast('Play the rift first to create a ghost'); return; }
+    const ok = await Rival.copy(code);
+    Rival.toast(ok ? '🏁 Rival Code copied — challenge a friend!' : 'Copy failed — see console');
+    if (!ok) console.log('Rival Code:', code);
+  });
+  const rivalRaceBtn = $('rivalRaceBtn'), rivalInput = $('rivalInput'), rivalError = $('rivalError');
+  function doRivalRace() {
+    if (!rivalInput) return;
+    const started = Rival.startRace(rivalInput.value);
+    if (!started) {
+      if (rivalError) { rivalError.textContent = 'That doesn\'t look like a valid Rival Code.'; rivalError.hidden = false; }
+    } else if (rivalError) { rivalError.hidden = true; rivalInput.value = ''; }
+  }
+  if (rivalRaceBtn) rivalRaceBtn.addEventListener('click', doRivalRace);
+  if (rivalInput) rivalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doRivalRace(); });
 
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
@@ -2435,8 +2496,18 @@
       playback = { score: g.score, rounds: g.rounds, byRound: idx.byRound, scoreByRound: idx.scoreByRound, maxRound: idx.maxRound };
       return playback;
     }
+    // Load a ghost straight from a record object (used by Rival Codes).
+    function loadFromRecord(rec) {
+      if (!rec || !Array.isArray(rec.strikes) || !rec.strikes.length) { playback = null; return null; }
+      const idx = ChronosEngine.indexReplay(rec.strikes);
+      playback = { score: rec.score || 0, rounds: rec.rounds || 0, name: rec.name || 'Rival',
+        byRound: idx.byRound, scoreByRound: idx.scoreByRound, maxRound: idx.maxRound };
+      return playback;
+    }
+    function getRecording() { return recording; }
     function hasGhost() { return !!playback; }
     function ghostScore() { return playback ? playback.score : 0; }
+    function ghostName() { return playback ? (playback.name || 'Ghost') : 'Ghost'; }
     function ghostScoreThroughRound(r) {
       if (!playback) return 0;
       if (r >= playback.maxRound) return playback.score;
@@ -2498,7 +2569,8 @@
       const sign = delta >= 0 ? '+' : '−';
       el.hidden = false;
       el.className = 'ghost-hud' + (delta >= 0 ? ' ahead' : ' behind');
-      el.innerHTML = `👻 ${ghostScore().toLocaleString()} · <b>${sign}${Math.abs(delta).toLocaleString()}</b>`;
+      const label = playback.name ? `${playback.name} ` : '';
+      el.innerHTML = `👻 ${label}${ghostScore().toLocaleString()} · <b>${sign}${Math.abs(delta).toLocaleString()}</b>`;
     }
 
     function clear() {
@@ -2509,9 +2581,72 @@
 
     return {
       startRecording, recordStrike, recordedCount, saveIfBest, storedForDate,
-      loadForToday, hasGhost, ghostScore, ghostScoreThroughRound,
-      renderRound, tick, updateHud, clear,
+      loadForToday, loadFromRecord, getRecording, hasGhost, ghostScore, ghostName,
+      ghostScoreThroughRound, renderRound, tick, updateHud, clear,
     };
+  })();
+
+  // ============================================================
+  // RIVAL CODES — export a ghost as a paste-safe code; import one to race the
+  // EXACT same challenge asynchronously. Encodes the run's RNG identity, so the
+  // recipient reproduces the rounds/bosses/modifiers bit-for-bit (codec lives
+  // in engine.js: encodeRival / decodeRival).
+  // ============================================================
+  const Rival = (() => {
+    // Player's display name (remembered by the leaderboard), else "Rival".
+    function playerName() {
+      try {
+        const n = JSON.parse(localStorage.getItem('cs_player_name') || 'null');
+        if (n && (n.first || n.last)) return `${n.first || ''} ${n.last || ''}`.trim();
+      } catch {}
+      return 'Rival';
+    }
+
+    function encodeRecord(rec, name) {
+      if (!rec || !Array.isArray(rec.strikes) || !rec.strikes.length) return null;
+      return ChronosEngine.encodeRival(Object.assign({}, rec, { name: name || rec.name || playerName() }));
+    }
+    // Code for the run you just played (from the live recording).
+    function encodeCurrentRun() { return encodeRecord(Ghost.getRecording(), playerName()); }
+    // Code for your stored best Daily ghost.
+    function encodeStoredDaily(dateKey) { return encodeRecord(Ghost.storedForDate(dateKey), playerName()); }
+
+    // Begin a race against an imported code. Returns false on an invalid code.
+    function startRace(code, origin) {
+      const rec = ChronosEngine.decodeRival(code);
+      if (!rec || !rec.strikes.length) return false;
+      State.dailyRun = false;
+      State.rivalRun = true;
+      State.rivalRecord = rec;
+      AudioFx.newRound();
+      startMode(rec.mode === 'endless' ? 'endless' : rec.mode === 'zen' ? 'zen' : 'classic');
+      return true;
+    }
+
+    async function copy(text) {
+      if (!text) return false;
+      try { await navigator.clipboard.writeText(text); return true; }
+      catch {
+        // Fallback for browsers without the async clipboard API.
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          const ok = document.execCommand('copy'); ta.remove(); return ok;
+        } catch { return false; }
+      }
+    }
+
+    function toast(text) {
+      const t = document.createElement('div');
+      t.className = 'god-toast cheat-toast';
+      t.textContent = text;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('show'));
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 1900);
+    }
+
+    return { playerName, encodeCurrentRun, encodeStoredDaily, startRace, copy, toast };
   })();
 
   // ============================================================
@@ -2571,6 +2706,7 @@
 
     function play(origin) {
       State.dailyRun = true;
+      State.rivalRun = false;
       State.dailyDate = todayKey();
       AudioFx.newRound();
       startMode('classic');   // Daily is Classic/Normal; startMode pins the seed
@@ -2612,11 +2748,14 @@
       set('dailyAttempts', `Attempts: ${rec.attempts}`);
       // Ghost line: if a best-run ghost exists for today, advertise the race.
       const ghostEl = document.getElementById('dailyGhost');
+      const g = Ghost.storedForDate(key);
       if (ghostEl) {
-        const g = Ghost.storedForDate(key);
         if (g) { ghostEl.hidden = false; ghostEl.textContent = `👻 Ghost: ${g.score.toLocaleString()}`; }
         else ghostEl.hidden = true;
       }
+      // Show "Challenge a friend" only once a ghost exists to share.
+      const chBtn = document.getElementById('dailyChallengeBtn');
+      if (chBtn) chBtn.hidden = !g;
       const badge = document.getElementById('dailyDone');
       if (badge) badge.hidden = !rec.completed;
       card.hidden = false;
@@ -2648,6 +2787,8 @@
       recorded: Ghost.recordedCount(),
       hasGhost: Ghost.hasGhost(),
       ghostScore: Ghost.ghostScore(),
+      ghostName: Ghost.ghostName(),
+      rivalRun: !!State.rivalRun,
       ghostMarkers: (document.getElementById('ghostLayer') || {}).childElementCount || 0,
       hudHidden: (document.getElementById('ghostHud') || {}).hidden,
     }),
@@ -2655,7 +2796,7 @@
     // gameplay side effects persist). Used to verify boss cycling.
     debugSetupRound: (round, mode = 'classic', hardcore = false, seed = 'test') => {
       State.mode = mode; State.hardcore = hardcore; State.round = round;
-      State.dailyRun = false; State.spinning = false;
+      State.dailyRun = false; State.rivalRun = false; State.spinning = false;
       RNG.seed([CONFIG.gameVersion, CONFIG.rulesetVersion, mode, hardcore ? 'hc' : 'n', seed].join('|'));
       setupRound();
       return {

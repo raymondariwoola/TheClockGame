@@ -277,6 +277,15 @@
       elLbCheck.textContent = `🗓️ DAILY RIFT — "${stats.riftName || 'Today'}" · LOCAL BEST SAVED`;
       return;
     }
+    // Rival Code race: a private head-to-head — show the result, never ranked.
+    if (stats.rival) {
+      elLbCheck.hidden = false;
+      elLbCheck.className = 'lb-check ' + (stats.beatRival ? 'qualified' : '');
+      elLbCheck.textContent = stats.beatRival
+        ? `🏁 YOU BEAT ${(stats.rivalName || 'RIVAL').toUpperCase()}! ${stats.score.toLocaleString()} vs ${(stats.rivalScore || 0).toLocaleString()}`
+        : `🏁 ${(stats.rivalName || 'RIVAL').toUpperCase()} WINS — ${(stats.rivalScore || 0).toLocaleString()} vs ${stats.score.toLocaleString()}. Rematch!`;
+      return;
+    }
     // Zen has no lives, so scores are unbounded — keep it off the global board
     if (stats.mode === 'zen' || stats.score <= 0) { elLbCheck.hidden = true; return; }
 
