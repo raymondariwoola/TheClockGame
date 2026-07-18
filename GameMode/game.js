@@ -1877,13 +1877,11 @@
   const achOverlay = $('achievementsOverlay');
   if (achOverlay) achOverlay.addEventListener('click', (e) => { if (e.target === achOverlay) Achievements.closeGallery(); });
 
-  // Player identity (name for share cards + leaderboard)
-  Identity.wire();
-  Identity.render();
-  Identity.maybePrompt();
+  // Player identity is wired at the bottom (its module const is defined later
+  // in the file — calling it here would hit the temporal dead zone).
 
   // Accessibility & display settings
-  A11y.applyClasses();   // reflect saved (or OS-preferred) settings on load
+  A11y.applyClasses();   // reflect saved (or OS-preferred) settings on load (A11y is defined up top)
   const menuA11yBtn = $('menuA11yBtn');
   if (menuA11yBtn) menuA11yBtn.addEventListener('click', () => A11y.open());
   const a11yCloseBtn = $('a11yCloseBtn');
@@ -3179,7 +3177,9 @@
 
   // Initial menu render
   applyMenuCopy();
-  refreshMenuStats();
+  Identity.wire();          // safe here: all module consts are initialised by now
+  refreshMenuStats();       // renders the identity chip (Identity.render) among others
+  Identity.maybePrompt();
   if (window.anime) {
     anime({ targets: '.logo-ring', rotate: '360deg', duration: 12000, loop: true, easing: 'linear' });
     anime({ targets: '.menu-stats .stat-card', translateY: [30, 0], opacity: [0, 1], delay: anime.stagger(100, { start: 200 }), duration: 600, easing: 'easeOutCubic' });

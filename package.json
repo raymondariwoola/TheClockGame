@@ -4,6 +4,6 @@
   "private": true,
   "description": "Clock Quest + Chronos Strike — browser games (no build step).",
   "scripts": {
-    "test": "node GameMode/engine.test.mjs"
+    "test": "node GameMode/engine.test.mjs && node GameMode/game.loadtest.cjs"
   }
 }
