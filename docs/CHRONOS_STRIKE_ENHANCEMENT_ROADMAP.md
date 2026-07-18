@@ -46,7 +46,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | P1 | Precision Lab ✅ + ghost replay ✅ (Daily) | High | Medium |
 | P1 | Versioned seeded runs and leaderboard payloads | Very high | Medium |
 | P2 | True multi-phase bosses — ✅ first 4 shipped (3 more + phase bars to do) | High | Medium–Large |
-| P2 | Hall of Time achievements ✅ (cosmetics to do) | High | Medium |
+| P2 | Hall of Time achievements ✅ + cosmetics ✅ | High | Medium |
 | P2 | Act-break run upgrades | High | Medium |
 | P2 | Accessibility & control customization ✅ (remap/gamepad to do) | High | Medium |
 | P3 | Rival Codes ✅ · Custom Rift creator (to do) | Medium–High | Large |
@@ -123,7 +123,9 @@ Bosses should be deterministic, telegraphed, and practiceable. Difficulty should
 - A best rank and fastest/perfect clear record.
 - A Precision Lab practice preset after the first encounter.
 
-### 4. Hall of Time achievements and cosmetics — ✅ achievements shipped
+### 4. Hall of Time achievements and cosmetics — ✅ achievements + cosmetics shipped
+
+**Cosmetics ✅ shipped:** achievement-gated, purely-visual rewards in a Customize locker (menu → 🎨) across three categories — **Clock Hand** skins (Goldflow/Verdant/Nova/Prism), **Strike Ring** reticles (Crosshair/Pulsar/Bulwark), and **Judgment** typography (Classic/Impact/Arcade). Registry + unlock resolution are pure/tested (`ChronosEngine.COSMETICS`, `resolveCosmetics`, `cosmeticsFor`); equipped selections persist (`cs_cosmetics_v1`) and apply as `cos-<category>-<id>` body classes — they never touch hitboxes, timing, RNG, score, or leaderboard visibility. Achievement unlock toasts now name the cosmetic earned. **Still to do:** hit-sounds, menu themes, score-card frames, hand trails.
 
 **Shipped:** a 15-achievement roster (data-driven in `ChronosEngine.ACHIEVEMENTS`, pure `evaluateAchievements` — unit-tested) covering per-run feats (Hairline, Combo Master, Overclocked, Against the Current, Untouchable, Unbroken, No Crutches, Time Lord, Century) and lifetime milestones (Boss Slayer, Perfectionist, Veteran, Daily Devotee). A lifetime **profile** (`cs_profile_v1`) + unlocked store (`cs_achievements_v1`) persist locally; runs are evaluated at game-over (GOD/cheat runs excluded so unlocks stay earned), with a staggered **unlock toast** and a **Hall of Time gallery** (menu → 🏅 Achievements) showing locked/unlocked state, unlock dates, and a progress bar. **Still to do:** cosmetic rewards (reticles, hand trails, clock skins, hit sounds, score-card frames) — the intended unlock payoff.
 
@@ -302,7 +304,7 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 
 - Add Act-break upgrade choices.
 - Ship the expanded modifier set and remaining bosses.
-- Add cosmetics and versioned ruleset boards.
+- ✅ Add cosmetics. ⬜ Versioned ruleset boards.
 - Make the complete game reliably installable and offline.
 
 ### Release 5 — Create, rival, spectate

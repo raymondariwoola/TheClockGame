@@ -1447,6 +1447,56 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 .rival-row button:hover { transform: translateY(-1px); }
 .rival-error { font-family: 'Rajdhani', sans-serif; font-size: 12px; color: var(--neon-red); }
 
+/* ---- Cosmetics (visual only) ---- */
+/* Hand skins: swap the main coloured line's stroke to a cosmetic gradient */
+body.cos-hand-gold    #hand line:first-of-type { stroke: url(#handGold) !important; }
+body.cos-hand-emerald #hand line:first-of-type { stroke: url(#handEmerald) !important; }
+body.cos-hand-magenta #hand line:first-of-type { stroke: url(#handMagenta) !important; }
+body.cos-hand-rainbow #hand line:first-of-type { stroke: url(#handRainbow) !important; }
+/* Strike-ring reticles */
+body.cos-reticle-heavy .strike-zone { border-width: 5px; filter: brightness(1.25); }
+body.cos-reticle-pulse .strike-zone { animation: cosReticlePulse 1.4s ease-in-out infinite; }
+@keyframes cosReticlePulse { 0%,100% { box-shadow: 0 0 10px 2px rgba(0,240,255,0.35); } 50% { box-shadow: 0 0 26px 8px rgba(0,240,255,0.6); } }
+body.cos-reticle-crosshair .strike-zone::before,
+body.cos-reticle-crosshair .strike-zone::after {
+  content: ''; position: absolute; left: 50%; top: 50%; background: rgba(0,240,255,0.6);
+}
+body.cos-reticle-crosshair .strike-zone::before { width: 2px; height: 26px; transform: translate(-50%,-50%); }
+body.cos-reticle-crosshair .strike-zone::after  { width: 26px; height: 2px; transform: translate(-50%,-50%); }
+/* Judgment typography */
+body.cos-judgment-serif  .judgment { font-family: Georgia, 'Times New Roman', serif !important; }
+body.cos-judgment-impact .judgment { font-family: 'Arial Black', Impact, sans-serif !important; letter-spacing: 2px; }
+body.cos-judgment-retro  .judgment { font-family: 'Courier New', monospace !important; letter-spacing: 3px; }
+
+/* Locker modal */
+.cos-modal { max-width: 620px; width: 92vw; max-height: 88vh; display: flex; flex-direction: column; }
+.cos-title { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 900; color: var(--neon-magenta); text-align: center; margin-bottom: 6px; }
+.cos-sub { font-family: 'Rajdhani', sans-serif; font-size: 13px; color: var(--ink-dim); text-align: center; margin-bottom: 14px; line-height: 1.4; }
+#cosCount { color: var(--neon-yellow); font-weight: 700; }
+.cos-grid { overflow-y: auto; display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.cos-section-title { font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 2px; color: var(--neon-cyan); margin-bottom: 8px; }
+.cos-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.cos-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; padding: 12px 8px; cursor: pointer; transition: all 0.2s; color: var(--ink);
+}
+.cos-card:hover:not(.locked) { border-color: var(--neon-cyan); transform: translateY(-2px); }
+.cos-card.equipped { border-color: var(--neon-green); background: rgba(45,255,170,0.1); box-shadow: var(--shadow-glow) rgba(45,255,170,0.2); }
+.cos-card.locked { opacity: 0.5; cursor: default; }
+.cos-prev { display: inline-flex; align-items: center; justify-content: center; height: 34px; }
+.cos-prev-hand { width: 8px; height: 34px; border-radius: 4px; }
+.cos-prev-reticle { font-size: 30px; }
+.cos-prev-judge { font-size: 22px; font-weight: 800; color: var(--ink); }
+.cosr-default { color: #fff; } .cosr-crosshair { color: var(--neon-cyan); }
+.cosr-pulse { color: var(--neon-yellow); } .cosr-heavy { color: var(--neon-red); }
+.cosj-serif { font-family: Georgia, serif; } .cosj-impact { font-family: 'Arial Black', Impact, sans-serif; }
+.cosj-retro { font-family: 'Courier New', monospace; }
+.cos-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; }
+.cos-status { font-family: 'Rajdhani', sans-serif; font-size: 11px; color: var(--ink-dim); text-align: center; }
+.cos-card.equipped .cos-status { color: var(--neon-green); font-weight: 700; }
+.ach-toast-reward { font-size: 11px; color: var(--neon-magenta); font-weight: 700; margin-top: 2px; }
+
 /* ---- Hall of Time achievements ---- */
 .menu-board-btn.ach { margin-top: 10px; }
 .ach-card-modal { max-width: 760px; width: 92vw; max-height: 88vh; display: flex; flex-direction: column; }

@@ -152,6 +152,44 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   ok(Array.isArray(E.evaluateAchievements({}, null)), 'evaluate is null-safe');
 })();
 
+// ---------- Cosmetics (achievement rewards) ----------
+(() => {
+  ok(E.COSMETICS && E.COSMETICS.hand && E.COSMETICS.reticle && E.COSMETICS.judgment, 'cosmetics categories present');
+  // every unlock id must reference a real achievement (or be null)
+  const achIds = new Set(E.ACHIEVEMENTS.map(a => a.id));
+  let allValid = true;
+  for (const cat in E.COSMETICS) for (const it of E.COSMETICS[cat].items) {
+    if (it.unlock !== null && !achIds.has(it.unlock)) allValid = false;
+    if (!it.id || !it.name) allValid = false;
+  }
+  ok(allValid, 'every cosmetic is well-formed and references a real achievement');
+  // each category has exactly one always-available default (id "default", unlock null)
+  for (const cat in E.COSMETICS) {
+    const defaults = E.COSMETICS[cat].items.filter(it => it.unlock === null);
+    ok(defaults.length === 1 && defaults[0].id === 'default', `${cat} has one default`);
+  }
+
+  // fresh profile: only defaults unlocked, equipped falls back to default
+  let r = E.resolveCosmetics({ hand: 'gold' }, {});
+  eq(r.equipped.hand, 'default', 'locked equipped choice falls back to default');
+  ok(r.unlocked.hand.indexOf('gold') < 0, 'gold locked with no achievements');
+  ok(r.unlocked.hand.indexOf('default') >= 0, 'default always unlocked');
+
+  // unlock the gating achievement → item available + equip sticks
+  r = E.resolveCosmetics({ hand: 'gold' }, { 'time-lord': '2026-01-01' });
+  ok(r.unlocked.hand.indexOf('gold') >= 0, 'gold unlocked after time-lord');
+  eq(r.equipped.hand, 'gold', 'equipped gold sticks when unlocked');
+
+  // unknown equipped id → default
+  eq(E.resolveCosmetics({ reticle: 'bogus' }, {}).equipped.reticle, 'default', 'unknown id → default');
+  // null-safe
+  ok(E.resolveCosmetics(null, null).equipped.hand === 'default', 'resolveCosmetics null-safe');
+
+  // cosmeticsFor maps achievement → reward
+  ok(E.cosmeticsFor('time-lord').some(c => c.id === 'gold' && c.category === 'hand'), 'cosmeticsFor finds gold hand for time-lord');
+  eq(E.cosmeticsFor('first-strike').length, 0, 'first-strike unlocks no cosmetic');
+})();
+
 // ---------- Rival Codes (encode/decode round-trip) ----------
 (() => {
   const rec = {

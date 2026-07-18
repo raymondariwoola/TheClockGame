@@ -116,6 +116,12 @@
         <span class="mb-arrow">→</span>
       </button>
 
+      <button class="menu-board-btn cos" id="menuCosBtn">
+        <span class="mb-icon">🎨</span>
+        <span class="mb-text">CUSTOMIZE — UNLOCK WITH ACHIEVEMENTS</span>
+        <span class="mb-arrow">→</span>
+      </button>
+
       <button class="menu-board-btn a11y" id="menuA11yBtn">
         <span class="mb-icon">♿</span>
         <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
@@ -190,6 +196,19 @@
               <stop offset="0%" stop-color="#ffffff"/>
               <stop offset="60%" stop-color="#00f0ff"/>
               <stop offset="100%" stop-color="#0066ff"/>
+            </linearGradient>
+            <!-- Cosmetic hand gradients (equipped via body.cos-hand-* classes) -->
+            <linearGradient id="handGold" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#ffcf40"/><stop offset="100%" stop-color="#c8860a"/>
+            </linearGradient>
+            <linearGradient id="handEmerald" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#2dffaa"/><stop offset="100%" stop-color="#0a8f5a"/>
+            </linearGradient>
+            <linearGradient id="handMagenta" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#ff2bb5"/><stop offset="100%" stop-color="#8b1a6a"/>
+            </linearGradient>
+            <linearGradient id="handRainbow" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ff4060"/><stop offset="30%" stop-color="#ffe066"/><stop offset="55%" stop-color="#2dffaa"/><stop offset="80%" stop-color="#00f0ff"/><stop offset="100%" stop-color="#8b5cff"/>
             </linearGradient>
             <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             <filter id="strongGlow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -372,6 +391,16 @@
       <p class="a11y-sub">Options are saved on this device. Assists that change timing are recorded with your run.</p>
       <div class="a11y-rows" id="a11yRows"></div>
       <button class="btn-primary" id="a11yCloseBtn">DONE</button>
+    </div>
+  </div>
+
+  <!-- Cosmetics locker -->
+  <div id="cosmeticsOverlay" class="overlay" hidden>
+    <div class="overlay-card cos-modal">
+      <h2 class="cos-title">🎨 CUSTOMIZE</h2>
+      <p class="cos-sub">Earn cosmetics by unlocking achievements. Looks only — they never change how the game plays. <span id="cosCount"></span></p>
+      <div class="cos-grid" id="cosGrid"></div>
+      <button class="btn-primary" id="cosCloseBtn">DONE</button>
     </div>
   </div>
 

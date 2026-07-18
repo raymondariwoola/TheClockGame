@@ -126,6 +126,69 @@
     return out;
   }
 
+  // ---------- Cosmetics (achievement rewards, purely visual) ----------
+  // Each item unlocks via an achievement id (or null = always available). The
+  // game applies the equipped item as a body class (cos-<category>-<id>) — it
+  // NEVER changes hitboxes, timing, RNG, score, or leaderboard visibility.
+  const COSMETICS = {
+    hand: {
+      label: 'Clock Hand',
+      items: [
+        { id: 'default', name: 'Aurora', unlock: null },
+        { id: 'gold', name: 'Goldflow', unlock: 'time-lord' },
+        { id: 'emerald', name: 'Verdant', unlock: 'unbroken' },
+        { id: 'magenta', name: 'Nova', unlock: 'combo-master' },
+        { id: 'rainbow', name: 'Prism', unlock: 'perfectionist' },
+      ],
+    },
+    reticle: {
+      label: 'Strike Ring',
+      items: [
+        { id: 'default', name: 'Standard', unlock: null },
+        { id: 'crosshair', name: 'Crosshair', unlock: 'sharpshooter' },
+        { id: 'pulse', name: 'Pulsar', unlock: 'overdrive' },
+        { id: 'heavy', name: 'Bulwark', unlock: 'boss-slayer' },
+      ],
+    },
+    judgment: {
+      label: 'Judgment Text',
+      items: [
+        { id: 'default', name: 'Neon', unlock: null },
+        { id: 'serif', name: 'Classic', unlock: 'veteran' },
+        { id: 'impact', name: 'Impact', unlock: 'century' },
+        { id: 'retro', name: 'Arcade', unlock: 'daily-devotee' },
+      ],
+    },
+  };
+
+  // Given saved selections + unlocked achievements, return the unlocked item ids
+  // per category and the effective equipped id (falling back to 'default' if the
+  // saved choice is locked or unknown). Pure — unit-tested.
+  function resolveCosmetics(equipped, unlockedAch) {
+    equipped = equipped || {};
+    unlockedAch = unlockedAch || {};
+    const out = { equipped: {}, unlocked: {} };
+    for (const cat in COSMETICS) {
+      const items = COSMETICS[cat].items;
+      const unlockedIds = items.filter(it => it.unlock === null || unlockedAch[it.unlock]).map(it => it.id);
+      out.unlocked[cat] = unlockedIds;
+      const want = equipped[cat];
+      out.equipped[cat] = unlockedIds.indexOf(want) >= 0 ? want : 'default';
+    }
+    return out;
+  }
+
+  // Which cosmetic items (if any) an achievement id unlocks — for reward toasts.
+  function cosmeticsFor(achId) {
+    const found = [];
+    for (const cat in COSMETICS) {
+      for (const it of COSMETICS[cat].items) {
+        if (it.unlock === achId) found.push({ category: cat, id: it.id, name: it.name });
+      }
+    }
+    return found;
+  }
+
   // ---------- Rival Codes (portable, offline) ----------
   // A ghost recording is packed into a compact, paste-safe token so a friend
   // can race the EXACT same challenge (the RNG identity is encoded, so their
@@ -344,5 +407,6 @@
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
     encodeRival, decodeRival, ACHIEVEMENTS, evaluateAchievements,
+    COSMETICS, resolveCosmetics, cosmeticsFor,
   };
 });

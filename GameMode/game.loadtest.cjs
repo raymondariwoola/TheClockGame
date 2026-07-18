@@ -70,7 +70,9 @@ const ctx = {
   btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
   atob: (s) => Buffer.from(s, 'base64').toString('binary'),
   Audio: function () { return universal(); },
-  AudioContext: function () { return universal(); },
+  // Throw so the game's own try/catch sets its audio ctx to null and sounds
+  // become no-ops (matches a device with no audio) — avoids WebAudio mocking.
+  AudioContext: function () { throw new Error('no audio in load test'); },
 };
 ctx.window = ctx;
 ctx.self = ctx;

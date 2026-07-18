@@ -1889,6 +1889,14 @@
   const a11yOverlay = $('a11yOverlay');
   if (a11yOverlay) a11yOverlay.addEventListener('click', (e) => { if (e.target === a11yOverlay) A11y.close(); });
 
+  // Cosmetics locker (deferred callbacks — the Cosmetics const is defined later)
+  const menuCosBtn = $('menuCosBtn');
+  if (menuCosBtn) menuCosBtn.addEventListener('click', () => Cosmetics.open());
+  const cosCloseBtn = $('cosCloseBtn');
+  if (cosCloseBtn) cosCloseBtn.addEventListener('click', () => Cosmetics.close());
+  const cosOverlay = $('cosmeticsOverlay');
+  if (cosOverlay) cosOverlay.addEventListener('click', (e) => { if (e.target === cosOverlay) Cosmetics.close(); });
+
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
   $('resumeBtn').addEventListener('click', () => togglePause(false));
@@ -2888,15 +2896,18 @@
       ids.forEach((id, i) => {
         const a = ChronosEngine.ACHIEVEMENTS.find(x => x.id === id);
         if (!a) return;
+        const reward = ChronosEngine.cosmeticsFor(id)[0];   // cosmetic this unlocks, if any
         setTimeout(() => {
           AudioFx.super();
           const el = document.createElement('div');
           el.className = 'ach-toast';
           el.innerHTML = `<span class="ach-toast-ic">${a.icon}</span>` +
-            `<span class="ach-toast-txt"><b>Achievement unlocked</b>${a.name}</span>`;
+            `<span class="ach-toast-txt"><b>Achievement unlocked</b>${a.name}` +
+            (reward ? `<span class="ach-toast-reward">🎨 Unlocked cosmetic: ${reward.name}</span>` : '') +
+            `</span>`;
           document.body.appendChild(el);
           requestAnimationFrame(() => el.classList.add('show'));
-          setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3200);
+          setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3400);
         }, 700 + i * 900);
       });
     }
@@ -2931,6 +2942,101 @@
     function closeGallery() { const ov = document.getElementById('achievementsOverlay'); if (ov) ov.hidden = true; }
 
     return { recordRun, openGallery, closeGallery, unlockedCount, total };
+  })();
+
+  // ============================================================
+  // COSMETICS — achievement rewards, applied as body classes. Purely visual:
+  // never touches hitboxes, timing, RNG, score, or leaderboard visibility.
+  // Registry + unlock resolution live in engine.js (ChronosEngine.COSMETICS).
+  // ============================================================
+  const Cosmetics = (() => {
+    const KEY = 'cs_cosmetics_v1';
+    const ACH_KEY = 'cs_achievements_v1';
+    // Swatch previews for the hand-colour options (visual only).
+    const HAND_SWATCH = {
+      default: 'linear-gradient(180deg,#fff,#00f0ff,#0066ff)',
+      gold: 'linear-gradient(180deg,#fff,#ffcf40,#c8860a)',
+      emerald: 'linear-gradient(180deg,#fff,#2dffaa,#0a8f5a)',
+      magenta: 'linear-gradient(180deg,#fff,#ff2bb5,#8b1a6a)',
+      rainbow: 'linear-gradient(180deg,#ff4060,#ffe066,#2dffaa,#00f0ff,#8b5cff)',
+    };
+
+    function loadEquipped() { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { return {}; } }
+    function saveEquipped(e) { try { localStorage.setItem(KEY, JSON.stringify(e)); } catch {} }
+    function unlockedAch() { try { return JSON.parse(localStorage.getItem(ACH_KEY) || '{}') || {}; } catch { return {}; } }
+    function resolved() { return ChronosEngine.resolveCosmetics(loadEquipped(), unlockedAch()); }
+
+    // Apply equipped cosmetics as body classes (only touches cos-* classes).
+    function apply() {
+      const b = document.body; if (!b) return;
+      const C = ChronosEngine.COSMETICS;
+      const r = resolved();
+      for (const cat in C) for (const it of C[cat].items) b.classList.remove(`cos-${cat}-${it.id}`);
+      for (const cat in r.equipped) b.classList.add(`cos-${cat}-${r.equipped[cat]}`);
+    }
+
+    function equip(cat, id) {
+      const r = resolved();
+      if (!r.unlocked[cat] || r.unlocked[cat].indexOf(id) < 0) return;   // locked → ignore
+      const e = loadEquipped(); e[cat] = id; saveEquipped(e);
+      apply(); render(); AudioFx.powerup();
+    }
+
+    function achName(id) {
+      const a = ChronosEngine.ACHIEVEMENTS.find(x => x.id === id);
+      return a ? a.name : id;
+    }
+
+    function render() {
+      const host = document.getElementById('cosGrid'); if (!host) return;
+      const C = ChronosEngine.COSMETICS;
+      const r = resolved();
+      host.innerHTML = '';
+      for (const cat in C) {
+        const section = document.createElement('div');
+        section.className = 'cos-section';
+        const h = document.createElement('div');
+        h.className = 'cos-section-title';
+        h.textContent = C[cat].label;
+        section.appendChild(h);
+        const grid = document.createElement('div');
+        grid.className = 'cos-items';
+        C[cat].items.forEach(it => {
+          const unlocked = r.unlocked[cat].indexOf(it.id) >= 0;
+          const equipped = r.equipped[cat] === it.id;
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'cos-card' + (unlocked ? '' : ' locked') + (equipped ? ' equipped' : '');
+          // preview
+          let preview;
+          if (cat === 'hand') {
+            preview = `<span class="cos-prev cos-prev-hand" style="background:${unlocked ? HAND_SWATCH[it.id] : 'rgba(255,255,255,0.15)'}"></span>`;
+          } else if (cat === 'reticle') {
+            preview = `<span class="cos-prev cos-prev-reticle cosr-${it.id}">◎</span>`;
+          } else {
+            preview = `<span class="cos-prev cos-prev-judge cosj-${it.id}">Aa</span>`;
+          }
+          card.innerHTML = preview +
+            `<span class="cos-name">${it.name}</span>` +
+            `<span class="cos-status">${equipped ? 'Equipped' : unlocked ? 'Tap to equip' : '🔒 ' + achName(it.unlock)}</span>`;
+          if (unlocked) card.addEventListener('click', () => equip(cat, it.id));
+          grid.appendChild(card);
+        });
+        section.appendChild(grid);
+        host.appendChild(section);
+      }
+      const count = document.getElementById('cosCount');
+      if (count) {
+        let unlockedTotal = 0, total = 0;
+        for (const cat in C) { total += C[cat].items.length; unlockedTotal += r.unlocked[cat].length; }
+        count.textContent = `${unlockedTotal} / ${total} unlocked`;
+      }
+    }
+
+    function open() { render(); const ov = document.getElementById('cosmeticsOverlay'); if (ov) ov.hidden = false; }
+    function close() { const ov = document.getElementById('cosmeticsOverlay'); if (ov) ov.hidden = true; }
+
+    return { apply, open, close, render, equip };
   })();
 
   // ============================================================
@@ -3153,6 +3259,10 @@
       if (key != null) A11y.set(key, val);
       return { settings: A11y.get(), assists: A11y.assists(), bodyClasses: document.body.className };
     },
+    debugCosmetics: (cat, id) => {
+      if (cat && id) Cosmetics.equip(cat, id); else Cosmetics.apply();
+      return { bodyClasses: document.body.className };
+    },
     debugAchievements: (run) => {
       const newly = Achievements.recordRun(run || { mode: 'classic', perfectHits: 12, score: 100, round: 1 });
       return { newly, unlocked: Achievements.unlockedCount(), total: Achievements.total() };
@@ -3177,6 +3287,7 @@
 
   // Initial menu render
   applyMenuCopy();
+  Cosmetics.apply();        // equip saved cosmetics (safe here: all consts initialised)
   Identity.wire();          // safe here: all module consts are initialised by now
   refreshMenuStats();       // renders the identity chip (Identity.render) among others
   Identity.maybePrompt();
