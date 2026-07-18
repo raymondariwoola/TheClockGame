@@ -71,6 +71,97 @@
     };
   })();
 
+  // ============================================================
+  // ACCESSIBILITY — persisted comfort + control options. Defined early so the
+  // starfield, particle FX, and screen-shake can consult it as they run.
+  // Timing-affecting assists (visual beat) are recorded in run metadata so
+  // assisted runs are categorised fairly, never hidden or treated as cheating.
+  // ============================================================
+  const A11y = (() => {
+    const KEY = 'cs_a11y_v1';
+    const DEF = {
+      reduceMotion: false, reduceShake: false, reduceParticles: false, reduceFlashes: false,
+      highContrast: false, largeHud: false, leftHanded: false, cbPatterns: false, visualBeat: false,
+    };
+    let s = load();
+
+    function load() {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch {}
+      if (!saved) {
+        // First run: honour the OS "reduce motion" preference.
+        const prefersRM = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        return Object.assign({}, DEF, { reduceMotion: !!prefersRM });
+      }
+      return Object.assign({}, DEF, saved);
+    }
+    function save() { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} }
+
+    const get = () => s;
+    function set(key, val) { if (key in DEF) { s[key] = !!val; save(); applyClasses(); } }
+
+    // Effect predicates (a reduce-motion master implies the specific reductions).
+    const shake = () => !(s.reduceShake || s.reduceMotion);
+    const particles = () => !(s.reduceParticles || s.reduceMotion);
+    const flashes = () => !(s.reduceFlashes || s.reduceMotion);
+    const motion = () => !s.reduceMotion;
+
+    // Only timing-affecting options count as assists in run metadata.
+    function assists() { const a = {}; if (s.visualBeat) a.visualBeat = true; return a; }
+
+    function applyClasses() {
+      const b = document.body; if (!b) return;
+      b.classList.toggle('reduce-motion', s.reduceMotion);
+      b.classList.toggle('reduce-flash', s.reduceFlashes || s.reduceMotion);
+      b.classList.toggle('high-contrast', s.highContrast);
+      b.classList.toggle('large-hud', s.largeHud);
+      b.classList.toggle('left-handed', s.leftHanded);
+      b.classList.toggle('cb-patterns', s.cbPatterns);
+    }
+
+    // ---- settings panel ----
+    const OPTIONS = [
+      { key: 'reduceMotion', label: 'Reduce motion', hint: 'Calms animations and screen transitions.' },
+      { key: 'reduceShake', label: 'Reduce screen shake' },
+      { key: 'reduceParticles', label: 'Reduce particles', hint: 'Fewer bursts and a calmer starfield.' },
+      { key: 'reduceFlashes', label: 'Reduce flashes', hint: 'Softens overdrive and glitch effects.' },
+      { key: 'highContrast', label: 'High contrast' },
+      { key: 'largeHud', label: 'Large HUD text' },
+      { key: 'leftHanded', label: 'Left-handed layout' },
+      { key: 'cbPatterns', label: 'Colour-blind markers', hint: 'Adds ◆ / ✕ shapes to targets and traps.' },
+      { key: 'visualBeat', label: 'Visual beat (assist)', hint: 'Pulses the ring at the ideal moment — marks the run assisted.' },
+    ];
+
+    function buildPanel() {
+      const host = document.getElementById('a11yRows');
+      if (!host) return;
+      host.innerHTML = '';
+      OPTIONS.forEach(o => {
+        const row = document.createElement('label');
+        row.className = 'a11y-row';
+        row.innerHTML =
+          `<span class="a11y-text"><span class="a11y-label">${o.label}</span>` +
+          (o.hint ? `<span class="a11y-hint">${o.hint}</span>` : '') + `</span>` +
+          `<span class="a11y-switch"><input type="checkbox" ${s[o.key] ? 'checked' : ''}><span class="a11y-slider"></span></span>`;
+        const input = row.querySelector('input');
+        input.addEventListener('change', () => { set(o.key, input.checked); });
+        host.appendChild(row);
+      });
+    }
+    function open() { buildPanel(); const ov = document.getElementById('a11yOverlay'); if (ov) ov.hidden = false; }
+    function close() { const ov = document.getElementById('a11yOverlay'); if (ov) ov.hidden = true; }
+
+    return { get, set, shake, particles, flashes, motion, assists, applyClasses, buildPanel, open, close };
+  })();
+
+  // Screen-reader live announcements (round, boss, lives, pause, result).
+  function announce(text) {
+    const el = document.getElementById('a11yLive');
+    if (!el) return;
+    el.textContent = '';
+    requestAnimationFrame(() => { el.textContent = text; });
+  }
+
   // Render the mode-card descriptions from CONFIG so copy stays in sync.
   function applyMenuCopy() {
     Object.entries(CONFIG.modes).forEach(([mode, m]) => {
@@ -401,12 +492,14 @@
       elBgFx.style.width = innerWidth + 'px';
       elBgFx.style.height = innerHeight + 'px';
       ctx = elBgFx.getContext('2d');
-      stars = Array.from({ length: 140 }, () => ({
+      // Fewer, calmer stars when particles are reduced (accessibility).
+      const count = A11y.particles() ? 140 : 36;
+      stars = Array.from({ length: count }, () => ({
         x: Math.random() * w,
         y: Math.random() * h,
         z: Math.random() * 0.7 + 0.3,
         r: Math.random() * 1.6 + 0.4,
-        s: Math.random() * 0.4 + 0.1,
+        s: (A11y.particles() ? 1 : 0.35) * (Math.random() * 0.4 + 0.1),
         hue: 180 + Math.random() * 120,
       }));
     };
@@ -442,6 +535,7 @@
       ctx = elFxCanvas.getContext('2d');
     };
     const burst = (x, y, color, count = 24, power = 8) => {
+      if (!A11y.particles()) return;        // accessibility: reduce/disable particle FX
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       x *= dpr; y *= dpr;
       for (let i = 0; i < count; i++) {
@@ -553,6 +647,20 @@
       if (z.type === 'decoy') path.setAttribute('stroke-dasharray', '6 10');
       path.dataset.idx = idx;
       elZoneLayer.appendChild(path);
+
+      // Colour-blind mode: a shape marker gives a redundant, non-colour cue —
+      // ◆ marks a safe target, ✕ marks a decoy trap.
+      if (A11y.get().cbPatterns && z.opacity !== 0) {
+        const a = (z.center - 90) * Math.PI / 180;
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', 300 + Math.cos(a) * 198);
+        t.setAttribute('y', 300 + Math.sin(a) * 198 + 7);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('font-size', '22'); t.setAttribute('font-weight', 'bold');
+        t.setAttribute('fill', z.type === 'decoy' ? '#ff4060' : '#2dffaa');
+        t.textContent = z.type === 'decoy' ? '✕' : '◆';
+        elZoneLayer.appendChild(t);
+      }
 
       // decoys have no sweet-spot — they are pure danger
       if (z.type === 'decoy') return;
@@ -789,6 +897,7 @@
   }
 
   function shakeScreen(intensity = 1) {
+    if (!A11y.shake()) return;              // accessibility: reduce/disable screen shake
     const arena = document.querySelector('.arena');
     if (!arena) return;
     arena.style.animation = 'none';
@@ -843,6 +952,18 @@
       }
       // Ghost replay: reveal the ghost's strike as its moment arrives.
       if (ghostActive()) Ghost.tick(State.round, State.roundElapsed * 1000);
+      // Accessibility: a visual beat pulses the strike ring at the ideal moment
+      // (a timing assist — recorded in run metadata via collectAssists()).
+      if (A11y.get().visualBeat) {
+        for (const z of State.zones) {
+          if (z.type === 'decoy' || z.hit) continue;
+          if (passedAngle(prevAngle, State.handAngle, z.center, State.handDir)) {
+            elStrikeHint.classList.add('beat-flash');
+            setTimeout(() => elStrikeHint.classList.remove('beat-flash'), 110);
+            break;
+          }
+        }
+      }
       let speed = State.handSpeed;
       if (State.powers.freeze) speed = 0;
       else if (State.powers.slowmo) speed *= 0.35;
@@ -989,6 +1110,10 @@
       Ghost.renderRound(State.round);
       Ghost.updateHud(State.round, State.score);
     }
+
+    // Screen-reader: announce the round (and boss, if any).
+    if (State.boss) announce(`Boss round: ${State.boss.def.name.replace(/[^\w ]/g, '').trim()}`);
+    else announce(`${State.mode === 'endless' ? 'Wave' : 'Round'} ${State.round}`);
 
     AudioFx.newRound();
     applyHandRotation();
@@ -1279,6 +1404,7 @@
         State.lives--;
         State.livesLostThisRun++;   // achievement: Unbroken (0 lives lost)
         renderLives();
+        announce(State.lives > 0 ? `${State.lives} ${State.lives === 1 ? 'life' : 'lives'} left` : 'No lives left');
         if (State.lives <= 0) {
           stopSpin();
           setTimeout(endGame, 600);
@@ -1447,7 +1573,7 @@
   // Accessibility assists that materially change timing — recorded in run
   // metadata but NOT folded into the RNG seed, so an assisted run faces the
   // exact same generated challenge. (Placeholder until assists ship.)
-  function collectAssists() { return {}; }
+  function collectAssists() { return A11y.assists(); }
   // The identity that seeds the deterministic stream. Same identity ⇒ same run.
   // A Daily Rift depends only on rulesetVersion + date (NOT gameVersion), so the
   // day plays identically for everyone regardless of which patch they're on.
@@ -1591,6 +1717,7 @@
     $('overRank').textContent = rankLetter;
     $('newBest').hidden = !newBestScore;
     $('overTitle').textContent = State.lives <= 0 ? 'GAME OVER' : 'RUN COMPLETE';
+    announce(`${State.lives <= 0 ? 'Game over' : 'Run complete'}. Score ${State.score}, rank ${rankLetter}.`);
 
     showScreen('over');
     refreshMenuStats();
@@ -1699,6 +1826,7 @@
     State.paused = force != null ? force : !State.paused;
     elPauseOverlay.hidden = !State.paused;
     if (State.paused) Music.pause(); else Music.resume();
+    announce(State.paused ? 'Paused' : 'Resumed');
   }
 
   // -------- Bindings --------
@@ -1748,6 +1876,15 @@
   const achOverlay = $('achievementsOverlay');
   if (achOverlay) achOverlay.addEventListener('click', (e) => { if (e.target === achOverlay) Achievements.closeGallery(); });
 
+  // Accessibility & display settings
+  A11y.applyClasses();   // reflect saved (or OS-preferred) settings on load
+  const menuA11yBtn = $('menuA11yBtn');
+  if (menuA11yBtn) menuA11yBtn.addEventListener('click', () => A11y.open());
+  const a11yCloseBtn = $('a11yCloseBtn');
+  if (a11yCloseBtn) a11yCloseBtn.addEventListener('click', () => A11y.close());
+  const a11yOverlay = $('a11yOverlay');
+  if (a11yOverlay) a11yOverlay.addEventListener('click', (e) => { if (e.target === a11yOverlay) A11y.close(); });
+
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
   $('resumeBtn').addEventListener('click', () => togglePause(false));
@@ -1786,7 +1923,7 @@
 
   addEventListener('keydown', (e) => {
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-    if (e.code === 'Space') {
+    if (e.code === 'Space' || e.key === 'Enter') {
       if (screens.game.classList.contains('active')) {
         e.preventDefault();
         strike();
@@ -2935,6 +3072,10 @@
       ghostMarkers: (document.getElementById('ghostLayer') || {}).childElementCount || 0,
       hudHidden: (document.getElementById('ghostHud') || {}).hidden,
     }),
+    debugA11y: (key, val) => {
+      if (key != null) A11y.set(key, val);
+      return { settings: A11y.get(), assists: A11y.assists(), bodyClasses: document.body.className };
+    },
     debugAchievements: (run) => {
       const newly = Achievements.recordRun(run || { mode: 'classic', perfectHits: 12, score: 100, round: 1 });
       return { newly, unlocked: Achievements.unlockedCount(), total: Achievements.total() };

@@ -48,7 +48,7 @@ The highest-value next step is to make mastery more replayable and competition m
 | P2 | True multi-phase bosses — ✅ first 4 shipped (3 more + phase bars to do) | High | Medium–Large |
 | P2 | Hall of Time achievements ✅ (cosmetics to do) | High | Medium |
 | P2 | Act-break run upgrades | High | Medium |
-| P2 | Accessibility and control customization | High | Medium |
+| P2 | Accessibility & control customization ✅ (remap/gamepad to do) | High | Medium |
 | P3 | Rival Codes ✅ · Custom Rift creator (to do) | Medium–High | Large |
 | P3 | Weekly leagues and spectator replays | Medium–High | Large |
 
@@ -203,7 +203,9 @@ Chronos already registers a service worker for soundtrack caching, but the whole
 - Put the install action in Settings, not in an intrusive startup banner.
 - Ensure local leaderboards, replays, Precision Lab, and custom rifts remain usable offline.
 
-### 10. Accessibility and control customization
+### 10. Accessibility and control customization — ✅ first wave shipped
+
+**Shipped** (menu → ♿ Accessibility & Display, saved per device): separate **reduce motion / shake / particles / flashes** toggles (reduce-motion also honours the OS `prefers-reduced-motion` on first run), **high contrast**, **large HUD text**, **left-handed layout**, **colour-blind markers** (redundant ◆/✕ shapes on targets/traps), and a **visual-beat assist** that pulses the strike ring at the ideal moment — recorded in run metadata (`assists.visualBeat`) so assisted runs are categorised fairly. Plus a screen-reader **live region** announcing round/boss/lives/pause/result, **visible focus** styles for keyboard users, and **Space/Enter** to strike. **Still to do:** full remappable controls + gamepad, alternative Strike-button placement, per-assist leaderboard categories.
 
 Add first-class controls for:
 
@@ -282,12 +284,12 @@ Keep leaderboard configuration, credentials, and admin verification completely s
 - ✅ Add seeded randomness, scoring tests, and round-generation simulations (`engine.test.mjs`).
 - ✅ Version leaderboard submissions (gameVersion/rulesetVersion/seed/assists). ⬜ Versioned local-progress migrations still to formalise (see Architecture → Versioned local progress).
 
-### Release 2 — Train with purpose
+### Release 2 — Train with purpose ✅ (shipped)
 
 - ✅ Upgrade Zen into Precision Lab.
 - ✅ Add angular/timing error feedback and heat maps.
 - ✅ Record local replays and race a personal-best ghost (Daily Rift).
-- ⬜ Add control and visual accessibility settings.
+- ✅ Add control and visual accessibility settings.
 
 ### Release 3 — One challenge for everyone
 

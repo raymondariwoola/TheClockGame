@@ -1494,6 +1494,65 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 .ach-toast-txt b { font-size: 10px; letter-spacing: 2px; color: var(--neon-yellow); text-transform: uppercase; }
 .ach-toast-txt { font-size: 15px; font-weight: 800; color: var(--ink); }
 
+/* ---- Accessibility ---- */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+/* Visible focus for keyboard users (never on plain mouse focus) */
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--neon-cyan); outline-offset: 2px; border-radius: 4px;
+}
+
+/* Reduce motion: neutralise CSS animations + transitions (the hand loop is
+   rAF-driven, so gameplay is unaffected). */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+/* Reduce flashes: calm the harshest full-screen effects */
+body.reduce-flash.glitching, body.reduce-flash .taunt-glitch,
+body.reduce-flash #vignette.pulse { animation: none !important; }
+body.reduce-flash .taunt-glitch { opacity: 0.85; }
+body.reduce-flash.overdrive { filter: none !important; }
+
+/* High contrast: brighter text, stronger separators */
+body.high-contrast { --ink: #ffffff; --ink-dim: #d7e3ff; }
+body.high-contrast .hud, body.high-contrast .over-inner, body.high-contrast .menu-inner { text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+body.high-contrast .stat-card, body.high-contrast .mode-card, body.high-contrast .daily-card { border-color: rgba(255,255,255,0.5); }
+
+/* Large HUD text */
+body.large-hud .hud-value { font-size: 1.3em; }
+body.large-hud .hud-label { font-size: 1.15em; }
+body.large-hud .round-label { font-size: 1.2em; }
+body.large-hud .lives { font-size: 1.2em; }
+body.large-hud .judgment { font-size: 1.15em; }
+
+/* Left-handed: mirror the HUD and move the lab panel to the right */
+body.left-handed .hud { flex-direction: row-reverse; }
+body.left-handed .lab-panel { left: auto; right: 18px; }
+
+/* Visual-beat assist pulse on the strike ring */
+.strike-zone.beat-flash { box-shadow: 0 0 26px 8px rgba(255,224,102,0.6); }
+
+/* Accessibility settings modal */
+.a11y-modal { max-width: 560px; width: 92vw; max-height: 88vh; display: flex; flex-direction: column; }
+.a11y-title { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 900; color: var(--neon-cyan); text-align: center; margin-bottom: 6px; }
+.a11y-sub { font-family: 'Rajdhani', sans-serif; font-size: 13px; color: var(--ink-dim); text-align: center; margin-bottom: 14px; }
+.a11y-rows { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.a11y-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; cursor: pointer; }
+.a11y-text { display: flex; flex-direction: column; gap: 2px; }
+.a11y-label { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 15px; color: var(--ink); }
+.a11y-hint { font-family: 'Rajdhani', sans-serif; font-size: 12px; color: var(--ink-dim); }
+.a11y-switch { position: relative; flex: 0 0 auto; width: 46px; height: 26px; }
+.a11y-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.a11y-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.15); border-radius: 26px; transition: background 0.2s; }
+.a11y-slider::before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+.a11y-switch input:checked + .a11y-slider { background: var(--neon-green); }
+.a11y-switch input:checked + .a11y-slider::before { transform: translateX(20px); }
+.a11y-switch input:focus-visible + .a11y-slider { outline: 3px solid var(--neon-cyan); outline-offset: 2px; }
+
 /* ---- Ghost replay ---- */
 #ghostLayer { pointer-events: none; }
 #ghostLayer line, #ghostLayer circle { transition: stroke 0.15s, stroke-width 0.15s, r 0.15s; }

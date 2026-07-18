@@ -9,6 +9,9 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Screen-reader live region (visually hidden) -->
+  <div id="a11yLive" class="sr-only" aria-live="polite" role="status"></div>
+
   <canvas id="bgFx" aria-hidden="true"></canvas>
   <div id="vignette" class="vignette" aria-hidden="true"></div>
   <canvas id="fxCanvas" aria-hidden="true"></canvas>
@@ -104,6 +107,12 @@
       <button class="menu-board-btn ach" id="menuAchBtn">
         <span class="mb-icon">🏅</span>
         <span class="mb-text">ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
+        <span class="mb-arrow">→</span>
+      </button>
+
+      <button class="menu-board-btn a11y" id="menuA11yBtn">
+        <span class="mb-icon">♿</span>
+        <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
         <span class="mb-arrow">→</span>
       </button>
 
@@ -327,6 +336,16 @@
       <h2>PAUSED</h2>
       <button class="btn-primary" id="resumeBtn">RESUME</button>
       <button class="btn-secondary" id="quitBtn">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- Accessibility & display settings -->
+  <div id="a11yOverlay" class="overlay" hidden>
+    <div class="overlay-card a11y-modal">
+      <h2 class="a11y-title">♿ ACCESSIBILITY &amp; DISPLAY</h2>
+      <p class="a11y-sub">Options are saved on this device. Assists that change timing are recorded with your run.</p>
+      <div class="a11y-rows" id="a11yRows"></div>
+      <button class="btn-primary" id="a11yCloseBtn">DONE</button>
     </div>
   </div>
 
