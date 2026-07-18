@@ -1658,6 +1658,9 @@ body.left-handed .lab-panel { left: auto; right: 18px; }
   box-shadow: var(--shadow-glow) rgba(0,240,255,0.14);
   display: flex; flex-direction: column; gap: 10px; z-index: 6;
 }
+/* `display:flex` above would otherwise override the [hidden] attribute, keeping
+   the panel visible in Classic/Endless. Zen is the only mode that shows it. */
+.lab-panel[hidden] { display: none; }
 .lab-title {
   font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 800;
   letter-spacing: 2px; color: var(--neon-cyan);
