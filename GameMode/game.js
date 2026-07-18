@@ -1817,6 +1817,7 @@
     $('menuRound').textContent = loadInt(LS.bestRound);
     const achCount = document.getElementById('menuAchCount');
     if (achCount) achCount.textContent = `${Achievements.unlockedCount()} / ${Achievements.total()}`;
+    Identity.render();
     Daily.render();
   }
 
@@ -1875,6 +1876,11 @@
   if (achCloseBtn) achCloseBtn.addEventListener('click', () => Achievements.closeGallery());
   const achOverlay = $('achievementsOverlay');
   if (achOverlay) achOverlay.addEventListener('click', (e) => { if (e.target === achOverlay) Achievements.closeGallery(); });
+
+  // Player identity (name for share cards + leaderboard)
+  Identity.wire();
+  Identity.render();
+  Identity.maybePrompt();
 
   // Accessibility & display settings
   A11y.applyClasses();   // reflect saved (or OS-preferred) settings on load
@@ -2928,6 +2934,79 @@
 
     return { recordRun, openGallery, closeGallery, unlockedCount, total };
   })();
+
+  // ============================================================
+  // PLAYER IDENTITY — a name for share cards + leaderboard, captured up front
+  // (not gated on making the top 20). Stored as { first, last } under the same
+  // 'cs_player_name' key that share.js and leaderboard.js already read.
+  // ============================================================
+  const Identity = (() => {
+    const KEY = 'cs_player_name';
+    const SKIP = 'cs_identity_prompted';
+    const clean = (v) => String(v || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12);
+
+    function get() {
+      try { const n = JSON.parse(localStorage.getItem(KEY) || 'null'); return (n && n.first) ? n : null; }
+      catch { return null; }
+    }
+    function displayName() { const n = get(); return n ? `${n.first} ${n.last || ''}`.trim() : ''; }
+    function save(first, last) { try { localStorage.setItem(KEY, JSON.stringify({ first, last })); } catch {} }
+    function has() { return !!get(); }
+
+    function render() {
+      const el = document.getElementById('playerIdentityName');
+      const chip = document.getElementById('playerIdentity');
+      const name = displayName();
+      if (el) el.textContent = name || 'set your name';
+      if (chip) chip.classList.toggle('unset', !name);
+    }
+
+    function open() {
+      const ov = document.getElementById('identityOverlay'); if (!ov) return;
+      const n = get();
+      const first = document.getElementById('idFirst'), last = document.getElementById('idLast');
+      const err = document.getElementById('idError');
+      first.value = n ? n.first : '';
+      last.value = n ? (n.last || '') : '';
+      if (err) err.hidden = true;
+      ov.hidden = false;
+      try { localStorage.setItem(SKIP, '1'); } catch {}   // count as prompted (won't auto-nag again)
+      setTimeout(() => first.focus(), 150);
+    }
+    function close() { const ov = document.getElementById('identityOverlay'); if (ov) ov.hidden = true; }
+
+    function wire() {
+      const form = document.getElementById('identityForm');
+      const chip = document.getElementById('playerIdentity');
+      const skip = document.getElementById('idSkip');
+      if (chip) chip.addEventListener('click', open);
+      if (skip) skip.addEventListener('click', close);
+      if (form) form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const f = clean(document.getElementById('idFirst').value);
+        const l = clean(document.getElementById('idLast').value);
+        const err = document.getElementById('idError');
+        if (!f) { if (err) { err.textContent = 'Please enter at least a first name.'; err.hidden = false; } return; }
+        save(f, l);
+        render();
+        close();
+        AudioFx.newRound();
+      });
+      const ov = document.getElementById('identityOverlay');
+      if (ov) ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    }
+
+    // Nudge once on first visit if no name is set yet.
+    function maybePrompt() {
+      let prompted = false;
+      try { prompted = localStorage.getItem(SKIP) === '1'; } catch {}
+      if (!has() && !prompted) setTimeout(open, 600);
+    }
+
+    return { get, displayName, has, render, open, close, wire, maybePrompt };
+  })();
+  // Let share.js nudge for a name before it renders an anonymous card.
+  window.ChronosIdentity = { has: () => Identity.has(), open: () => Identity.open() };
 
   // ============================================================
   // DAILY TIME RIFT — one deterministic, globally-fair challenge per UTC day.

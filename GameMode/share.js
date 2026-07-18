@@ -318,6 +318,9 @@
   async function open() {
     const ov = $('shareOverlay'), img = $('sharePreview'), btn = $('shareNativeBtn');
     if (!ov || !img) return;
+    // If the player hasn't set a name yet, capture it first so the card isn't
+    // anonymous — they can tap Share again after saving.
+    if (window.ChronosIdentity && !window.ChronosIdentity.has()) { window.ChronosIdentity.open(); return; }
     hint('Rendering your card…');
     img.removeAttribute('src');
     ov.hidden = false;

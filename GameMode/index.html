@@ -30,6 +30,12 @@
       </div>
       <p class="menu-tagline">Stop the clock. Bend the hand of time. Survive the chaos.</p>
 
+      <button class="player-identity" id="playerIdentity" type="button" aria-label="Set your player name">
+        <span class="pi-icon">👤</span>
+        <span class="pi-text">Playing as <span id="playerIdentityName">…</span></span>
+        <span class="pi-edit">✎</span>
+      </button>
+
       <div class="menu-stats">
         <div class="stat-card">
           <div class="stat-label">Best Score</div>
@@ -336,6 +342,26 @@
       <h2>PAUSED</h2>
       <button class="btn-primary" id="resumeBtn">RESUME</button>
       <button class="btn-secondary" id="quitBtn">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- Player identity (name for share cards + leaderboard) -->
+  <div id="identityOverlay" class="overlay" hidden>
+    <div class="overlay-card identity-card">
+      <div class="identity-glyph">👤</div>
+      <h2 class="identity-title">WHAT SHOULD WE CALL YOU?</h2>
+      <p class="identity-sub">Your name appears on share cards and, when you make the top 20, the global leaderboard.</p>
+      <form id="identityForm" autocomplete="off">
+        <div class="identity-fields">
+          <input id="idFirst" type="text" maxlength="12" placeholder="FIRST NAME" required autocomplete="given-name" spellcheck="false">
+          <input id="idLast" type="text" maxlength="12" placeholder="LAST NAME" autocomplete="family-name" spellcheck="false">
+        </div>
+        <div class="identity-error" id="idError" hidden></div>
+        <div class="identity-actions">
+          <button type="submit" class="btn-primary" id="idSave">SAVE</button>
+          <button type="button" class="btn-secondary" id="idSkip">SKIP</button>
+        </div>
+      </form>
     </div>
   </div>
 
