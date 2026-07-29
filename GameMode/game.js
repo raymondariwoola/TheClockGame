@@ -1768,10 +1768,10 @@
     // a recorded run (Daily or Rival) with at least one strike.
     updateChallengeButton();
 
-    // Hall of Time — update lifetime totals + evaluate achievements. GOD/cheat
-    // runs are excluded so unlocks stay earned (they trivialise the conditions).
-    const cheating = typeof Cheat !== 'undefined' && Cheat.isActive();
-    if (!State.godTainted && !cheating) {
+    // Hall of Time — ordinary private cheats are an intentional family/friend
+    // feature and count normally. Creator GOD mode remains the only excluded
+    // path because it is a separate autopilot/demo surface.
+    if (!State.godTainted) {
       const completedClassic = State.mode === 'classic' && State.lives > 0 && State.round >= CLASSIC_ROUNDS;
       Achievements.recordRun({
         mode: State.mode, hardcore: State.hardcore, score: State.score, round: State.round,
@@ -2760,8 +2760,10 @@
       const sign = delta >= 0 ? '+' : '−';
       el.hidden = false;
       el.className = 'ghost-hud' + (delta >= 0 ? ' ahead' : ' behind');
+      // Legacy Rival Codes are untrusted pasted input. Keeping the whole HUD
+      // line as text prevents a crafted rival name from injecting markup.
       const label = playback.name ? `${playback.name} ` : '';
-      el.innerHTML = `👻 ${label}${ghostScore().toLocaleString()} · <b>${sign}${Math.abs(delta).toLocaleString()}</b>`;
+      el.textContent = `👻 ${label}${ghostScore().toLocaleString()} · ${sign}${Math.abs(delta).toLocaleString()}`;
     }
 
     function clear() {

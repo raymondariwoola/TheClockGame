@@ -227,6 +227,24 @@ eq(E.computeRank(RANKS, 0, 0), 'F', 'rank zero → F');
   eq(E.decodeRival(''), null, 'empty → null');
   eq(E.decodeRival(null), null, 'null → null');
   eq(E.decodeRival('CR' + 'AAAA'), null, 'valid b64 but wrong shape → null');
+  ok(E.RIVAL_LIMITS && E.RIVAL_LIMITS.maxStrikes === 512, 'rival safety limits are exported');
+  eq(E.decodeRival('CR' + 'A'.repeat(E.RIVAL_LIMITS.maxCodeChars)), null, 'oversized code rejected before decode');
+
+  const unsafeName = E.decodeRival(E.encodeRival({
+    identity: 'x', mode: 'classic', name: '<img src=x onerror=alert(1)>',
+    score: 1, rounds: 1, strikes: [{ round: 1, angle: 0, kind: 'perfect', t: 1, s: 1 }],
+  }));
+  ok(unsafeName && !/[<>]/.test(unsafeName.name), 'rival display name strips markup characters');
+
+  const tooMany = Array.from({ length: E.RIVAL_LIMITS.maxStrikes + 20 }, (_, i) => ({
+    round: i + 1, angle: i % 360, kind: 'good', t: i, s: i,
+  }));
+  const bounded = E.decodeRival(E.encodeRival({ identity: 'x', mode: 'endless', rounds: 600, strikes: tooMany }));
+  eq(bounded.strikes.length, E.RIVAL_LIMITS.maxStrikes, 'encoder bounds rival strike count');
+
+  const raw = ['1', 'x', 'classic', '0', 'Rival', '100', '2', '1,10,0,1,100;2,20,0,1,99'].join('\n');
+  const decreasing = 'CR' + Buffer.from(raw, 'utf8').toString('base64url');
+  eq(E.decodeRival(decreasing), null, 'decreasing cumulative replay score rejected');
 })();
 
 // ---------- bossTypeIndex (deterministic boss cycle) ----------

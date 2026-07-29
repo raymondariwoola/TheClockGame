@@ -196,6 +196,15 @@
   // delimited text payload — works identically in the browser and in Node.
   const _KIND_TO_CODE = { perfect: 0, great: 1, good: 2, miss: 3 };
   const _CODE_TO_KIND = ['perfect', 'great', 'good', 'miss'];
+  const RIVAL_LIMITS = Object.freeze({
+    maxCodeChars: 32768,
+    maxIdentityChars: 128,
+    maxNameChars: 24,
+    maxStrikes: 512,
+    maxRound: 10000,
+    maxStrikeMs: 600000,
+    maxScore: 2000000000,
+  });
 
   function _b64urlEncode(str) {
     const bytes = new TextEncoder().encode(str);
@@ -218,18 +227,32 @@
   // but never a newline), strikes are ';'-separated, values ','-separated.
   function encodeRival(record) {
     const r = record || {};
-    const strikes = (r.strikes || [])
-      .map(s => [s.round, Math.round(s.angle), (_KIND_TO_CODE[s.kind] != null ? _KIND_TO_CODE[s.kind] : 3), s.t, s.s].join(','))
+    const strikes = (Array.isArray(r.strikes) ? r.strikes : [])
+      .slice(0, RIVAL_LIMITS.maxStrikes)
+      .map(s => [
+        Math.max(1, Math.min(RIVAL_LIMITS.maxRound, Math.round(s.round || 1))),
+        ((Math.round(s.angle || 0) % 360) + 360) % 360,
+        (_KIND_TO_CODE[s.kind] != null ? _KIND_TO_CODE[s.kind] : 3),
+        Math.max(0, Math.min(RIVAL_LIMITS.maxStrikeMs, Math.round(s.t || 0))),
+        Math.max(0, Math.min(RIVAL_LIMITS.maxScore, Math.round(s.s || 0))),
+      ].join(','))
       .join(';');
     const clean = (v) => String(v == null ? '' : v).replace(/[\n;,]/g, ' ');
+    const identity = String(r.identity == null ? '' : r.identity)
+      .replace(/[\r\n\u0000-\u001f\u007f]/g, '')
+      .slice(0, RIVAL_LIMITS.maxIdentityChars);
+    const mode = ['classic', 'endless', 'zen'].includes(r.mode) ? r.mode : 'classic';
+    const name = clean(r.name)
+      .replace(/[<>&"'`\u0000-\u001f\u007f]/g, '')
+      .slice(0, RIVAL_LIMITS.maxNameChars);
     const parts = [
       1,                              // code format version
-      String(r.identity == null ? '' : r.identity).replace(/\n/g, ''),  // keep '|' — needed to seed
-      clean(r.mode || 'classic'),
+      identity,                       // keep '|' — needed to seed
+      mode,
       r.hardcore ? 1 : 0,
-      clean(r.name).slice(0, 24),
-      Math.max(0, Math.round(r.score || 0)),
-      Math.max(0, Math.round(r.rounds || 0)),
+      name,
+      Math.max(0, Math.min(RIVAL_LIMITS.maxScore, Math.round(r.score || 0))),
+      Math.max(0, Math.min(RIVAL_LIMITS.maxRound, Math.round(r.rounds || 0))),
       strikes,
     ];
     return 'CR' + _b64urlEncode(parts.join('\n'));
@@ -238,23 +261,39 @@
   function decodeRival(code) {
     if (typeof code !== 'string') return null;
     code = code.trim();
-    if (!/^CR[A-Za-z0-9_-]+$/.test(code)) return null;
+    if (code.length > RIVAL_LIMITS.maxCodeChars || !/^CR[A-Za-z0-9_-]+$/.test(code)) return null;
     let text;
     try { text = _b64urlDecode(code.slice(2)); } catch { return null; }
     const p = text.split('\n');
-    if (p.length < 8 || String(+p[0]) !== p[0]) return null;
-    if (!p[1]) return null;   // identity is required to reproduce the challenge
+    if (p.length !== 8 || p[0] !== '1') return null;
+    if (!p[1] || p[1].length > RIVAL_LIMITS.maxIdentityChars || /[\r\n\u0000-\u001f\u007f]/.test(p[1])) return null;
+    if (!['classic', 'endless', 'zen'].includes(p[2]) || !['0', '1'].includes(p[3])) return null;
+    const score = Number(p[5]);
+    const rounds = Number(p[6]);
+    if (!Number.isInteger(score) || score < 0 || score > RIVAL_LIMITS.maxScore) return null;
+    if (!Number.isInteger(rounds) || rounds < 0 || rounds > RIVAL_LIMITS.maxRound) return null;
+    const name = String(p[4] || 'Rival')
+      .replace(/[<>&"'`\u0000-\u001f\u007f]/g, '')
+      .slice(0, RIVAL_LIMITS.maxNameChars) || 'Rival';
     let strikes;
     try {
-      strikes = p[7] ? p[7].split(';').map(x => {
+      const encodedStrikes = p[7] ? p[7].split(';') : [];
+      if (encodedStrikes.length > RIVAL_LIMITS.maxStrikes) throw 0;
+      let previousScore = 0;
+      strikes = encodedStrikes.map(x => {
+        if (!x || x.split(',').length !== 5) throw 0;
         const [round, angle, k, t, s] = x.split(',').map(Number);
-        if (![round, angle, k, t, s].every(Number.isFinite)) throw 0;
-        return { round, angle, kind: _CODE_TO_KIND[k] || 'miss', t, s };
-      }) : [];
+        if (![round, angle, k, t, s].every(Number.isInteger)) throw 0;
+        if (round < 1 || round > RIVAL_LIMITS.maxRound || angle < 0 || angle >= 360 ||
+            k < 0 || k >= _CODE_TO_KIND.length || t < 0 || t > RIVAL_LIMITS.maxStrikeMs ||
+            s < previousScore || s > RIVAL_LIMITS.maxScore) throw 0;
+        previousScore = s;
+        return { round, angle, kind: _CODE_TO_KIND[k], t, s };
+      });
     } catch { return null; }
     return {
-      v: +p[0], identity: p[1], mode: p[2] || 'classic', hardcore: p[3] === '1',
-      name: p[4] || 'Rival', score: +p[5] || 0, rounds: +p[6] || 0, strikes,
+      v: 1, identity: p[1], mode: p[2], hardcore: p[3] === '1',
+      name, score, rounds, strikes,
     };
   }
 
@@ -406,7 +445,7 @@
     angularDistance, classify, scoreFor, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
-    encodeRival, decodeRival, ACHIEVEMENTS, evaluateAchievements,
+    encodeRival, decodeRival, RIVAL_LIMITS, ACHIEVEMENTS, evaluateAchievements,
     COSMETICS, resolveCosmetics, cosmeticsFor,
   };
 });
