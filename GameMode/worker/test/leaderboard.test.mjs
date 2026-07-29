@@ -39,10 +39,11 @@ test('board partitions keep daily, difficulty, and ruleset separate', () => {
   assert.equal(parseBoardQuery({ scope: 'daily' }), null);
 });
 
-test('progress validation requires bounded monotonic cumulative values', () => {
+test('progress validation accepts legal trap score reductions but requires monotonic rounds', () => {
   const final = entry();
   assert.equal(validateProgress([{ score: 100, round: 1 }, { score: 4200, round: 40 }], final), true);
-  assert.equal(validateProgress([{ score: 500, round: 2 }, { score: 400, round: 3 }], entry({ score: 400, round: 3 })), false);
+  assert.equal(validateProgress([{ score: 500, round: 2 }, { score: 400, round: 3 }], entry({ score: 400, round: 3 })), true);
+  assert.equal(validateProgress([{ score: 500, round: 3 }, { score: 400, round: 2 }], entry({ score: 400, round: 2 })), false);
   assert.equal(validateProgress(Array.from({ length: 513 }, (_, round) => ({ score: round, round })), entry({ score: 512, round: 512 })), false);
 });
 
@@ -72,4 +73,9 @@ test('Durable Object submits atomically, returns top twenty, and makes retries i
     body: JSON.stringify({ entry: entry({ id: 'replacement', score: 999999 }), submissionKey: 'run-24' }),
   }));
   assert.equal((await retry.json()).entryId, 'entry-24');
+
+  const removed = await room.fetch(new Request(`${url.replace('/submit', '/delete')}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'entry-24' }),
+  }));
+  assert.deepEqual(await removed.json(), { removed: 1, retained: 24 });
 });

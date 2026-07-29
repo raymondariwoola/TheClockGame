@@ -1,22 +1,51 @@
-# Chronos Strike Cloudflare setup
+# Chronos Strike Cloudflare development setup
 
-This GameMode now uses a single Cloudflare Worker and SQLite-backed Durable Objects. There is no runtime GitHub Gist dependency and no browser-side service token.
+The GameMode uses one Cloudflare Worker plus three SQLite-backed Durable Object classes:
 
-Do not deploy yet unless you intend to activate the backend. The complete owner checklist will be finalized after the multiplayer and ghost phases. For local Phase 2 verification:
+- `LeaderboardRoom` for atomic partitioned boards;
+- `GhostChallengeRoom` for seven-day asynchronous challenges;
+- `MatchRoom` for two-seat hibernating-WebSocket Chrono Clash rooms.
 
-1. Open a terminal in `GameMode/worker`.
-2. Run `npm install` once.
-3. Create an untracked `GameMode/worker/.dev.vars` file with:
+There is no runtime GitHub Gist dependency and no browser-side secret. For the complete production activation, phone acceptance, monitoring, rollback, and Gist-retirement checklist, follow [OWNER_ACTIONS.md](OWNER_ACTIONS.md).
 
-   ```text
-   RUN_SIGNING_SECRET=use-a-long-random-local-value
-   ADMIN_CODE=your-local-admin-code
-   CHEAT_CODE=your-local-cheat-code
-   ```
+## Local setup
 
-4. Run `npm run dev`.
-5. Serve `GameMode/` over HTTP on port 8000 and keep `leaderboard-config.js` pointed at the Worker URL used by the browser.
+From `GameMode/worker`:
 
-Production activation will require three `wrangler secret put` commands, setting the allowed static-site origin, deploying once, updating `apiBase`, and revoking the old Gist token. No payment service, paid database, or paid Cloudflare product is part of this design.
+```powershell
+npm ci
+```
 
-The Worker configuration deliberately uses SQLite storage. Cloudflare's free Workers plan supports SQLite-backed Durable Objects; usage still has free-tier limits, so the final runbook includes monitoring and feature kill switches.
+Create the ignored file `GameMode/worker/.dev.vars`:
+
+```text
+RUN_SIGNING_SECRET=replace-with-a-long-random-local-value
+ADMIN_CODE=replace-with-a-local-admin-code
+CHEAT_CODE=replace-with-the-local-family-cheat-code
+```
+
+Never commit that file. Start the Worker:
+
+```powershell
+npm run dev -- --port 8787
+```
+
+In a second terminal, from `GameMode/`:
+
+```powershell
+npm run dev
+```
+
+The static development server is at `http://127.0.0.1:8000` and proxies HTTP API requests to `http://127.0.0.1:8787`. For direct browser WebSocket testing, temporarily point `leaderboard-config.js` to `http://127.0.0.1:8787` and set `ALLOW_ORIGIN` in `worker/wrangler.jsonc` to the exact development origin. Revert both temporary edits before committing.
+
+## Verification
+
+```powershell
+npm run verify
+npm run test:integration
+git diff --check
+```
+
+`test:integration` expects the local Worker to already be running. It completes a real ghost lifecycle and a two-WebSocket live match, including rematch and forfeit.
+
+The missing `soundtrack/Normal.mp3` is deliberate: Normal mode uses the offline procedural WebAudio track. `Hardcore.mp3` remains range-cached.

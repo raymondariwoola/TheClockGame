@@ -477,8 +477,8 @@
     return { start, stop, pause, resume, setMuted, isMuted };
   })();
 
-  // Register the tiny service worker that caches ONLY the soundtrack files
-  // (everything else passes straight through — no stale HTML/JS).
+  // Cache the coherent local game shell for offline single-player use. Online
+  // APIs and sockets always remain network-only.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   }

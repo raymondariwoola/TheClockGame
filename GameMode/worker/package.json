@@ -8,9 +8,11 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.mjs",
+    "test:integration": "node integration/live-services.mjs",
     "check": "wrangler deploy --dry-run --outdir .wrangler-dry-run"
   },
   "devDependencies": {
-    "wrangler": "4.115.0"
+    "wrangler": "4.115.0",
+    "ws": "8.21.0"
   }
 }

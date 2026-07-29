@@ -110,7 +110,9 @@ export function validateProgress(events, finalEntry) {
   let previous = { score: 0, round: 0, perfects: 0, bestCombo: 0, accuracy: 0 };
   for (const raw of events) {
     const next = normalizeProgress(raw);
-    if (next.score < previous.score || next.round < previous.round || next.perfects < previous.perfects || next.bestCombo < previous.bestCombo) return false;
+    // Trap penalties can legally reduce score. Structural progress must remain
+    // monotonic, while the final score still has to match the submitted entry.
+    if (next.round < previous.round || next.perfects < previous.perfects || next.bestCombo < previous.bestCombo) return false;
     previous = next;
   }
   return previous.score === Math.trunc(finalEntry.score) && previous.round === Math.trunc(finalEntry.round);

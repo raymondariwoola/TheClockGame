@@ -1,70 +1,101 @@
-// Chronos Strike — minimal service worker.
-// Its ONLY job is to cache the soundtrack files so a large track isn't
-// re-downloaded on every page load. Every other request passes straight
-// through to the network (so HTML/JS/CSS are never stale).
-//
-// To force a re-download after replacing a track file, bump CACHE_VERSION.
+// Chronos Strike — offline shell plus range-aware soundtrack cache.
+// Bump the version whenever a core asset changes so returning phones receive
+// one coherent game revision. API, ghost, and multiplayer requests are never
+// cached; offline play simply falls back to the local game shell.
 
-const CACHE_VERSION = 1;
-const CACHE = 'cs-soundtrack-v' + CACHE_VERSION;
+const CACHE_VERSION = 2;
+const APP_CACHE = `cs-app-v${CACHE_VERSION}`;
+const TRACK_CACHE = `cs-soundtrack-v${CACHE_VERSION}`;
+const APP_SHELL = [
+  './', './index.html', './style.css', './engine.js', './game.js',
+  './leaderboard-config.js', './leaderboard.js', './share.js',
+  './js/storage.js', './js/run-context.js', './js/cheat-state.js',
+  './js/ghost-client.js', './js/ghost-ui.js', './js/multiplayer.js',
+  './js/multiplayer-ui.js', './vendor/anime.min.js', './vendor/fonts/fonts.css',
+];
 const TRACK_RE = /\/soundtrack\/.+\.(wav|mp3|ogg|m4a|aac|flac)$/i;
 
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(APP_CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+});
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys
-      .filter(k => k.startsWith('cs-soundtrack-') && k !== CACHE)
-      .map(k => caches.delete(k)));
+    await Promise.all(keys.filter((key) =>
+      (key.startsWith('cs-app-') && key !== APP_CACHE) ||
+      (key.startsWith('cs-soundtrack-') && key !== TRACK_CACHE)
+    ).map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || !TRACK_RE.test(url.pathname)) return; // ignore everything else
-  event.respondWith(serveTrack(event.request));
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.pathname.startsWith('/v1/')) return;
+  if (TRACK_RE.test(url.pathname)) { event.respondWith(serveTrack(request)); return; }
+  if (url.origin !== self.location.origin) return;
+  if (request.mode === 'navigate') { event.respondWith(networkFirstPage(request)); return; }
+  if (url.pathname.endsWith('/leaderboard-config.js')) { event.respondWith(networkFirstAsset(request)); return; }
+  if (['script', 'style', 'font', 'image'].includes(request.destination)) event.respondWith(staleWhileRevalidate(request));
 });
 
+async function networkFirstPage(request) {
+  const cache = await caches.open(APP_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(new URL('index.html', self.registration.scope).href, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(new URL('index.html', self.registration.scope).href)) ||
+      (await cache.match(new URL('./', self.registration.scope).href)) ||
+      new Response('Chronos Strike is unavailable offline until it has been opened once.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(APP_CACHE);
+  const cached = await cache.match(request);
+  const refresh = fetch(request).then(async (response) => {
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  }).catch(() => null);
+  return cached || (await refresh) || new Response('', { status: 504 });
+}
+
+async function networkFirstAsset(request) {
+  const cache = await caches.open(APP_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request)) || new Response('', { status: 504 });
+  }
+}
+
 async function serveTrack(request) {
-  const cache = await caches.open(CACHE);
-  // Cache the full file once under a range-less key.
+  const cache = await caches.open(TRACK_CACHE);
   const key = new Request(request.url, { method: 'GET' });
   let full = await cache.match(key);
-
   if (!full) {
     try {
-      const net = await fetch(key); // no Range header → full 200 response
-      if (net && net.status === 200) { await cache.put(key, net.clone()); full = net; }
-      else return fetch(request);    // couldn't get a full copy → just proxy
-    } catch (e) {
-      return fetch(request);
-    }
+      const response = await fetch(key);
+      if (response.status === 200) { await cache.put(key, response.clone()); full = response; }
+      else return fetch(request);
+    } catch { return fetch(request); }
   }
-
   const range = request.headers.get('range');
   if (!range) return full;
-
-  // Build a 206 Partial Content slice from the cached full file (media elements
-  // often request ranges when streaming/seeking/looping).
-  const buf = await full.clone().arrayBuffer();
-  const total = buf.byteLength;
-  const m = /bytes=(\d+)-(\d*)/.exec(range) || [];
-  const start = m[1] ? parseInt(m[1], 10) : 0;
-  const end = m[2] ? parseInt(m[2], 10) : total - 1;
-  if (start >= total || start > end) {
-    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
-  }
-  const chunk = buf.slice(start, end + 1);
-  return new Response(chunk, {
-    status: 206,
-    statusText: 'Partial Content',
-    headers: {
-      'Content-Type': full.headers.get('Content-Type') || 'audio/wav',
-      'Content-Range': `bytes ${start}-${end}/${total}`,
-      'Content-Length': String(chunk.byteLength),
-      'Accept-Ranges': 'bytes',
-    },
-  });
+  const buffer = await full.clone().arrayBuffer(); const total = buffer.byteLength;
+  const match = /bytes=(\d+)-(\d*)/.exec(range) || [];
+  const start = match[1] ? Number.parseInt(match[1], 10) : 0;
+  const end = match[2] ? Math.min(Number.parseInt(match[2], 10), total - 1) : total - 1;
+  if (start >= total || start > end) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
+  const chunk = buffer.slice(start, end + 1);
+  return new Response(chunk, { status: 206, statusText: 'Partial Content', headers: {
+    'Content-Type': full.headers.get('Content-Type') || 'audio/mpeg', 'Content-Range': `bytes ${start}-${end}/${total}`,
+    'Content-Length': String(chunk.byteLength), 'Accept-Ranges': 'bytes',
+  } });
 }

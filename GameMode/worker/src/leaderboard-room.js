@@ -63,6 +63,19 @@ export class LeaderboardRoom {
       return response({ imported: incoming.length, retained: entries.length });
     }
 
+    if (request.method === 'POST' && url.pathname === '/delete') {
+      const body = await request.json().catch(() => null);
+      const id = String(body?.id || '').replace(/[^\w.:-]/g, '').slice(0, 64);
+      if (!id) return response({ error: 'invalid_entry_id' }, 400);
+      const result = await this.ctx.storage.transaction(async (txn) => {
+        const before = sanitizeList(await txn.get(key));
+        const entries = before.filter((entry) => entry.id !== id);
+        if (entries.length !== before.length) await txn.put(key, entries);
+        return { removed: before.length - entries.length, retained: entries.length };
+      });
+      return response(result);
+    }
+
     return response({ error: 'not_found' }, 404);
   }
 }

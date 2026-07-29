@@ -2,6 +2,8 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
+> Implementation status, 2026-07-30: Phases 0-6 have been implemented locally and committed in independent tested slices. No commit was pushed and no production service was deployed. Automated unit/syntax/no-Gist/dry-run checks, a real local Wrangler ghost plus two-WebSocket integration, and phone-sized two-tab browser flows are complete. Production activation, Gist-token revocation, Cloudflare quota confirmation, and the physical two-phone pass remain owner actions documented in `OWNER_ACTIONS.md`.
+
 **Document status:** design complete; implementation has not started  
 **Scope:** `TheClockGame/GameMode/` only  
 **Prepared:** 2026-07-30  

@@ -18,7 +18,7 @@ function corsHeaders(request, env) {
   const allowed = configured.length === 0 || configured.includes('*') || configured.includes(origin);
   const headers = {
     'Access-Control-Allow-Origin': allowed && origin ? origin : (configured[0] || '*'),
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
@@ -201,6 +201,17 @@ export default {
         const query = normalizeBoardQuery(body.partition || {});
         return withCors(await boardStub(env).fetch(new Request(boardUrl(request, query, '/import'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: body.entries }),
+        })), request, env);
+      }
+
+      const deleteEntry = url.pathname.match(/^\/v1\/admin\/entries\/([\w.:-]{1,64})$/);
+      if (request.method === 'DELETE' && deleteEntry) {
+        const auth = request.headers.get('Authorization') || '';
+        if (!env.ADMIN_CODE || !safeEqual(auth, `Bearer ${env.ADMIN_CODE}`)) return json(request, env, { error: 'unauthorized' }, 401);
+        const query = parseBoardQuery(Object.fromEntries(url.searchParams));
+        if (!query) return json(request, env, { error: 'invalid_partition' }, 400);
+        return withCors(await boardStub(env).fetch(new Request(boardUrl(request, query, '/delete'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteEntry[1] }),
         })), request, env);
       }
 
