@@ -726,6 +726,9 @@
     boss: null,          // active boss encounter: { def, data } (see BOSSES)
     roundElapsed: 0,     // seconds since the current round's spin began (boss ticks)
     dailyRun: false,     // this run is today's Daily Rift
+    dailyOnline: false,  // true only when the Worker issued today's UTC identity
+    dailyDate: null,
+    dailySeed: null,
     rivalRun: false,     // this run is racing an imported Rival Code
     rivalRecord: null,   // the decoded rival ghost being raced
     // Per-run achievement counters (reset each run in startMode).
@@ -1581,7 +1584,7 @@
   // day plays identically for everyone regardless of which patch they're on.
   function runIdentityString(mode) {
     if (State.rivalRun && State.rivalRecord) return State.rivalRecord.identity;
-    if (State.dailyRun) return Daily.seedFor(State.dailyDate);
+    if (State.dailyRun) return State.dailySeed || Daily.seedFor(State.dailyDate);
     const diff = State.hardcore ? 'hc' : 'n';
     return [CONFIG.gameVersion, CONFIG.rulesetVersion, mode, diff, State.seed].join('|');
   }
@@ -1597,7 +1600,7 @@
     // challenge is identical for everyone (re-pinned here so RETRY replays it).
     if (State.dailyRun) {
       State.hardcore = false;
-      State.forcedSeed = Daily.seedFor(State.dailyDate);
+      State.forcedSeed = State.dailySeed || Daily.seedFor(State.dailyDate);
     }
     // Rival Code race: adopt the encoded difficulty so the rules match exactly
     // (the identity is supplied by runIdentityString → identical challenge).
@@ -1627,6 +1630,11 @@
       assists: State.assists,
       startedAt: Date.now(),
     });
+    if (window.ChronosLB?.startRun) {
+      const runInfo = { ...ActiveRun.snapshot(), hardcore: !!State.hardcore };
+      if (State.dailyRun) runInfo.dailyDate = State.dailyDate;
+      window.ChronosLB.startRun(runInfo).catch(() => null);
+    }
     // Ghost replay: record this run and load a ghost to race, if any.
     if (State.dailyRun) {
       Ghost.startRecording(runIdentityString(mode), { mode, hardcore: false, date: State.dailyDate });
@@ -1766,6 +1774,7 @@
       cheat: (typeof Cheat !== 'undefined' && Cheat.isActive()) || false,
       // Daily Rift metadata (present only on daily runs).
       daily: !!State.dailyRun,
+      dailyOnline: !!State.dailyOnline,
       dailyDate: State.dailyRun ? State.dailyDate : null,
       riftName: State.dailyRun ? Daily.nameFor(State.dailyDate) : null,
     };
@@ -2142,7 +2151,7 @@
     let mult = 3;          // score multiplier (from the worker)
     let lives = 9999;      // total cheat lives (from the worker) — hidden from the HUD
     let livesLeft = 9999;  // remaining this run
-    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.workerUrl) || '')
+    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.apiBase) || '')
       .trim().replace(/\/+$/, '');
 
     const isActive = () => active;
@@ -2154,10 +2163,10 @@
       code = (code || '').trim();
       if (!code || !WORKER) return null;
       try {
-        const res = await fetch(WORKER, {
+        const res = await fetch(WORKER + '/v1/cheats/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'verifyCheat', code }),
+          body: JSON.stringify({ code }),
         });
         if (res.ok) { const d = await res.json().catch(() => null); if (d && d.ok) return d; }
       } catch (e) {}
@@ -2269,7 +2278,7 @@
     let active = false;
     let autopilot = false;
     let apTimer = null;
-    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.workerUrl) || '')
+    const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.apiBase) || '')
       .trim().replace(/\/+$/, '');
     // Optional offline fallback: SHA-256 hex of the admin code. Leave '' to
     // require the worker (recommended). Set it if you demo with no network.
@@ -2282,10 +2291,10 @@
       if (!code) return false;
       if (WORKER) {
         try {
-          const res = await fetch(WORKER, {
+          const res = await fetch(WORKER + '/v1/admin/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'verifyAdmin', code }),
+            body: JSON.stringify({ code }),
           });
           if (res.ok) { const d = await res.json().catch(() => null); if (d && d.ok) return true; }
         } catch (e) { /* fall through to offline hash */ }
@@ -3189,10 +3198,22 @@
       save(rec);
     }
 
-    function play(origin) {
+    async function play(origin) {
       State.dailyRun = true;
       State.rivalRun = false;
-      State.dailyDate = todayKey();
+      State.dailyOnline = false;
+      try {
+        const daily = await window.ChronosLB?.getDaily?.();
+        if (daily?.day && daily?.seed) {
+          State.dailyDate = daily.day;
+          State.dailySeed = daily.seed;
+          State.dailyOnline = true;
+        }
+      } catch { /* offline Daily deliberately stays local */ }
+      if (!State.dailyOnline) {
+        State.dailyDate = todayKey();
+        State.dailySeed = seedFor(State.dailyDate);
+      }
       AudioFx.newRound();
       startMode('classic');   // Daily is Classic/Normal; startMode pins the seed
     }

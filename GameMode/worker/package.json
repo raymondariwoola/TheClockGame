@@ -1,0 +1,16 @@
+{
+  "name": "chronos-strike-worker",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker and SQLite Durable Objects for Chronos Strike",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs",
+    "check": "wrangler deploy --dry-run --outdir .wrangler-dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.115.0"
+  }
+}

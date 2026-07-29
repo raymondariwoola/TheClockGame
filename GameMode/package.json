@@ -4,7 +4,7 @@
   "private": true,
   "description": "Chronos Strike static game, shared rules, tests, and Cloudflare backend",
   "scripts": {
-    "test": "node engine.test.mjs && node game.loadtest.cjs && node tests/run-context.test.cjs && node tests/protocol.test.mjs",
+    "test": "node engine.test.mjs && node game.loadtest.cjs && node tests/run-context.test.cjs && node tests/protocol.test.mjs && npm --prefix worker test",
     "check:syntax": "node scripts/check-syntax.mjs"
   }
 }

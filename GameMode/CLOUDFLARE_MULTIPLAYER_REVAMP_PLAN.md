@@ -305,9 +305,9 @@ host_playing -> open -> guest_playing -> finished -> expired/deleted
 
 ### 7.5 Rate limiting
 
-Reuse the StackFall approach initially: a small Workers KV namespace for coarse per-IP rolling counters, with separate buckets for score, room creation, room join, socket tickets, ghost creation, cheat verification, and admin attempts. Keep writes low and recognize that KV is a soft abuse control, not identity.
+Start without an extra KV namespace: use coarse per-isolate rolling counters on public HTTP routes and serialized in-room counters for score, room, ghost, and socket actions. This keeps owner setup smaller and avoids consuming a second storage product for a family-scale game. These are soft abuse controls, not identity.
 
-If KV's free write ceiling becomes the first constraint, replace hot message limits with in-room counters and retain KV only for public HTTP entry points. Never solve a family-scale limit by silently enabling a paid plan.
+If hosted measurements show that isolate-local public-route limits are insufficient, add an explicitly owner-approved free Workers KV namespace for those coarse counters only. Never solve a family-scale limit by silently enabling a paid plan.
 
 ---
 
@@ -740,8 +740,8 @@ This is a target shape, not permission for a big-bang rewrite. Extract one seam 
 
 ### Work
 
-- create `worker/` with pinned Wrangler version, `wrangler.toml`, strict compatibility date, health route, CORS allowlist, safe errors, and body limits;
-- add `LeaderboardRoom` as SQLite-backed Durable Object migration v1;
+- create `worker/` with pinned Wrangler version, current `wrangler.jsonc` declarative Durable Object exports, strict compatibility date, health route, CORS allowlist, safe errors, and body limits;
+- add `LeaderboardRoom` as a declaratively managed SQLite-backed Durable Object;
 - partition boards correctly and make submission idempotent/atomic;
 - issue server-owned ranked run identities and Daily seed/day;
 - validate finite run transcript/final shape, ordering, monotonicity, ruleset identity, and generous safety caps without clean-only score recomputation or any cheat field;

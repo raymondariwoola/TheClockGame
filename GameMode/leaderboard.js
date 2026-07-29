@@ -1,20 +1,13 @@
-// Chronos Strike — global Top-20 leaderboard ("Hall of Time").
-// Backed by a public GitHub Gist (see leaderboard-config.js). Falls back to a
-// local, this-browser-only board when no gist is configured or when offline.
+// Chronos Strike — Cloudflare-backed Top-20 leaderboard ("Hall of Time").
+// Durable Objects own remote writes; local storage is an offline fallback only.
 
 (() => {
   'use strict';
 
   const MAX_ENTRIES = 20;
   const cfg = window.CHRONOS_LB_CONFIG || {};
-  const WORKER_URL = (cfg.workerUrl || '').trim().replace(/\/+$/, '');
-  const GIST_ID = (cfg.gistId || '').trim();
-  const GIST_FILE = cfg.gistFile || 'chronos-leaderboard.json';
-  const TOKEN = Array.isArray(cfg.tokenParts) ? cfg.tokenParts.join('').trim() : '';
-  // worker = Cloudflare proxy (token stays server-side); remote = direct gist
-  // (token exposed in browser); local = this-browser-only fallback.
-  const MODE = WORKER_URL ? 'worker' : (GIST_ID ? 'remote' : 'local');
-  const REMOTE = MODE !== 'local';
+  const API_BASE = (cfg.apiBase || '').trim().replace(/\/+$/, '');
+  const REMOTE = !!API_BASE;
   const LOCAL_KEY = 'cs_local_board';
   const CACHE_KEY = 'cs_board_cache';
   const NAME_KEY = 'cs_player_name';  // remembers first/last on this device
@@ -31,6 +24,8 @@
 
   let pendingStats = null;   // stats of the run awaiting name entry
   let lastSubmittedId = null; // highlight "YOU" on the board
+  let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: 1 };
+  const issuedRuns = new Map();
 
   // ---------- storage ----------
   const readJson = (key) => {
@@ -55,89 +50,107 @@
       .filter(e => e && typeof e.score === 'number' && typeof e.name === 'string' && e.name.trim()))
       .slice(0, MAX_ENTRIES);
 
-  // ---------- gist API ----------
-  async function fetchRemote() {
-    const headers = { Accept: 'application/vnd.github+json' };
-    if (TOKEN) headers.Authorization = 'Bearer ' + TOKEN;
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, { headers });
-    if (!res.ok) throw new Error('gist fetch failed: ' + res.status);
-    const gist = await res.json();
-    const file = gist.files && gist.files[GIST_FILE];
-    if (!file) throw new Error(`"${GIST_FILE}" not found in gist`);
-    let content = file.content;
-    if (file.truncated) content = await (await fetch(file.raw_url)).text();
-    const data = JSON.parse(content || '{"entries":[]}');
-    return normalize(data.entries);
+  // ---------- Cloudflare API ----------
+  function partitionForStats(stats = {}) {
+    return {
+      scope: stats.daily ? 'daily' : 'standard',
+      mode: stats.daily ? 'classic' : (stats.mode || 'classic'),
+      difficulty: stats.hc ? 'hardcore' : 'normal',
+      rulesetVersion: stats.rulesetVersion || 1,
+      dailyDate: stats.daily ? stats.dailyDate : null,
+    };
   }
 
-  async function saveRemote(entries) {
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: 'PATCH',
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: 'Bearer ' + TOKEN,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        files: { [GIST_FILE]: { content: JSON.stringify({ entries }, null, 2) } },
-      }),
+  function queryString(partition) {
+    const params = new URLSearchParams({
+      scope: partition.scope || 'standard',
+      mode: partition.mode || 'classic',
+      difficulty: partition.difficulty || 'normal',
+      rulesetVersion: String(partition.rulesetVersion || 1),
     });
-    if (!res.ok) throw new Error('gist save failed: ' + res.status);
+    if (partition.dailyDate) params.set('dailyDate', partition.dailyDate);
+    return params.toString();
   }
 
-  // ---------- worker proxy (token stays server-side) ----------
-  async function workerFetch() {
-    const res = await fetch(WORKER_URL, { headers: { Accept: 'application/json' } });
+  const boardStorageKey = (base, partition) => `${base}:${queryString(partition)}`;
+
+  async function apiFetch(path, options) {
+    if (!API_BASE) throw new Error('cloudflare_not_configured');
+    const res = await fetch(API_BASE + path, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `cloudflare_${res.status}`);
+    return data;
+  }
+
+  async function workerFetch(partition) {
+    const res = await fetch(`${API_BASE}/v1/leaderboards?${queryString(partition)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error('worker fetch failed: ' + res.status);
     const data = await res.json();
     return normalize(data.entries);
   }
 
-  async function workerSubmit(entry) {
-    const res = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entry }),
+  function startRun(info = {}) {
+    if (!REMOTE || !info.runId) return Promise.resolve(null);
+    const promise = apiFetch('/v1/runs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        runType: info.runType,
+        mode: info.mode,
+        difficulty: info.hardcore ? 'hardcore' : 'normal',
+        rulesetVersion: info.rulesetVersion,
+        dailyDate: info.dailyDate || null,
+        seed: info.seed,
+      }),
     });
-    if (!res.ok) throw new Error('worker submit failed: ' + res.status);
-    const data = await res.json();
-    return { entries: normalize(data.entries), made: !!data.made, source: 'remote' };
+    issuedRuns.set(info.runId, promise);
+    return promise;
   }
 
-  async function loadBoard() {
-    if (MODE === 'worker') {
-      const entries = await workerFetch();
-      writeJson(CACHE_KEY, entries);
-      return { entries, source: 'remote' };
-    }
-    if (MODE === 'remote') {
-      const entries = await fetchRemote();
-      writeJson(CACHE_KEY, entries);
-      return { entries, source: 'remote' };
-    }
-    return { entries: normalize(readJson(LOCAL_KEY)), source: 'local' };
+  async function getDaily() {
+    return apiFetch('/v1/daily', { headers: { Accept: 'application/json' } });
   }
 
-  // Re-fetch, merge, trim, save — so a concurrent submission elsewhere
-  // isn't clobbered. Returns whether the entry survived the merge.
-  async function submitEntry(entry) {
-    if (MODE === 'worker') {
-      const result = await workerSubmit(entry);
-      writeJson(CACHE_KEY, result.entries);
-      return result;
+  async function loadBoard(partition = currentPartition) {
+    if (REMOTE) {
+      const entries = await workerFetch(partition);
+      writeJson(boardStorageKey(CACHE_KEY, partition), entries);
+      return { entries, source: 'remote' };
     }
-    if (MODE === 'remote' && TOKEN) {
-      let entries;
-      try { entries = await fetchRemote(); }
-      catch { entries = normalize(readJson(CACHE_KEY)); }
-      entries = sortEntries([...entries, entry]).slice(0, MAX_ENTRIES);
-      const made = entries.some(e => e.id === entry.id);
-      if (made) await saveRemote(entries);
-      writeJson(CACHE_KEY, entries);
-      return { entries, made, source: 'remote' };
+    return { entries: normalize(readJson(boardStorageKey(LOCAL_KEY, partition))), source: 'local' };
+  }
+
+  async function submitEntry(entry, stats) {
+    if (REMOTE) {
+      let issued = issuedRuns.get(stats.runId);
+      if (!issued) {
+        startRun({
+          runId: stats.runId, runType: stats.daily ? 'daily' : stats.mode,
+          mode: stats.mode, hardcore: stats.hc, rulesetVersion: stats.rulesetVersion,
+          dailyDate: stats.dailyDate, seed: stats.seed,
+        });
+        issued = issuedRuns.get(stats.runId);
+      }
+      const run = await issued;
+      const data = await apiFetch(`/v1/runs/${encodeURIComponent(run.runId)}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${run.finishToken}` },
+        body: JSON.stringify({
+          entry,
+          progress: [{
+            score: entry.score, round: entry.round, perfects: entry.perfect,
+            bestCombo: entry.combo, accuracy: entry.acc, finished: true,
+          }],
+        }),
+      });
+      issuedRuns.delete(stats.runId);
+      const entries = normalize(data.entries);
+      writeJson(boardStorageKey(CACHE_KEY, currentPartition), entries);
+      if (data.entryId) entry.id = data.entryId;
+      return { entries, made: !!data.made, source: 'remote' };
     }
-    const entries = sortEntries([...normalize(readJson(LOCAL_KEY)), entry]).slice(0, MAX_ENTRIES);
-    writeJson(LOCAL_KEY, entries);
+    const localKey = boardStorageKey(LOCAL_KEY, currentPartition);
+    const entries = sortEntries([...normalize(readJson(localKey)), entry]).slice(0, MAX_ENTRIES);
+    writeJson(localKey, entries);
     return { entries, made: entries.some(e => e.id === entry.id), source: 'local' };
   }
 
@@ -245,9 +258,9 @@
       render(entries);
       setStatus(source === 'remote'
         ? `⚡ LIVE GLOBAL BOARD · ${entries.length}/${MAX_ENTRIES} LEGENDS`
-        : '📍 LOCAL BOARD — configure leaderboard-config.js for global scores', source);
+        : '📍 LOCAL BOARD — CLOUDFLARE BACKEND NOT CONFIGURED', source);
     } catch (err) {
-      const cached = readJson(CACHE_KEY);
+      const cached = readJson(boardStorageKey(CACHE_KEY, currentPartition));
       if (cached) {
         render(normalize(cached));
         setStatus('⚠ OFFLINE — SHOWING LAST KNOWN STANDINGS', 'error');
@@ -262,6 +275,7 @@
   async function onGameEnd(stats) {
     pendingStats = null;
     if (!elLbCheck) return;
+    currentPartition = partitionForStats(stats);
     // GOD-mode (creator demo) runs are for fun only — never ranked
     if (stats.god) {
       elLbCheck.hidden = false;
@@ -269,12 +283,10 @@
       elLbCheck.textContent = '◈ DEMO RUN — NOT RANKED';
       return;
     }
-    // Daily Rift: tracked locally for now; the global Daily board arrives once
-    // submission validation is ready, so keep it off the standard Classic board.
-    if (stats.daily) {
+    if (stats.daily && !stats.dailyOnline) {
       elLbCheck.hidden = false;
       elLbCheck.className = 'lb-check qualified';
-      elLbCheck.textContent = `🗓️ DAILY RIFT — "${stats.riftName || 'Today'}" · LOCAL BEST SAVED`;
+      elLbCheck.textContent = `🗓️ OFFLINE DAILY — "${stats.riftName || 'Today'}" · LOCAL BEST SAVED`;
       return;
     }
     // Rival Code race: a private head-to-head — show the result, never ranked.
@@ -294,9 +306,9 @@
     elLbCheck.className = 'lb-check';
 
     let entries;
-    try { ({ entries } = await loadBoard()); }
+    try { ({ entries } = await loadBoard(currentPartition)); }
     catch {
-      entries = normalize(readJson(CACHE_KEY));
+      entries = normalize(readJson(boardStorageKey(CACHE_KEY, currentPartition)));
       if (!entries.length && REMOTE) {
         elLbCheck.textContent = '⚠ COULD NOT REACH THE LEADERBOARD';
         elLbCheck.classList.add('error');
@@ -373,6 +385,7 @@
       round: pendingStats.round,
       combo: pendingStats.combo,
       acc: pendingStats.acc,
+      perfect: pendingStats.perfect,
       hc: !!pendingStats.hc,
       // Full ruleset identity — keeps scores comparable across balance changes
       // and enables Daily/replay validation and assisted-run categorisation.
@@ -380,7 +393,8 @@
       rulesetVersion: pendingStats.rulesetVersion != null ? pendingStats.rulesetVersion : null,
       seed: pendingStats.seed || null,
       assists: pendingStats.assists || {},
-      cheat: !!pendingStats.cheat,
+      dailyDate: pendingStats.dailyDate || null,
+      scope: pendingStats.daily ? 'daily' : 'standard',
       date: new Date().toISOString(),
     };
 
@@ -389,7 +403,7 @@
     elNameError.hidden = true;
 
     try {
-      const { made } = await submitEntry(entry);
+      const { made } = await submitEntry(entry, pendingStats);
       pendingStats = null;
       lastSubmittedId = made ? entry.id : null;
       closeNameOverlay();
@@ -419,5 +433,5 @@
     }
   });
 
-  window.ChronosLB = { onGameEnd, show };
+  window.ChronosLB = { onGameEnd, show, startRun, getDaily };
 })();

@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chronos-strike-backend",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-22",
+  "durable_objects": {
+    "bindings": [
+      { "name": "LEADERBOARD_ROOM", "class_name": "LeaderboardRoom" }
+    ]
+  },
+  "exports": {
+    "LeaderboardRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "ALLOW_ORIGIN": "http://localhost:8000",
+    "LEADERBOARD_ENABLED": "true",
+    "DAILY_ENABLED": "true",
+    "CHEATS_ENABLED": "true"
+  }
+}
