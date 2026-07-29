@@ -1,9 +1,11 @@
 import { LeaderboardRoom } from './leaderboard-room.js';
+import { GhostChallengeRoom } from './ghost-challenge-room.js';
+import { handleGhostRequest, isGhostPath } from './ghost-api.js';
 import { allowRequest } from './rate-limit.js';
 import { safeEqual, signRun, verifyRun } from './security.js';
 import { MODES, normalizeBoardQuery, parseBoardQuery, sanitizeEntry, validateProgress } from './validation.js';
 
-export { LeaderboardRoom };
+export { LeaderboardRoom, GhostChallengeRoom };
 
 const MAX_BODY_BYTES = 48 * 1024;
 const RUN_LIFETIME_MS = 6 * 60 * 60 * 1000;
@@ -145,6 +147,7 @@ export default {
           features: {
             leaderboard: env.LEADERBOARD_ENABLED !== 'false',
             daily: env.DAILY_ENABLED !== 'false',
+            ghosts: env.GHOSTS_ENABLED !== 'false' && !!env.GHOST_CHALLENGE_ROOM,
             cheats: env.CHEATS_ENABLED !== 'false',
           },
         });
@@ -156,6 +159,8 @@ export default {
         const rulesetVersion = 1;
         return json(request, env, { day, rulesetVersion, seed: `daily|${rulesetVersion}|${day}`, serverTime: Date.now() });
       }
+
+      if (isGhostPath(url.pathname)) return handleGhostRequest(request, env, corsHeaders(request, env));
 
       if (request.method === 'GET' && (url.pathname === '/v1/leaderboards' || url.pathname === '/')) {
         if (env.LEADERBOARD_ENABLED === 'false') return json(request, env, { error: 'leaderboard_disabled' }, 503);

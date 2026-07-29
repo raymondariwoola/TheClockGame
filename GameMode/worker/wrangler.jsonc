@@ -5,11 +5,16 @@
   "compatibility_date": "2026-07-22",
   "durable_objects": {
     "bindings": [
-      { "name": "LEADERBOARD_ROOM", "class_name": "LeaderboardRoom" }
+      { "name": "LEADERBOARD_ROOM", "class_name": "LeaderboardRoom" },
+      { "name": "GHOST_CHALLENGE_ROOM", "class_name": "GhostChallengeRoom" }
     ]
   },
   "exports": {
     "LeaderboardRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "GhostChallengeRoom": {
       "type": "durable-object",
       "storage": "sqlite"
     }
@@ -18,6 +23,7 @@
     "ALLOW_ORIGIN": "http://localhost:8000",
     "LEADERBOARD_ENABLED": "true",
     "DAILY_ENABLED": "true",
+    "GHOSTS_ENABLED": "true",
     "CHEATS_ENABLED": "true"
   }
 }

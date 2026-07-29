@@ -736,6 +736,7 @@
     dailySeed: null,
     rivalRun: false,     // this run is racing an imported Rival Code
     rivalRecord: null,   // the decoded rival ghost being raced
+    ghostChallenge: null,// session metadata for a short Cloudflare ghost race
     // Per-run achievement counters (reset each run in startMode).
     livesLostThisRun: 0,
     powersUsedThisRun: 0,
@@ -1363,10 +1364,10 @@
 
   // Ghost replay: record the just-resolved strike and refresh HUD.
   function logGhost(kind) {
-    if (!ghostActive()) return;
+    if (!Ghost.isRecording()) return;
     const ls = State._lastStrike;
     Ghost.recordStrike(State.round, ls ? ls.angle : State.handAngle, kind, ls ? ls.t : State.roundElapsed, State.score);
-    Ghost.updateHud(State.round, State.score);
+    if (ghostActive()) Ghost.updateHud(State.round, State.score);
   }
 
   function handleMiss(x, y, label = 'MISS') {
@@ -1657,6 +1658,7 @@
       Ghost.startRecording(runIdentityString(mode), { mode, hardcore: State.hardcore, date: 'rival' });
       Ghost.loadFromRecord(State.rivalRecord);   // race the imported rival ghost
     } else {
+      Ghost.startRecording(runIdentityString(mode), { mode, hardcore: State.hardcore, date: 'standard' });
       Ghost.clear();
     }
     // Classic always has 3 lives (hardcore adds pressure via speed + taunts,
@@ -1768,6 +1770,7 @@
     }
 
     const completedContext = ActiveRun.complete({ endedAt: Date.now() });
+    Ghost.finalize(State.score, State.round);
     const runStats = {
       score: State.score,
       mode: State.mode,
@@ -1804,10 +1807,11 @@
       runStats.rivalName = State.rivalRecord.name || 'Rival';
       runStats.rivalScore = State.rivalRecord.score || 0;
       runStats.beatRival = State.score > runStats.rivalScore;
+      runStats.ghostChallenge = State.ghostChallenge || null;
     }
     // "Challenge a friend" — offer to copy this run as a Rival Code when it was
     // a recorded run (Daily or Rival) with at least one strike.
-    updateChallengeButton();
+    updateChallengeButton(runStats);
 
     // Hall of Time — ordinary private cheats are an intentional family/friend
     // feature and count normally. Creator GOD mode remains the only excluded
@@ -1829,6 +1833,7 @@
 
     // global leaderboard qualification check (leaderboard.js)
     if (window.ChronosLB) window.ChronosLB.onGameEnd(runStats);
+    if (window.ChronosGhost) window.ChronosGhost.onGameEnd(runStats);
   }
 
   function computeRank(score, acc, perfect) {
@@ -1837,13 +1842,18 @@
   }
 
   // Show/wire the game-over "Challenge a friend" button for recorded runs.
-  function updateChallengeButton() {
+  function updateChallengeButton(runStats) {
     const btn = document.getElementById('challengeBtn');
     if (!btn) return;
-    const canShare = ghostActive() && Ghost.recordedCount() > 0;
+    const canShare = !State.godTainted && !State.ghostChallenge && Ghost.recordedCount() > 0;
     btn.hidden = !canShare;
     if (!canShare) return;
+    btn.textContent = '👻 BEAT MY TIME';
     btn.onclick = async () => {
+      if (window.ChronosGhost) {
+        window.ChronosGhost.openCreate(runStats, Ghost.getRecording());
+        return;
+      }
       const code = Rival.encodeCurrentRun();
       if (!code) { Rival.toast('Nothing to share yet'); return; }
       const ok = await Rival.copy(code);
@@ -1875,7 +1885,7 @@
   $$('.mode-card').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
-      State.dailyRun = false; State.rivalRun = false;   // a normal mode pick leaves Daily/Rival
+      State.dailyRun = false; State.rivalRun = false; State.ghostChallenge = null;
       if (window.anime) {
         anime({ targets: btn, scale: [1, 1.1, 1], duration: 250 });
       }
@@ -1893,8 +1903,10 @@
   // Rival Codes: share your best Daily ghost, or paste a code to race one.
   const dailyChallengeBtn = $('dailyChallengeBtn');
   if (dailyChallengeBtn) dailyChallengeBtn.addEventListener('click', async () => {
+    const record = Ghost.storedForDate(Daily.todayKey());
+    if (!record) { Rival.toast('Play the rift first to create a ghost'); return; }
+    if (window.ChronosGhost) { window.ChronosGhost.openCreate(null, record); return; }
     const code = Rival.encodeStoredDaily(Daily.todayKey());
-    if (!code) { Rival.toast('Play the rift first to create a ghost'); return; }
     const ok = await Rival.copy(code);
     Rival.toast(ok ? '🏁 Rival Code copied — challenge a friend!' : 'Copy failed — see console');
     if (!ok) console.log('Rival Code:', code);
@@ -2801,11 +2813,20 @@
     }
     function recordStrike(round, angle, kind, tSeconds, cumScore) {
       if (!recording) return;
-      recording.strikes.push({ round, angle: +(+angle).toFixed(2), kind, t: Math.round(tSeconds * 1000), s: cumScore });
+      const strike = { round, angle: +(+angle).toFixed(2), kind, t: Math.round(tSeconds * 1000), s: cumScore };
+      if (recording.strikes.length >= ChronosEngine.RIVAL_LIMITS.maxStrikes) recording.strikes[recording.strikes.length - 1] = strike;
+      else recording.strikes.push(strike);
       recording.score = cumScore;
       recording.rounds = round;
     }
     function recordedCount() { return recording ? recording.strikes.length : 0; }
+    function isRecording() { return !!recording; }
+    function finalize(score, round) {
+      if (!recording || !recording.strikes.length) return;
+      recording.score = score;
+      recording.rounds = Math.max(recording.rounds, round);
+      recording.strikes[recording.strikes.length - 1].s = score;
+    }
 
     // ---- persistence ----
     function saveIfBest() {
@@ -2914,7 +2935,7 @@
     }
 
     return {
-      startRecording, recordStrike, recordedCount, saveIfBest, storedForDate,
+      startRecording, recordStrike, recordedCount, isRecording, finalize, saveIfBest, storedForDate,
       loadForToday, loadFromRecord, getRecording, hasGhost, ghostScore, ghostName,
       ghostScoreThroughRound, renderRound, tick, updateHud, clear,
     };
@@ -2949,9 +2970,15 @@
     function startRace(code, origin) {
       const rec = ChronosEngine.decodeRival(code);
       if (!rec || !rec.strikes.length) return false;
+      return startRecord(rec, null);
+    }
+
+    function startRecord(rec, cloudSession) {
+      if (!rec || !Array.isArray(rec.strikes) || !rec.strikes.length) return false;
       State.dailyRun = false;
       State.rivalRun = true;
       State.rivalRecord = rec;
+      State.ghostChallenge = cloudSession || null;
       AudioFx.newRound();
       startMode(rec.mode === 'endless' ? 'endless' : rec.mode === 'zen' ? 'zen' : 'classic');
       return true;
@@ -2980,7 +3007,7 @@
       setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 1900);
     }
 
-    return { playerName, encodeCurrentRun, encodeStoredDaily, startRace, copy, toast };
+    return { playerName, encodeCurrentRun, encodeStoredDaily, startRace, startRecord, copy, toast };
   })();
 
   // ============================================================
@@ -3406,6 +3433,7 @@
     },
     // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
     setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
+    startGhostChallenge: (record, session) => Rival.startRecord(record, session),
     // Dev/test hooks.
     debugGhost: () => ({
       todayKey: Daily.todayKey(),

@@ -42,3 +42,8 @@ export async function verifyRun(token, secret) {
     return payload;
   } catch { return null; }
 }
+
+export async function sha256hex(value) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(String(value || ''))));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}

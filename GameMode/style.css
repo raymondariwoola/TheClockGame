@@ -2159,3 +2159,74 @@ body.starpower .strike-btn { border-color: var(--neon-yellow); box-shadow: 0 0 4
   .podium-medal { font-size: 34px; }
   .podium-card.p1 .podium-medal { font-size: 44px; }
 }
+
+/* =====================================================================
+   CLOUDFLARE GHOST CHALLENGES — touch-first create, join, and result UI
+   ===================================================================== */
+.ghost-cloud-overlay {
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+.ghost-cloud-card {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-color: var(--neon-violet);
+  box-shadow: 0 0 60px rgba(139,92,255,0.3);
+  -webkit-overflow-scrolling: touch;
+}
+.ghost-cloud-body { display: flex; flex-direction: column; align-items: stretch; gap: 14px; width: 100%; }
+.ghost-cloud-body h2 { margin: 0; font-size: clamp(22px, 6vw, 32px); line-height: 1.1; }
+.ghost-cloud-eyebrow {
+  color: var(--neon-cyan); font-family: 'Orbitron', sans-serif; font-size: 11px;
+  font-weight: 800; letter-spacing: 2.5px; text-align: center;
+}
+.ghost-cloud-note { margin: -4px 0 2px; color: var(--ink-dim); font-size: 15px; line-height: 1.35; text-align: center; }
+.ghost-cloud-input {
+  box-sizing: border-box; width: 100%; min-height: 48px; padding: 11px 13px;
+  border: 1px solid rgba(0,240,255,0.35); border-radius: 10px;
+  background: rgba(2,5,16,0.85); color: #fff; font: 600 16px/1.25 'Rajdhani', sans-serif;
+}
+.ghost-cloud-input:focus-visible { outline: 2px solid var(--neon-cyan); outline-offset: 2px; }
+.ghost-link { font-size: 14px; }
+.ghost-cloud-check {
+  display: flex; min-height: 48px; align-items: center; gap: 12px; padding: 8px 10px;
+  border: 1px solid rgba(139,92,255,0.24); border-radius: 10px; cursor: pointer; text-align: left;
+}
+.ghost-cloud-check input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--neon-violet); }
+.ghost-cloud-summary { display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(0,240,255,0.2); border-radius: 12px; }
+.ghost-cloud-summary > div {
+  display: grid; grid-template-columns: minmax(88px, .7fr) minmax(0, 1.4fr); align-items: center;
+  gap: 12px; min-height: 42px; padding: 7px 12px; background: rgba(2,5,16,0.74); text-align: left;
+}
+.ghost-cloud-summary span { color: var(--ink-dim); font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 1.5px; }
+.ghost-cloud-summary strong { min-width: 0; overflow-wrap: anywhere; color: #fff; font-size: 16px; text-align: right; }
+.ghost-cloud-status { min-height: 20px; color: var(--neon-yellow); font-size: 14px; line-height: 1.35; text-align: center; }
+.ghost-cloud-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.ghost-cloud-actions button,
+.ghost-cloud-body > button { min-height: 46px; touch-action: manipulation; }
+.ghost-result-score {
+  padding: 12px; border-radius: 10px; background: rgba(0,240,255,0.08);
+  color: var(--neon-cyan); font-family: 'Orbitron', sans-serif; font-size: 14px; line-height: 1.4; text-align: center;
+}
+
+@media (max-width: 500px) {
+  .ghost-cloud-overlay { align-items: flex-end; }
+  .ghost-cloud-card {
+    width: 100%; padding: 18px 14px max(18px, env(safe-area-inset-bottom));
+    border-radius: 18px 18px 12px 12px;
+  }
+  .ghost-cloud-body { gap: 12px; }
+  .ghost-cloud-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .ghost-cloud-actions button { width: 100%; padding-inline: 9px; font-size: 12px; letter-spacing: 1px; }
+  .ghost-cloud-actions button:last-child:nth-child(3) { grid-column: 1 / -1; }
+  .ghost-cloud-summary > div { grid-template-columns: 82px minmax(0, 1fr); }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .ghost-cloud-overlay { align-items: center; }
+  .ghost-cloud-card { max-height: calc(100dvh - 12px); padding-block: 12px; }
+  .ghost-cloud-note { font-size: 13px; }
+  .ghost-cloud-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
