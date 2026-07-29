@@ -2230,3 +2230,64 @@ body.starpower .strike-btn { border-color: var(--neon-yellow); box-shadow: 0 0 4
   .ghost-cloud-note { font-size: 13px; }
   .ghost-cloud-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* =====================================================================
+   LIVE CHRONO CLASH — compact lobby and opponent HUD for phones
+   ===================================================================== */
+.menu-board-btn.clash { border-color: rgba(255,43,181,0.4); background: linear-gradient(90deg, rgba(255,43,181,0.08), rgba(139,92,255,0.09)); }
+.clash-overlay {
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+.clash-card {
+  width: min(580px, 100%); max-height: calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow: auto; overscroll-behavior: contain; border-color: var(--neon-magenta);
+  box-shadow: 0 0 60px rgba(255,43,181,0.28); -webkit-overflow-scrolling: touch;
+}
+.clash-body { display: flex; flex-direction: column; align-items: stretch; gap: 13px; width: 100%; }
+.clash-body h2 { margin: 0; font-size: clamp(22px, 6vw, 32px); line-height: 1.1; }
+.clash-eyebrow { color: var(--neon-magenta); font: 800 11px/1.2 'Orbitron', sans-serif; letter-spacing: 2.5px; text-align: center; }
+.clash-note { margin: -4px 0 2px; color: var(--ink-dim); font-size: 15px; line-height: 1.35; text-align: center; }
+.clash-input {
+  box-sizing: border-box; width: 100%; min-height: 48px; padding: 11px 13px;
+  border: 1px solid rgba(255,43,181,0.35); border-radius: 10px; background: rgba(2,5,16,0.88);
+  color: #fff; font: 600 16px/1.25 'Rajdhani', sans-serif;
+}
+.clash-input:focus-visible { outline: 2px solid var(--neon-magenta); outline-offset: 2px; }
+.clash-room { display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(255,43,181,0.2); border-radius: 12px; }
+.clash-room > div { display: grid; grid-template-columns: 80px minmax(0,1fr); align-items: center; gap: 10px; min-height: 44px; padding: 7px 12px; background: rgba(2,5,16,0.76); text-align: left; }
+.clash-room span { color: var(--ink-dim); font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 1.5px; }
+.clash-room strong { min-width: 0; overflow-wrap: anywhere; color: #fff; font-size: 16px; text-align: right; }
+.clash-status { min-height: 20px; color: var(--neon-cyan); font-size: 14px; line-height: 1.35; text-align: center; }
+.clash-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+.clash-actions button, .clash-body > button { min-height: 46px; touch-action: manipulation; }
+.clash-final { padding: 12px; border-radius: 10px; background: rgba(255,43,181,0.08); color: #fff; font: 700 14px/1.5 'Orbitron', sans-serif; text-align: center; }
+.clash-hud { display: flex; justify-content: center; gap: 5px; margin-top: 5px; max-width: min(50vw, 340px); }
+.clash-hud[hidden] { display: none; }
+.clash-chip {
+  min-height: 36px; max-width: 165px; padding: 5px 8px; border: 1px solid rgba(255,43,181,0.35);
+  border-radius: 9px; background: rgba(2,5,16,0.86); color: #fff; font: 700 10px/1.25 'Orbitron', sans-serif;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
+.clash-dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: var(--neon-red); }
+.clash-dot.online { background: var(--neon-green); box-shadow: 0 0 7px var(--neon-green); }
+.clash-reconnecting .clash-hud { opacity: 0.65; }
+.hud-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+@media (max-width: 500px) {
+  .clash-overlay { align-items: flex-end; }
+  .clash-card { width: 100%; padding: 18px 14px max(18px, env(safe-area-inset-bottom)); border-radius: 18px 18px 12px 12px; }
+  .clash-body { gap: 11px; }
+  .clash-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .clash-actions button { width: 100%; padding-inline: 8px; font-size: 11px; letter-spacing: 1px; }
+  .clash-actions button:last-child:nth-child(3), .clash-actions button:last-child:nth-child(4) { grid-column: auto; }
+  .clash-hud { max-width: 48vw; flex-direction: column; align-items: stretch; gap: 3px; }
+  .clash-chip { min-height: 29px; max-width: 48vw; padding: 3px 6px; font-size: 8px; }
+}
+
+@media (max-width: 380px) {
+  .clash-room > div { grid-template-columns: 66px minmax(0,1fr); padding-inline: 9px; }
+  .clash-room strong { font-size: 14px; }
+  .clash-chip { font-size: 7px; }
+}

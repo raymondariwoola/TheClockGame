@@ -1,11 +1,13 @@
 import { LeaderboardRoom } from './leaderboard-room.js';
 import { GhostChallengeRoom } from './ghost-challenge-room.js';
 import { handleGhostRequest, isGhostPath } from './ghost-api.js';
+import { MatchRoom } from './match-room.js';
+import { handleMatchRequest, isMatchPath } from './match-api.js';
 import { allowRequest } from './rate-limit.js';
 import { safeEqual, signRun, verifyRun } from './security.js';
 import { MODES, normalizeBoardQuery, parseBoardQuery, sanitizeEntry, validateProgress } from './validation.js';
 
-export { LeaderboardRoom, GhostChallengeRoom };
+export { LeaderboardRoom, GhostChallengeRoom, MatchRoom };
 
 const MAX_BODY_BYTES = 48 * 1024;
 const RUN_LIFETIME_MS = 6 * 60 * 60 * 1000;
@@ -148,6 +150,7 @@ export default {
             leaderboard: env.LEADERBOARD_ENABLED !== 'false',
             daily: env.DAILY_ENABLED !== 'false',
             ghosts: env.GHOSTS_ENABLED !== 'false' && !!env.GHOST_CHALLENGE_ROOM,
+            multiplayer: env.MULTIPLAYER_ENABLED !== 'false' && !!env.MATCH_ROOM,
             cheats: env.CHEATS_ENABLED !== 'false',
           },
         });
@@ -161,6 +164,7 @@ export default {
       }
 
       if (isGhostPath(url.pathname)) return handleGhostRequest(request, env, corsHeaders(request, env));
+      if (isMatchPath(url.pathname)) return handleMatchRequest(request, env, corsHeaders(request, env));
 
       if (request.method === 'GET' && (url.pathname === '/v1/leaderboards' || url.pathname === '/')) {
         if (env.LEADERBOARD_ENABLED === 'false') return json(request, env, { error: 'leaderboard_disabled' }, 503);

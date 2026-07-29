@@ -6,7 +6,8 @@
   "durable_objects": {
     "bindings": [
       { "name": "LEADERBOARD_ROOM", "class_name": "LeaderboardRoom" },
-      { "name": "GHOST_CHALLENGE_ROOM", "class_name": "GhostChallengeRoom" }
+      { "name": "GHOST_CHALLENGE_ROOM", "class_name": "GhostChallengeRoom" },
+      { "name": "MATCH_ROOM", "class_name": "MatchRoom" }
     ]
   },
   "exports": {
@@ -17,6 +18,10 @@
     "GhostChallengeRoom": {
       "type": "durable-object",
       "storage": "sqlite"
+    },
+    "MatchRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
     }
   },
   "vars": {
@@ -24,6 +29,7 @@
     "LEADERBOARD_ENABLED": "true",
     "DAILY_ENABLED": "true",
     "GHOSTS_ENABLED": "true",
+    "MULTIPLAYER_ENABLED": "true",
     "CHEATS_ENABLED": "true"
   }
 }

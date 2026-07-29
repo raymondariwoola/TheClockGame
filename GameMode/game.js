@@ -737,6 +737,7 @@
     rivalRun: false,     // this run is racing an imported Rival Code
     rivalRecord: null,   // the decoded rival ghost being raced
     ghostChallenge: null,// session metadata for a short Cloudflare ghost race
+    clashRun: null,      // server-frozen live match identity; never sent to global boards
     // Per-run achievement counters (reset each run in startMode).
     livesLostThisRun: 0,
     powersUsedThisRun: 0,
@@ -1105,7 +1106,8 @@
 
     renderZones(State.zones);
     elRoundLabel.textContent = State.mode === 'endless' ? `WAVE ${State.round}` : `ROUND ${State.round}`;
-    elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / CLASSIC_ROUNDS * 100) + '%' : '100%';
+    const visibleRoundLimit = State.clashRun ? State.clashRun.roundLimit : CLASSIC_ROUNDS;
+    elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / visibleRoundLimit * 100) + '%' : '100%';
 
     // Mode-specific progression
     if (State.mode === 'endless' && State.round > 1) State.survivalMult += 0.15;
@@ -1139,7 +1141,7 @@
     const sub = document.getElementById('roundSub');
     if (!sub) return;
     if (State.mode === 'classic') {
-      sub.textContent = `ROUND ${State.round} / ${CLASSIC_ROUNDS}`;
+      sub.textContent = `ROUND ${State.round} / ${State.clashRun ? State.clashRun.roundLimit : CLASSIC_ROUNDS}`;
       sub.hidden = false;
     } else if (State.mode === 'endless') {
       sub.textContent = `SURVIVAL ×${State.survivalMult.toFixed(2)}`;
@@ -1364,10 +1366,16 @@
 
   // Ghost replay: record the just-resolved strike and refresh HUD.
   function logGhost(kind) {
-    if (!Ghost.isRecording()) return;
     const ls = State._lastStrike;
-    Ghost.recordStrike(State.round, ls ? ls.angle : State.handAngle, kind, ls ? ls.t : State.roundElapsed, State.score);
-    if (ghostActive()) Ghost.updateHud(State.round, State.score);
+    if (Ghost.isRecording()) {
+      Ghost.recordStrike(State.round, ls ? ls.angle : State.handAngle, kind, ls ? ls.t : State.roundElapsed, State.score);
+      if (ghostActive()) Ghost.updateHud(State.round, State.score);
+    }
+    if (State.clashRun && window.ChronosClash) window.ChronosClash.onProgress({
+      score: State.score, round: State.round, perfect: State.perfectHits, combo: State.bestCombo,
+      acc: State.totalAttempts ? Math.round(State.totalHits / State.totalAttempts * 100) : 0,
+      attempts: State.totalAttempts,
+    });
   }
 
   function handleMiss(x, y, label = 'MISS') {
@@ -1577,6 +1585,10 @@
 
   // -------- Flow --------
   function nextRound() {
+    if (State.clashRun && State.round >= State.clashRun.roundLimit) {
+      endGame();
+      return;
+    }
     if (State.mode === 'classic' && State.round >= CLASSIC_ROUNDS) {
       endGame();
       return;
@@ -1598,6 +1610,7 @@
   // A Daily Rift depends only on rulesetVersion + date (NOT gameVersion), so the
   // day plays identically for everyone regardless of which patch they're on.
   function runIdentityString(mode) {
+    if (State.clashRun) return State.clashRun.identity;
     if (State.rivalRun && State.rivalRecord) return State.rivalRecord.identity;
     if (State.dailyRun) return State.dailySeed || Daily.seedFor(State.dailyDate);
     const diff = State.hardcore ? 'hc' : 'n';
@@ -1611,6 +1624,10 @@
     State.combo = 1;
     State.comboStreak = 0;
     State.hardcore = (mode === 'zen') ? false : Difficulty.isHardcore();
+    if (State.clashRun) {
+      State.hardcore = State.clashRun.difficulty === 'hardcore';
+      State.forcedSeed = State.clashRun.seed;
+    }
     // Daily Rift: fixed Normal difficulty and a date-pinned seed so the
     // challenge is identical for everyone (re-pinned here so RETRY replays it).
     if (State.dailyRun) {
@@ -1633,7 +1650,7 @@
     ActiveRun.abandon();
     ActiveRun.start({
       runId: State.runId,
-      runType: State.dailyRun ? 'daily' : State.rivalRun ? 'rival' : mode,
+      runType: State.clashRun ? 'live_clash' : State.dailyRun ? 'daily' : State.rivalRun ? 'rival' : mode,
       clientVersion: CONFIG.gameVersion,
       rulesetVersion: CONFIG.rulesetVersion,
       protocolVersion: 1,
@@ -1641,17 +1658,19 @@
       identity,
       mode,
       difficulty: State.hardcore ? 'hardcore' : 'normal',
-      roundLimit: mode === 'classic' ? CONFIG.classicRounds : null,
+      roundLimit: State.clashRun ? State.clashRun.roundLimit : mode === 'classic' ? CONFIG.classicRounds : null,
       assists: State.assists,
       startedAt: Date.now(),
     });
-    if (window.ChronosLB?.startRun) {
+    if (!State.clashRun && window.ChronosLB?.startRun) {
       const runInfo = { ...ActiveRun.snapshot(), hardcore: !!State.hardcore };
       if (State.dailyRun) runInfo.dailyDate = State.dailyDate;
       window.ChronosLB.startRun(runInfo).catch(() => null);
     }
     // Ghost replay: record this run and load a ghost to race, if any.
-    if (State.dailyRun) {
+    if (State.clashRun) {
+      Ghost.clear();
+    } else if (State.dailyRun) {
       Ghost.startRecording(runIdentityString(mode), { mode, hardcore: false, date: State.dailyDate });
       Ghost.loadForToday(State.dailyDate);
     } else if (State.rivalRun) {
@@ -1697,6 +1716,11 @@
     // Precision Lab lives on the Zen game screen; hide it for other modes.
     if (mode === 'zen') Lab.enter(); else Lab.exit();
     showScreen('game');
+    elPauseBtn.disabled = !!State.clashRun;
+    elPauseBtn.setAttribute('aria-label', State.clashRun ? 'Pause unavailable during live match' : 'Pause');
+    for (const id of ['retryBtn', 'shareBtn', 'overBoardBtn']) {
+      const action = document.getElementById(id); if (action) action.hidden = !!State.clashRun;
+    }
     // Soundtrack: Classic/Endless only, chosen by difficulty. Zen stays silent.
     Music.start(mode === 'zen' ? null : (State.hardcore ? 'hardcore' : 'normal'));
     countdownThenStart();
@@ -1741,8 +1765,8 @@
 
     // persist bests — but GOD-mode runs never pollute your records
     const prevBest = loadInt(LS.bestScore);
-    const newBestScore = !State.godTainted && State.score > prevBest;
-    if (!State.godTainted) {
+    const newBestScore = !State.clashRun && !State.godTainted && State.score > prevBest;
+    if (!State.clashRun && !State.godTainted) {
       saveInt(LS.bestScore, Math.max(prevBest, State.score));
       saveInt(LS.bestCombo, Math.max(loadInt(LS.bestCombo), State.bestCombo));
       saveInt(LS.bestRound, Math.max(loadInt(LS.bestRound), State.round));
@@ -1793,6 +1817,8 @@
       dailyOnline: !!State.dailyOnline,
       dailyDate: State.dailyRun ? State.dailyDate : null,
       riftName: State.dailyRun ? Daily.nameFor(State.dailyDate) : null,
+      clash: !!State.clashRun,
+      clashMeta: State.clashRun ? { code: State.clashRun.code, seat: State.clashRun.seat, matchNumber: State.clashRun.matchNumber, suddenDeath: State.clashRun.suddenDeath } : null,
     };
 
     // Daily Rift: record the local best/attempts for today (never global yet).
@@ -1816,7 +1842,7 @@
     // Hall of Time — ordinary private cheats are an intentional family/friend
     // feature and count normally. Creator GOD mode remains the only excluded
     // path because it is a separate autopilot/demo surface.
-    if (!State.godTainted) {
+    if (!State.clashRun && !State.godTainted) {
       const completedClassic = State.mode === 'classic' && State.lives > 0 && State.round >= CLASSIC_ROUNDS;
       Achievements.recordRun({
         mode: State.mode, hardcore: State.hardcore, score: State.score, round: State.round,
@@ -1829,11 +1855,12 @@
     }
 
     // shareable score card (share.js) — gets the global rank later, if any
-    if (window.ChronosShare) window.ChronosShare.setStats(runStats);
+    if (!State.clashRun && window.ChronosShare) window.ChronosShare.setStats(runStats);
 
     // global leaderboard qualification check (leaderboard.js)
-    if (window.ChronosLB) window.ChronosLB.onGameEnd(runStats);
-    if (window.ChronosGhost) window.ChronosGhost.onGameEnd(runStats);
+    if (!State.clashRun && window.ChronosLB) window.ChronosLB.onGameEnd(runStats);
+    if (!State.clashRun && window.ChronosGhost) window.ChronosGhost.onGameEnd(runStats);
+    if (State.clashRun && window.ChronosClash) window.ChronosClash.onGameEnd(runStats);
   }
 
   function computeRank(score, acc, perfect) {
@@ -1845,7 +1872,7 @@
   function updateChallengeButton(runStats) {
     const btn = document.getElementById('challengeBtn');
     if (!btn) return;
-    const canShare = !State.godTainted && !State.ghostChallenge && Ghost.recordedCount() > 0;
+    const canShare = !State.clashRun && !State.godTainted && !State.ghostChallenge && Ghost.recordedCount() > 0;
     btn.hidden = !canShare;
     if (!canShare) return;
     btn.textContent = '👻 BEAT MY TIME';
@@ -1873,8 +1900,9 @@
   }
 
   // -------- Pause --------
-  function togglePause(force) {
+  function togglePause(force, allowClash = false) {
     if (!State.spinning) return;
+    if (State.clashRun && !allowClash) { announce('Live Clash keeps moving'); return; }
     State.paused = force != null ? force : !State.paused;
     elPauseOverlay.hidden = !State.paused;
     if (State.paused) Music.pause(); else Music.resume();
@@ -1885,7 +1913,7 @@
   $$('.mode-card').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
-      State.dailyRun = false; State.rivalRun = false; State.ghostChallenge = null;
+      State.dailyRun = false; State.rivalRun = false; State.ghostChallenge = null; State.clashRun = null;
       if (window.anime) {
         anime({ targets: btn, scale: [1, 1.1, 1], duration: 250 });
       }
@@ -1978,7 +2006,8 @@
     sync();
   })();
   $('quitBtn').addEventListener('click', () => {
-    togglePause(false);
+    if (State.clashRun && window.ChronosClash) window.ChronosClash.forfeit();
+    togglePause(false, true);
     stopSpin();
     ActiveRun.abandon();
     showScreen('menu');
@@ -2229,12 +2258,12 @@
       ov.innerHTML = html;
       const wasPaused = State.paused;
       let closed = false;
-      if (pauseGame && State.spinning && !wasPaused) togglePause(true);
+      if (pauseGame && State.spinning && !wasPaused) togglePause(true, true);
       const close = () => {
         if (closed) return;
         closed = true;
         ov.remove();
-        if (pauseGame && State.spinning && !wasPaused && State.paused) togglePause(false);
+        if (pauseGame && State.spinning && !wasPaused && State.paused) togglePause(false, true);
       };
       ov.addEventListener('click', e => { if (e.target === ov) close(); });
       ov.closeCheatOverlay = close;
@@ -2979,6 +3008,7 @@
       State.rivalRun = true;
       State.rivalRecord = rec;
       State.ghostChallenge = cloudSession || null;
+      State.clashRun = null;
       AudioFx.newRound();
       startMode(rec.mode === 'endless' ? 'endless' : rec.mode === 'zen' ? 'zen' : 'classic');
       return true;
@@ -3339,6 +3369,7 @@
 
     async function play(origin) {
       State.dailyRun = true;
+      State.clashRun = null;
       State.rivalRun = false;
       State.dailyOnline = false;
       try {
@@ -3434,6 +3465,19 @@
     // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
     setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
     startGhostChallenge: (record, session) => Rival.startRecord(record, session),
+    startClash: (config) => {
+      if (!config?.seed || !config?.code) return false;
+      State.dailyRun = false; State.rivalRun = false; State.rivalRecord = null; State.ghostChallenge = null;
+      State.clashRun = {
+        code: String(config.code), seat: config.seat === 'guest' ? 'guest' : 'host', seed: String(config.seed),
+        identity: String(config.seed), difficulty: config.difficulty === 'hardcore' ? 'hardcore' : 'normal',
+        roundLimit: Math.max(1, Math.min(10, Number(config.roundLimit) || 10)),
+        matchNumber: Number(config.matchNumber) || 1, suddenDeath: Number(config.suddenDeath) || 0,
+      };
+      startMode('classic');
+      return true;
+    },
+    openCheats: () => Cheat.isUnlocked() ? Cheat.openPanel() : Cheat.promptCode(),
     // Dev/test hooks.
     debugGhost: () => ({
       todayKey: Daily.todayKey(),
