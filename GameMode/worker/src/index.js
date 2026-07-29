@@ -12,7 +12,7 @@ function corsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
   const configured = String(env.ALLOW_ORIGIN || '').split(',').map((item) => item.trim()).filter(Boolean);
   const allowed = configured.length === 0 || configured.includes('*') || configured.includes(origin);
-  return {
+  const headers = {
     'Access-Control-Allow-Origin': allowed && origin ? origin : (configured[0] || '*'),
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -20,6 +20,8 @@ function corsHeaders(request, env) {
     'Vary': 'Origin',
     'Cache-Control': 'no-store',
   };
+  if (env.ALLOW_PRIVATE_NETWORK === 'true') headers['Access-Control-Allow-Private-Network'] = 'true';
+  return headers;
 }
 
 function json(request, env, body, status = 200) {
@@ -119,7 +121,7 @@ async function compatibilityPost(request, env, body) {
   }
   if (body.action === 'verifyCheat') {
     const ok = env.CHEATS_ENABLED !== 'false' && !!env.CHEAT_CODE && safeEqual(body.code, env.CHEAT_CODE);
-    return json(request, env, ok ? { ok: true, mult: 3, lives: 9999 } : { ok: false });
+    return json(request, env, { ok });
   }
   const entry = sanitizeEntry(body.entry || body, { verification: 'accepted' });
   if (!entry) return json(request, env, { error: 'invalid_entry' }, 400);
@@ -180,7 +182,7 @@ export default {
         const secret = isCheat ? env.CHEAT_CODE : env.ADMIN_CODE;
         const enabled = !isCheat || env.CHEATS_ENABLED !== 'false';
         const ok = enabled && !!secret && safeEqual(body.code, secret);
-        return json(request, env, isCheat && ok ? { ok: true, mult: 3, lives: 9999 } : { ok });
+        return json(request, env, { ok });
       }
 
       if (request.method === 'POST' && url.pathname === '/v1/admin/import-leaderboard') {

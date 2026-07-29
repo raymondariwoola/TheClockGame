@@ -82,7 +82,8 @@ ctx.window.anime = undefined;
 
 vm.createContext(ctx);
 try {
-  for (const file of ['js/storage.js', 'js/run-context.js', 'game.js']) {
+  ctx.sessionStorage = localStorageMock;
+  for (const file of ['js/storage.js', 'js/run-context.js', 'js/cheat-state.js', 'game.js']) {
     const code = fs.readFileSync(path.join(dir, file), 'utf8');
     vm.runInContext(code, ctx, { filename: file });
   }

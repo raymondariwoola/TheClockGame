@@ -632,9 +632,14 @@
   function renderZones(zones) {
     elZoneLayer.innerHTML = '';
     zones.forEach((z, idx) => {
-      if (z.hidden) return;
-      const boost = (z.type === 'decoy') ? 1 : (State.zoneBoost || 1);
-      const halfArc = z.size * boost / 2;
+      const reveal = Cheat.on('revealHiddenZones');
+      if (z.hidden && !reveal) return;
+      const configuredSize = Cheat.value('zoneSize');
+      let cheatBoost = configuredSize === 'full' ? 340 / Math.max(1, z.size)
+        : (typeof configuredSize === 'number' ? configuredSize : 1);
+      if (Cheat.on('bossNerf') && State.bossRound && z.type !== 'decoy') cheatBoost = Math.max(cheatBoost, 3);
+      const boost = (z.type === 'decoy') ? 1 : (State.zoneBoost || 1) * cheatBoost;
+      const halfArc = Math.min(170, z.size * boost / 2);
       const start = z.center - halfArc;
       const end = z.center + halfArc;
       // perfect band (inner)
@@ -644,7 +649,7 @@
       path.setAttribute('stroke', z.color || 'rgba(45,255,170,0.85)');
       path.setAttribute('stroke-width', 18);
       path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('opacity', z.opacity != null ? z.opacity : 0.85);
+      path.setAttribute('opacity', reveal && z.opacity === 0 ? 0.85 : (z.opacity != null ? z.opacity : 0.85));
       path.setAttribute('filter', 'url(#glow)');
       if (z.type === 'decoy') path.setAttribute('stroke-dasharray', '6 10');
       path.dataset.idx = idx;
@@ -936,7 +941,7 @@
   // -------- Round / hand loop --------
   function applyHandRotation() {
     elHand.setAttribute('transform', `rotate(${State.handAngle})`);
-    if (State.multiHand) {
+    if (State.multiHand && !Cheat.on('bossNerf')) {
       elHand2.style.display = '';
       elHand2.setAttribute('transform', `rotate(${State.hand2Angle})`);
     } else {
@@ -946,13 +951,15 @@
 
   function loop(ts) {
     if (!State.spinning) return;
-    const dt = State.lastTs ? (ts - State.lastTs) / 1000 : 0;
+    const rawDt = State.lastTs ? (ts - State.lastTs) / 1000 : 0;
+    const dt = rawDt * (Number(Cheat.value('timeScale')) || 1);
     State.lastTs = ts;
     if (!State.paused) {
+      const prevAngle = State.handAngle;
       tickPowers(dt);
       State.roundElapsed += dt;
       // Boss encounters evolve over the round (shrink / pulse / drift).
-      if (State.boss && State.boss.def.tick) {
+      if (State.boss && State.boss.def.tick && !Cheat.on('bossNerf')) {
         if (State.boss.def.tick(State, dt, State.roundElapsed)) renderZones(State.zones);
       }
       // Ghost replay: reveal the ghost's strike as its moment arrives.
@@ -970,15 +977,16 @@
         }
       }
       let speed = State.handSpeed;
+      const speedOverride = Cheat.value('handSpeed');
+      if (typeof speedOverride === 'number') speed *= speedOverride;
       if (State.powers.freeze) speed = 0;
       else if (State.powers.slowmo) speed *= 0.35;
-      if (State.pulse) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
-      if (State.jolt !== 1) speed *= State.jolt;
+      if (State.pulse && !Cheat.on('bossNerf')) speed *= 1 + 0.45 * Math.sin(ts * 0.004);
+      if (State.jolt !== 1 && !Cheat.on('bossNerf')) speed *= State.jolt;
       // Precision Lab slow-mo (a deliberate practice aid, not a power).
       if (State.mode === 'zen' && Lab.isActive() && Lab.getConfig().slowmo) speed *= 0.4;
-      const prevAngle = State.handAngle;
       State.handAngle = (State.handAngle + speed * State.handDir * dt + 360) % 360;
-      if (State.multiHand) {
+      if (State.multiHand && !Cheat.on('bossNerf')) {
         State.hand2Angle = (State.hand2Angle + State.hand2Speed * State.hand2Dir * dt + 360) % 360;
       }
       // Metronome: tick each time the hand sweeps through the target centre.
@@ -1191,9 +1199,15 @@
 
     if (!best) return;
 
-    const half = best.size * (State.zoneBoost || 1) / 2;
+    const configuredSize = Cheat.value('zoneSize');
+    let cheatBoost = configuredSize === 'full' ? 340 / Math.max(1, best.size)
+      : (typeof configuredSize === 'number' ? configuredSize : 1);
+    if (Cheat.on('bossNerf') && State.bossRound) cheatBoost = Math.max(cheatBoost, 3);
+    const half = Math.min(170, best.size * (State.zoneBoost || 1) * cheatBoost / 2);
     let kind = classify(bestDist, half);
     if (God.isActive()) kind = 'perfect'; // creator demo: every strike lands perfect
+    if (Cheat.on('autoPerfect')) kind = 'perfect';
+    else if (Cheat.on('easyPerfect') && bestDist <= half) kind = 'perfect';
     if (State.powers.deadeye || State.powers.star) kind = 'perfect'; // super powers
 
     State.totalAttempts++;
@@ -1222,7 +1236,7 @@
       const trap = State.zones.find(z => z.type === 'decoy' && angularDistance(ang, z.center) <= z.size / 2);
       if (trap) {
         AudioFx.trap();
-        const penalty = Math.min(100, State.score);
+        const penalty = Cheat.on('noMissPenalty') ? 0 : Math.min(100, State.score);
         if (penalty > 0) {
           State.score -= penalty;
           elScore.textContent = State.score;
@@ -1254,7 +1268,7 @@
 
     // overdrive kicks in at combo ×4 and holds until a miss
     const wasOverdrive = State.overdrive;
-    State.overdrive = State.combo >= 4;
+    State.overdrive = State.combo >= 4 || Cheat.on('alwaysOverdrive');
     if (State.overdrive && !wasOverdrive) {
       State.overdriveReachedThisRun = true;   // achievement: Overclocked
       AudioFx.overdrive();
@@ -1273,7 +1287,7 @@
     if (State.bossRound) gained *= 2;
     if (State.hardcore) gained *= 2;   // hardcore reward: double points
     if (State.mode === 'endless') gained *= State.survivalMult; // deeper = richer
-    if (Cheat.isActive()) gained *= Cheat.getMult(); // cheat: score multiplier (server-defined)
+    gained *= Cheat.getMult();
     if (State.overdrive) gained *= 1.5;
     if (State.powers.double) gained *= 2;
     if (State.powers.triple) gained *= 3;
@@ -1281,7 +1295,7 @@
     if (State.powers.frenzy) gained += 40 * State.combo;
     if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
     gained = Math.round(gained);
-    State.score += gained;
+    State.score = window.ChronosCheats.clampScore(State.score + gained);
 
     elScore.textContent = State.score;
     elScore.classList.remove('bump');
@@ -1363,7 +1377,7 @@
     if (State.powers.star) { flashJudgment('★', 'perfect'); return; }
     // SHIELD — consume it to negate this miss entirely (no life, no combo loss)
     if (State.powers.shield) {
-      delete State.powers.shield;
+      if (!Cheat.on('infinitePowers') && !Cheat.on('noMissPenalty')) delete State.powers.shield;
       updatePowerups();
       AudioFx.powerup();
       flashJudgment('BLOCKED', 'good');
@@ -1379,13 +1393,18 @@
     elStrikeHint.className = 'strike-zone flash-miss';
     setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
 
+    if (Cheat.on('noMissPenalty')) {
+      logGhost('miss');
+      return;
+    }
+
     // COMBO LOCK — keep the combo alive through this one miss
-    if (!State.powers.combolock) {
+    if (!State.powers.combolock && !Cheat.on('lockCombo')) {
       State.comboStreak = 0;
       State.combo = 1;
       State.perfectStreak = 0;
-      State.overdrive = false;
-      document.body.classList.remove('overdrive');
+      State.overdrive = Cheat.on('alwaysOverdrive');
+      document.body.classList.toggle('overdrive', State.overdrive);
       elCombo.textContent = '×1';
       elComboBar.style.width = '0%';
       elComboBlock.classList.remove('active');
@@ -1396,15 +1415,9 @@
     logGhost('miss');
 
     if (State.mode !== 'zen') {
-      if (Cheat.isActive()) {
-        // Cheat lives are a hidden pool — the HUD keeps showing full hearts and
-        // never changes; only exhausting the whole pool ends the run.
-        if (Cheat.consumeLife() <= 0) {
-          State.lives = 0;            // so the game-over title reads correctly
-          stopSpin();
-          setTimeout(endGame, 600);
-          return;
-        }
+      if (Cheat.on('infiniteLives')) {
+        State.lives = State.maxLives;
+        renderLives();
       } else {
         State.lives--;
         State.livesLostThisRun++;   // achievement: Unbroken (0 lives lost)
@@ -1485,7 +1498,7 @@
       State.lives = State.maxLives; renderLives();
     } else if (id === 'jackpot') {
       const bonus = 250 + State.round * 60 + (State.hardcore ? 400 : 0);
-      State.score += bonus; elScore.textContent = State.score;
+      State.score = window.ChronosCheats.clampScore(State.score + bonus); elScore.textContent = State.score;
       elScore.classList.remove('bump'); void elScore.offsetWidth; elScore.classList.add('bump');
       const rect = elClockSvg.getBoundingClientRect();
       popupScore(bonus, rect.left + rect.width / 2, rect.top + rect.height / 3, '#ffe066');
@@ -1513,6 +1526,7 @@
 
   // Tick timed powers every frame; fire expiry side-effects.
   function tickPowers(dt) {
+    if (Cheat.on('infinitePowers')) return;
     let changed = false;
     for (const id in State.powers) {
       const v = State.powers[id];
@@ -1653,7 +1667,7 @@
     State.jolt = 1;
     document.body.classList.toggle('hardcore', State.hardcore);
     document.body.classList.toggle('endless', mode === 'endless');
-    if (Cheat.isActive()) Cheat.resetLives(); // refill the hidden cheat pool for the new run
+    Cheat.resetLives();
     State.perfectHits = 0;
     State.totalHits = 0;
     State.totalAttempts = 0;
@@ -1771,7 +1785,6 @@
       seed: completedContext?.seed || State.seed,
       runId: completedContext?.runId || State.runId,
       assists: completedContext?.assists || State.assists || {},
-      cheat: (typeof Cheat !== 'undefined' && Cheat.isActive()) || false,
       // Daily Rift metadata (present only on daily runs).
       daily: !!State.dailyRun,
       dailyOnline: !!State.dailyOnline,
@@ -2140,73 +2153,79 @@
   })();
 
   // ============================================================
-  // CHEAT MODE — a real, RANKED cheat (unlike GOD/admin demo mode).
-  // The passphrase is verified by the Cloudflare Worker (CHEAT_CODE secret),
-  // and the modifiers themselves (score multiplier, unlimited lives) come
-  // back FROM the worker env — so the exact values aren't baked into this file.
-  // Cheat runs ARE submitted to the leaderboard like any normal run.
+  // PRIVATE CHEAT MENU — playful family/friend trolling, accepted like normal
+  // play. Unlock/selection state stays in this tab and is never put into run,
+  // leaderboard, ghost, share, or multiplayer payloads.
   // ============================================================
   const Cheat = (() => {
-    let active = false;
-    let mult = 3;          // score multiplier (from the worker)
-    let lives = 9999;      // total cheat lives (from the worker) — hidden from the HUD
-    let livesLeft = 9999;  // remaining this run
+    const Cheats = window.ChronosCheats;
     const WORKER = ((window.CHRONOS_LB_CONFIG && window.CHRONOS_LB_CONFIG.apiBase) || '')
       .trim().replace(/\/+$/, '');
 
-    const isActive = () => active;
-    const getMult = () => (active ? mult : 1);
-    const resetLives = () => { livesLeft = lives; };     // call at the start of each run
-    const consumeLife = () => --livesLeft;               // returns lives remaining
+    const isActive = () => Cheats.isMaster();
+    const isUnlocked = () => Cheats.isUnlocked();
+    const on = (key) => Cheats.enabled(key);
+    const value = (key) => Cheats.effectValue(key);
+    const getMult = () => Number(value('scoreMultiplier')) || 1;
+    const resetLives = () => {
+      if (on('infiniteLives') && State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
+    };
 
     async function verify(code) {
       code = (code || '').trim();
-      if (!code || !WORKER) return null;
+      if (!code || !WORKER) return false;
       try {
         const res = await fetch(WORKER + '/v1/cheats/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code }),
         });
-        if (res.ok) { const d = await res.json().catch(() => null); if (d && d.ok) return d; }
+        if (res.ok) { const d = await res.json().catch(() => null); return !!(d && d.ok); }
       } catch (e) {}
-      return null;
+      return false;
     }
 
-    function enable(mods) {
-      active = true;
-      mods = mods || {};
-      mult = (typeof mods.mult === 'number' && mods.mult > 0) ? mods.mult : 3;
-      lives = (typeof mods.lives === 'number' && mods.lives >= 1) ? Math.floor(mods.lives) : 9999;
-      livesLeft = lives;
+    function enable() {
+      Cheats.unlock();
+      Cheats.setMaster(true);
       if (typeof God !== 'undefined' && God.isActive()) God.disable(); // mutually exclusive
-      // mask any hearts already lost — the HUD goes back to showing full lives
-      if (State.spinning && State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
-      showIndicator();
+      syncIndicator();
     }
-    function disable() { active = false; hideIndicator(); }
+    function disable() { Cheats.setMaster(false); syncIndicator(); syncLiveState(); }
+    function disableAll() { Cheats.disableAll(); syncIndicator(); syncLiveState(); }
 
-    // ---- tiny indicator (distinct from GOD's gold ◈) ----
+    // ---- tiny local-only indicator (distinct from GOD's gold ◈) ----
     let indicatorEl = null;
     function showIndicator() {
       if (!indicatorEl) {
         indicatorEl = document.createElement('button');
         indicatorEl.className = 'cheat-indicator';
         indicatorEl.textContent = '❖';
-        indicatorEl.title = 'Cheat mode — click for options';
-        indicatorEl.setAttribute('aria-label', 'Cheat mode options');
+        indicatorEl.title = 'Private options';
+        indicatorEl.setAttribute('aria-label', 'Open private options');
         indicatorEl.addEventListener('click', openPanel);
         document.body.appendChild(indicatorEl);
       }
       indicatorEl.hidden = false;
     }
     function hideIndicator() { if (indicatorEl) indicatorEl.hidden = true; }
+    function syncIndicator() { Cheats.engaged() ? showIndicator() : hideIndicator(); }
 
-    function buildOverlay(html) {
+    function buildOverlay(html, pauseGame = false) {
       const ov = document.createElement('div');
       ov.className = 'overlay god-overlay';
       ov.innerHTML = html;
-      ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+      const wasPaused = State.paused;
+      let closed = false;
+      if (pauseGame && State.spinning && !wasPaused) togglePause(true);
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        ov.remove();
+        if (pauseGame && State.spinning && !wasPaused && State.paused) togglePause(false);
+      };
+      ov.addEventListener('click', e => { if (e.target === ov) close(); });
+      ov.closeCheatOverlay = close;
       document.body.appendChild(ov);
       return ov;
     }
@@ -2230,15 +2249,20 @@
             <button class="btn-primary" id="cheatGo">UNLOCK</button>
             <button class="btn-secondary" id="cheatCancel">CANCEL</button>
           </div>
-        </div>`);
+        </div>`, true);
       const input = ov.querySelector('#cheatCodeInput');
       const err = ov.querySelector('#cheatErr');
       const go = ov.querySelector('#cheatGo');
       setTimeout(() => input.focus(), 120);
       const submit = async () => {
         go.disabled = true; go.textContent = 'CHECKING…'; err.hidden = true;
-        const res = await verify(input.value);
-        if (res) { enable(res); ov.remove(); toast('❖ CHEAT ENGAGED'); }
+        const ok = await verify(input.value);
+        if (ok) {
+          enable();
+          ov.closeCheatOverlay();
+          toast('❖ PRIVATE MENU UNLOCKED');
+          openPanel();
+        }
         else {
           go.disabled = false; go.textContent = 'UNLOCK';
           err.hidden = false; input.value = ''; input.focus();
@@ -2246,25 +2270,113 @@
       };
       go.addEventListener('click', submit);
       input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-      ov.querySelector('#cheatCancel').addEventListener('click', () => ov.remove());
+      ov.querySelector('#cheatCancel').addEventListener('click', () => ov.closeCheatOverlay());
+    }
+
+    function toggleRows() {
+      return Cheats.REGISTRY.filter((item) => item.type === 'toggle').map((item) => `
+        <label class="cheat-row">
+          <span class="cheat-row-copy"><strong>${item.label}</strong><small>${item.hint}</small></span>
+          <input type="checkbox" data-cheat-key="${item.key}" ${Cheats.getValue(item.key) ? 'checked' : ''} />
+        </label>`).join('');
+    }
+
+    function selectRows() {
+      return Cheats.REGISTRY.filter((item) => item.type === 'select').map((item) => `
+        <label class="cheat-select-row">
+          <span>${item.label}</span>
+          <select data-cheat-key="${item.key}">${item.values.map((option) =>
+            `<option value="${option}" ${Cheats.getValue(item.key) === option ? 'selected' : ''}>${item.format(option)}</option>`).join('')}</select>
+        </label>`).join('');
+    }
+
+    function parseValue(key, raw) {
+      const def = Cheats.REGISTRY.find((item) => item.key === key);
+      if (!def) return raw;
+      return def.values.find((item) => String(item) === raw);
+    }
+
+    function syncLiveState(key) {
+      if (key === 'revealHiddenZones' || key === 'zoneSize' || key === 'bossNerf' || !key) renderZones(State.zones);
+      if (on('infiniteLives') && State.spinning && State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
+      if (key === 'alwaysOverdrive' || key === 'master' || !key) {
+        State.overdrive = on('alwaysOverdrive') || State.combo >= 4;
+        document.body.classList.toggle('overdrive', State.overdrive);
+      }
+    }
+
+    function grantPower(id) {
+      if (!Cheats.isMaster()) Cheats.setMaster(true);
+      applyPower(id, false);
+    }
+
+    function restoreLives() {
+      if (State.mode !== 'zen') { State.lives = State.maxLives; renderLives(); }
+      toast('LIVES RESTORED');
+    }
+
+    function triggerOverdrive() {
+      State.comboStreak = Math.max(State.comboStreak, 9);
+      State.combo = Math.max(State.combo, 4);
+      State.bestCombo = Math.max(State.bestCombo, State.combo);
+      State.overdrive = true;
+      State.overdriveReachedThisRun = true;
+      document.body.classList.add('overdrive');
+      elCombo.textContent = '×' + State.combo;
+      elComboBlock.classList.add('active');
+      toast('OVERDRIVE TRIGGERED');
+    }
+
+    function addScore(amount = 1000) {
+      State.score = Cheats.clampScore(State.score + amount);
+      elScore.textContent = State.score.toLocaleString();
+      toast(`+${amount.toLocaleString()} SCORE`);
     }
 
     function openPanel() {
+      if (!Cheats.isUnlocked()) { promptCode(); return; }
       const ov = buildOverlay(`
-        <div class="overlay-card god-card cheat-card">
-          <div class="god-glyph cheat-glyph">❖</div>
-          <h2>CHEAT MODE</h2>
-          <p class="god-note">Modifiers active. This run <strong>counts</strong> on the leaderboard.</p>
-          <div class="god-actions">
-            <button class="btn-secondary" id="cheatClose">CLOSE</button>
-            <button class="btn-primary danger" id="cheatOff">RETURN TO NORMAL</button>
+        <div class="overlay-card god-card cheat-card cheat-menu-card">
+          <header class="cheat-menu-head"><div class="god-glyph cheat-glyph">❖</div><div><h2>PRIVATE MENU</h2><p>Local live controls</p></div></header>
+          <div class="cheat-menu-scroll">
+            <label class="cheat-master cheat-row">
+              <span class="cheat-row-copy"><strong>Cheats Active</strong><small>Arm or disarm selections without clearing them.</small></span>
+              <input id="cheatMaster" type="checkbox" ${Cheats.isMaster() ? 'checked' : ''} />
+            </label>
+            <div class="cheat-section-title">TOGGLES</div>
+            ${toggleRows()}
+            <div class="cheat-section-title">OVERRIDES</div>
+            ${selectRows()}
+            <div class="cheat-section-title">QUICK ACTIONS</div>
+            <div class="cheat-power-action">
+              <select id="cheatPower">${POWERS.filter((power) => power.kind === 'timed').map((power) => `<option value="${power.id}">${power.icon} ${power.name}</option>`).join('')}</select>
+              <button type="button" class="btn-secondary" id="cheatGrant">GRANT</button>
+            </div>
+            <div class="cheat-quick-grid">
+              <button type="button" class="btn-secondary" id="cheatLives">RESTORE LIVES</button>
+              <button type="button" class="btn-secondary" id="cheatOverdrive">OVERDRIVE</button>
+              <button type="button" class="btn-secondary" id="cheatScore">+1,000 SCORE</button>
+            </div>
           </div>
-        </div>`);
-      ov.querySelector('#cheatClose').addEventListener('click', () => ov.remove());
-      ov.querySelector('#cheatOff').addEventListener('click', () => { disable(); ov.remove(); toast('NORMAL MODE'); });
+          <div class="god-actions">
+            <button type="button" class="btn-secondary" id="cheatClose">CLOSE</button>
+            <button type="button" class="btn-primary danger" id="cheatOff">DISABLE ALL</button>
+          </div>
+        </div>`, true);
+      ov.querySelector('#cheatMaster').addEventListener('change', (event) => Cheats.setMaster(event.target.checked));
+      ov.querySelectorAll('input[data-cheat-key]').forEach((input) => input.addEventListener('change', () => Cheats.setValue(input.dataset.cheatKey, input.checked)));
+      ov.querySelectorAll('select[data-cheat-key]').forEach((select) => select.addEventListener('change', () => Cheats.setValue(select.dataset.cheatKey, parseValue(select.dataset.cheatKey, select.value))));
+      ov.querySelector('#cheatGrant').addEventListener('click', () => grantPower(ov.querySelector('#cheatPower').value));
+      ov.querySelector('#cheatLives').addEventListener('click', restoreLives);
+      ov.querySelector('#cheatOverdrive').addEventListener('click', triggerOverdrive);
+      ov.querySelector('#cheatScore').addEventListener('click', () => addScore(1000));
+      ov.querySelector('#cheatClose').addEventListener('click', () => ov.closeCheatOverlay());
+      ov.querySelector('#cheatOff').addEventListener('click', () => { disableAll(); ov.closeCheatOverlay(); toast('NORMAL RULES RESTORED'); });
     }
 
-    return { isActive, getMult, resetLives, consumeLife, enable, disable, promptCode, openPanel };
+    Cheats.subscribe((state, key) => { syncIndicator(); syncLiveState(key); });
+    syncIndicator();
+    return { isActive, isUnlocked, on, value, getMult, resetLives, enable, disable, disableAll, promptCode, openPanel };
   })();
 
   // ============================================================
@@ -2440,7 +2552,7 @@
     // ---- chooser: pick ADMIN (demo) or CHEAT (ranked) before entering a code ----
     function openChooser() {
       if (active) return openPanel();                 // admin already on → its panel
-      if (Cheat.isActive()) return Cheat.openPanel();  // cheat already on → its panel
+      if (Cheat.isUnlocked()) return Cheat.openPanel();
       const ov = buildOverlay(`
         <div class="overlay-card god-card">
           <div class="god-glyph">◈</div>
@@ -2483,7 +2595,7 @@
         clearTimeout(bufTimer);
         bufTimer = setTimeout(() => { buf = ''; }, 1200);
         if (buf.endsWith('godmode')) { buf = ''; open(); }
-        else if (buf.endsWith('cheat')) { buf = ''; Cheat.isActive() ? Cheat.openPanel() : Cheat.promptCode(); }
+        else if (buf.endsWith('cheat')) { buf = ''; Cheat.isUnlocked() ? Cheat.openPanel() : Cheat.promptCode(); }
       });
     }
 
