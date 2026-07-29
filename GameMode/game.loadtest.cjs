@@ -81,9 +81,11 @@ ctx.window.ChronosEngine = engine;
 ctx.window.anime = undefined;
 
 vm.createContext(ctx);
-const code = fs.readFileSync(path.join(dir, 'game.js'), 'utf8');
 try {
-  vm.runInContext(code, ctx, { filename: 'game.js' });
+  for (const file of ['js/storage.js', 'js/run-context.js', 'game.js']) {
+    const code = fs.readFileSync(path.join(dir, file), 'utf8');
+    vm.runInContext(code, ctx, { filename: file });
+  }
   dclHandlers.forEach((fn) => fn());
 } catch (e) {
   console.error('✗ game.js load smoke-test FAILED: ' + e.message);

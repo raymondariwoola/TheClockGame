@@ -40,6 +40,8 @@
     ],
   };
 
+  const ActiveRun = new window.ChronosRunContext.RunContextStore();
+
   // ============================================================
   // RNG — versioned, seeded pseudo-random generator.
   // ALL gameplay generation (round params, modifiers, boss order,
@@ -180,8 +182,8 @@
     bestCombo: 'cs_best_combo',
     bestRound: 'cs_best_round',
   };
-  const loadInt = (k) => parseInt(localStorage.getItem(k) || '0', 10) || 0;
-  const saveInt = (k, v) => localStorage.setItem(k, String(v));
+  const loadInt = (k) => window.ChronosStorage.readInt(k, 0);
+  const saveInt = (k, v) => window.ChronosStorage.writeInt(k, v);
 
   // -------- DOM helpers --------
   const $ = (id) => document.getElementById(id);
@@ -1608,7 +1610,23 @@
     State.forcedSeed = null;                 // one-shot
     State.assists = collectAssists();
     State.runId = 'r_' + State.seed;
-    RNG.seed(runIdentityString(mode));
+    const identity = runIdentityString(mode);
+    RNG.seed(identity);
+    ActiveRun.abandon();
+    ActiveRun.start({
+      runId: State.runId,
+      runType: State.dailyRun ? 'daily' : State.rivalRun ? 'rival' : mode,
+      clientVersion: CONFIG.gameVersion,
+      rulesetVersion: CONFIG.rulesetVersion,
+      protocolVersion: 1,
+      seed: State.seed,
+      identity,
+      mode,
+      difficulty: State.hardcore ? 'hardcore' : 'normal',
+      roundLimit: mode === 'classic' ? CONFIG.classicRounds : null,
+      assists: State.assists,
+      startedAt: Date.now(),
+    });
     // Ghost replay: record this run and load a ghost to race, if any.
     if (State.dailyRun) {
       Ghost.startRecording(runIdentityString(mode), { mode, hardcore: false, date: State.dailyDate });
@@ -1727,6 +1745,7 @@
       anime({ targets: '.over-title', scale: [0.6, 1], opacity: [0, 1], duration: 700, easing: 'easeOutBack' });
     }
 
+    const completedContext = ActiveRun.complete({ endedAt: Date.now() });
     const runStats = {
       score: State.score,
       mode: State.mode,
@@ -1739,11 +1758,11 @@
       rankLetter,
       // Ruleset identity — lets scores stay comparable across balance changes,
       // powers Daily/replay validation, and categorises assisted runs.
-      gameVersion: CONFIG.gameVersion,
-      rulesetVersion: CONFIG.rulesetVersion,
-      seed: State.seed,
-      runId: State.runId,
-      assists: State.assists || {},
+      gameVersion: completedContext?.clientVersion || CONFIG.gameVersion,
+      rulesetVersion: completedContext?.rulesetVersion || CONFIG.rulesetVersion,
+      seed: completedContext?.seed || State.seed,
+      runId: completedContext?.runId || State.runId,
+      assists: completedContext?.assists || State.assists || {},
       cheat: (typeof Cheat !== 'undefined' && Cheat.isActive()) || false,
       // Daily Rift metadata (present only on daily runs).
       daily: !!State.dailyRun,
@@ -1927,6 +1946,7 @@
   $('quitBtn').addEventListener('click', () => {
     togglePause(false);
     stopSpin();
+    ActiveRun.abandon();
     showScreen('menu');
     refreshMenuStats();
   });
@@ -3235,15 +3255,22 @@
     showScreen, refreshMenuStats,
     // Deterministic-run surface (used by share cards, Daily Rift, and tests).
     RNG,
-    getRunInfo: () => ({
-      gameVersion: CONFIG.gameVersion,
-      rulesetVersion: CONFIG.rulesetVersion,
-      mode: State.mode,
-      hardcore: !!State.hardcore,
-      seed: State.seed,
-      runId: State.runId,
-      assists: State.assists || {},
-    }),
+    getRunInfo: () => {
+      const context = ActiveRun.snapshot();
+      return {
+        gameVersion: context?.clientVersion || CONFIG.gameVersion,
+        rulesetVersion: context?.rulesetVersion || CONFIG.rulesetVersion,
+        protocolVersion: context?.protocolVersion || 1,
+        runType: context?.runType || State.mode,
+        mode: context?.mode || State.mode,
+        hardcore: context ? context.difficulty === 'hardcore' : !!State.hardcore,
+        seed: context?.seed || State.seed,
+        runId: context?.runId || State.runId,
+        identity: context?.identity || null,
+        roundLimit: context?.roundLimit ?? null,
+        assists: context?.assists || State.assists || {},
+      };
+    },
     // Pin the seed for the next run (Daily Rift / Rival Codes / replays).
     setForcedSeed: (s) => { State.forcedSeed = s ? String(s) : null; },
     // Dev/test hooks.
