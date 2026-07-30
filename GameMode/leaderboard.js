@@ -24,7 +24,7 @@
 
   let pendingStats = null;   // stats of the run awaiting name entry
   let lastSubmittedId = null; // highlight "YOU" on the board
-  const CURRENT_RULESET = 2;
+  const CURRENT_RULESET = 3;
   let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: CURRENT_RULESET };
   const issuedRuns = new Map();
 

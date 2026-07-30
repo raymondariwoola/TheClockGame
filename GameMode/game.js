@@ -11,8 +11,8 @@
   // (e.g. the old "25 rounds" label vs the real 40-round campaign).
   // ============================================================
   const CONFIG = {
-    gameVersion: '1.2.0',   // bumped whenever balance/rules change
-    rulesetVersion: 2,      // increment when scoring/generation changes competitively
+    gameVersion: '1.3.0',   // bumped whenever balance/rules change
+    rulesetVersion: 3,      // increment when scoring/generation changes competitively
     classicRounds: 40,      // length of the Classic campaign
     lives: { classic: 3, endless: 1, zen: 0 },
     modes: {
@@ -1210,10 +1210,12 @@
     if (Cheat.on('bossNerf') && State.bossRound) cheatBoost = Math.max(cheatBoost, 3);
     const half = Math.min(170, best.size * (State.zoneBoost || 1) * cheatBoost / 2);
     let kind = classify(bestDist, half);
-    if (God.isActive()) kind = 'perfect'; // creator demo: every strike lands perfect
-    if (Cheat.on('autoPerfect')) kind = 'perfect';
-    else if (Cheat.on('easyPerfect') && bestDist <= half) kind = 'perfect';
-    if (State.powers.deadeye || State.powers.star) kind = 'perfect'; // super powers
+    kind = ChronosEngine.resolveStrikeKind(kind, {
+      forcePerfect: God.isActive() || Cheat.on('autoPerfect'),
+      easyPerfect: Cheat.on('easyPerfect'),
+      deadeye: !!State.powers.deadeye,
+      star: !!State.powers.star,
+    });
 
     State.totalAttempts++;
 
@@ -1384,10 +1386,11 @@
     if (God.isActive()) return; // GOD mode: misses (and life loss) are impossible
     if (!State.spinning) return; // ignore any stray miss after the round/run has stopped
 
-    // STAR POWER — fully invincible, misses simply don't count
-    if (State.powers.star) { flashJudgment('★', 'perfect'); return; }
+    // STAR POWER protects the life, not the combo or hit validation. A miss is
+    // still a miss, which prevents rapid tapping from becoming free scoring.
+    const starGuard = !!State.powers.star;
     // SHIELD — consume it to negate this miss entirely (no life, no combo loss)
-    if (State.powers.shield) {
+    if (!starGuard && State.powers.shield) {
       if (!Cheat.on('infinitePowers') && !Cheat.on('noMissPenalty')) delete State.powers.shield;
       updatePowerups();
       AudioFx.powerup();
@@ -1397,11 +1400,17 @@
       return;
     }
 
-    AudioFx.miss();
-    Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
-    flashJudgment(label, 'miss');
-    shakeScreen(1.2);
-    elStrikeHint.className = 'strike-zone flash-miss';
+    if (starGuard) {
+      AudioFx.powerup();
+      flashJudgment('STAR GUARD', 'good');
+      elStrikeHint.className = 'strike-zone flash-good';
+    } else {
+      AudioFx.miss();
+      Fx.burst(x, y, 'rgba(255,64,96,ALPHA)', 30, 10);
+      flashJudgment(label, 'miss');
+      shakeScreen(1.2);
+      elStrikeHint.className = 'strike-zone flash-miss';
+    }
     setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
 
     if (Cheat.on('noMissPenalty')) {
@@ -1424,6 +1433,8 @@
     Taunts.onMiss();
 
     logGhost('miss');
+
+    if (starGuard) return; // life protection only; miss + combo reset already applied
 
     if (State.mode !== 'zen') {
       if (Cheat.on('infiniteLives')) {
@@ -1468,11 +1479,11 @@
     { id: 'double',    name: 'DOUBLE',       icon: '✖2', kind: 'timed', dur: 6,        weight: 12, blurb: 'Double points.' },
     { id: 'triple',    name: 'TRIPLE',       icon: '✖3', kind: 'timed', dur: 5,        weight: 7,  blurb: 'Triple points!' },
     { id: 'magnet',    name: 'ZONE MAGNET',  icon: '🧲', kind: 'timed', dur: 6,        weight: 11, blurb: 'Targets grow huge.' },
-    { id: 'deadeye',   name: 'DEADEYE',      icon: '🎯', kind: 'timed', dur: 4,        weight: 8,  blurb: 'Every strike is PERFECT.' },
+    { id: 'deadeye',   name: 'DEADEYE',      icon: '🎯', kind: 'timed', dur: 4,        weight: 8,  blurb: 'Valid hits become PERFECT.' },
     { id: 'frenzy',    name: 'SCORE FRENZY', icon: '🔥', kind: 'timed', dur: 6,        weight: 9,  blurb: 'Bonus points on every hit.' },
     { id: 'combolock', name: 'COMBO LOCK',   icon: '🔗', kind: 'timed', dur: 8,        weight: 8,  blurb: 'Your combo survives a miss.' },
     { id: 'shield',    name: 'SHIELD',       icon: '🛡️', kind: 'timed', dur: Infinity, weight: 8,  blurb: 'Blocks the next miss.' },
-    { id: 'star',      name: 'STAR POWER',   icon: '🌟', kind: 'timed', dur: 4.5,      weight: 3,  blurb: 'Invincible + auto-perfect + 2×!' },
+    { id: 'star',      name: 'STAR POWER',   icon: '🌟', kind: 'timed', dur: 4.5,      weight: 3,  blurb: 'Life shield + valid PERFECT hits + 2×!' },
     // ---- instant ----
     { id: 'life',      name: 'EXTRA LIFE',   icon: '❤️', kind: 'instant', weight: 6,  blurb: '+1 life.' },
     { id: 'heal',      name: 'FULL HEAL',    icon: '💖', kind: 'instant', weight: 3,  blurb: 'All lives restored.' },

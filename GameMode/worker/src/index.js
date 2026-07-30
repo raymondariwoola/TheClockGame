@@ -159,7 +159,7 @@ export default {
       if (request.method === 'GET' && url.pathname === '/v1/daily') {
         if (env.DAILY_ENABLED === 'false') return json(request, env, { error: 'daily_disabled' }, 503);
         const day = new Date().toISOString().slice(0, 10);
-        const rulesetVersion = 2;
+        const rulesetVersion = 3;
         return json(request, env, { day, rulesetVersion, seed: `daily|${rulesetVersion}|${day}`, serverTime: Date.now() });
       }
 

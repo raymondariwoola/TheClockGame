@@ -46,6 +46,16 @@ eq(E.classify(20.01, 20), 'miss', 'classify miss past zone');
 eq(E.classify(1, 4), 'perfect', 'classify tight perfect');
 eq(E.classify(3, 4), 'good', 'classify tight good');
 
+// ---------- accuracy-power hit validation ----------
+eq(E.resolveStrikeKind('miss', { deadeye: true }), 'miss', 'Deadeye cannot turn an out-of-zone tap into a hit');
+eq(E.resolveStrikeKind('miss', { star: true }), 'miss', 'Star cannot turn an out-of-zone tap into a hit');
+eq(E.resolveStrikeKind('good', { deadeye: true }), 'perfect', 'Deadeye upgrades a valid Good hit');
+eq(E.resolveStrikeKind('great', { star: true }), 'perfect', 'Star upgrades a valid Great hit');
+eq(E.resolveStrikeKind('good', { easyPerfect: true }), 'perfect', 'Easy Perfect cheat upgrades a valid hit');
+eq(E.resolveStrikeKind('miss', { easyPerfect: true }), 'miss', 'Easy Perfect cheat still requires the enlarged valid zone');
+eq(E.resolveStrikeKind('miss', { forcePerfect: true }), 'perfect', 'Auto-Perfect/GOD force override remains unconditional');
+eq(E.resolveStrikeKind('great'), 'great', 'ordinary grading is unchanged without an override');
+
 // ---------- scoreFor ----------
 eq(E.scoreFor('perfect'), 100, 'scoreFor perfect');
 eq(E.scoreFor('great'), 60, 'scoreFor great');

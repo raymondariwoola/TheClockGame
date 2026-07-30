@@ -64,6 +64,15 @@
     if (distToCenter <= zoneHalf) return 'good';
     return 'miss';
   }
+  // Accuracy powers may improve a strike that actually touched a target, but
+  // must never turn an out-of-zone tap into a hit. Creator/cheat auto-perfect
+  // remains an explicit force override and is intentionally exempt.
+  function resolveStrikeKind(kind, options) {
+    const input = options || {};
+    if (input.forcePerfect) return 'perfect';
+    if (kind !== 'miss' && (input.easyPerfect || input.deadeye || input.star)) return 'perfect';
+    return kind;
+  }
   function scoreFor(kind) {
     if (kind === 'perfect') return 100;
     if (kind === 'great') return 60;
@@ -488,7 +497,7 @@
 
   return {
     xmur3, mulberry32, wrap, makeRNG,
-    angularDistance, classify, scoreFor, computeHitScore, SCORE_RULES, computeRank,
+    angularDistance, classify, resolveStrikeKind, scoreFor, computeHitScore, SCORE_RULES, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
     encodeRival, decodeRival, RIVAL_LIMITS, ACHIEVEMENTS, evaluateAchievements,
