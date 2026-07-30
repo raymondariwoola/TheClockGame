@@ -31,7 +31,7 @@ function sanitizeAssists(value) {
 
 export function normalizeBoardQuery(source = {}) {
   const mode = MODES.has(source.mode) ? source.mode : 'classic';
-  const difficulty = source.difficulty === 'hardcore' ? 'hardcore' : 'normal';
+  const difficulty = source.difficulty === 'hardcore' || source.hc === true ? 'hardcore' : 'normal';
   const rulesetVersion = boundedInt(source.rulesetVersion ?? source.ruleset, 1, 9999);
   const dailyDate = /^\d{4}-\d{2}-\d{2}$/.test(String(source.dailyDate || source.day || ''))
     ? String(source.dailyDate || source.day) : null;

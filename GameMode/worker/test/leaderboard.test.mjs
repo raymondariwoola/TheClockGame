@@ -7,6 +7,10 @@ class FakeStorage {
   constructor() { this.values = new Map(); this.queue = Promise.resolve(); }
   async get(key) { return structuredClone(this.values.get(key)); }
   async put(key, value) { this.values.set(key, structuredClone(value)); }
+  async list({ prefix } = {}) {
+    return new Map([...this.values].filter(([key]) => !prefix || key.startsWith(prefix)).map(([key, value]) => [key, structuredClone(value)]));
+  }
+  async deleteAll() { this.values.clear(); }
   transaction(callback) {
     const result = this.queue.then(() => callback(this));
     this.queue = result.catch(() => {});
@@ -35,6 +39,7 @@ test('board partitions keep daily, difficulty, and ruleset separate', () => {
   const daily = normalizeBoardQuery({ scope: 'daily', dailyDate: '2026-07-30', rulesetVersion: 1 });
   assert.notEqual(partitionKey(standard), partitionKey(hardcore));
   assert.notEqual(partitionKey(standard), partitionKey(daily));
+  assert.equal(partitionKey({ mode: 'classic', hc: true, rulesetVersion: 1 }), partitionKey(hardcore));
   assert.equal(parseBoardQuery({ mode: 'invented' }), null);
   assert.equal(parseBoardQuery({ scope: 'daily' }), null);
 });
@@ -78,4 +83,27 @@ test('Durable Object submits atomically, returns top twenty, and makes retries i
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'entry-24' }),
   }));
   assert.deepEqual(await removed.json(), { removed: 1, retained: 24 });
+});
+
+test('admin export snapshots every board and clear removes boards plus submission keys', async () => {
+  const storage = new FakeStorage();
+  const room = new LeaderboardRoom({ storage });
+  for (const [difficulty, id] of [['normal', 'normal-entry'], ['hardcore', 'hardcore-entry']]) {
+    await room.fetch(new Request(`https://worker.test/submit?mode=classic&difficulty=${difficulty}&rulesetVersion=1`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry: entry({ id, hc: difficulty === 'hardcore' }), submissionKey: `run-${id}` }),
+    }));
+  }
+
+  const exported = await (await room.fetch(new Request('https://worker.test/export'))).json();
+  assert.equal(exported.boardCount, 2);
+  assert.equal(exported.entryCount, 2);
+  assert.equal(Object.keys(exported.boards).length, 2);
+
+  const cleared = await (await room.fetch(new Request('https://worker.test/clear', { method: 'POST' }))).json();
+  assert.deepEqual(cleared, { clearedBoards: 2, clearedEntries: 2 });
+  assert.equal(storage.values.size, 0, 'clear also removes submission idempotency records');
+
+  const empty = await (await room.fetch(new Request('https://worker.test/export'))).json();
+  assert.deepEqual(empty, { boards: {}, boardCount: 0, entryCount: 0 });
 });

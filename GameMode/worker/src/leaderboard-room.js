@@ -14,6 +14,27 @@ export class LeaderboardRoom {
     const url = new URL(request.url);
     const key = `board:${partitionKey(Object.fromEntries(url.searchParams))}`;
 
+    if (request.method === 'GET' && url.pathname === '/export') {
+      const stored = await this.ctx.storage.list({ prefix: 'board:' });
+      const boards = {};
+      let entries = 0;
+      for (const [boardKey, value] of stored) {
+        const clean = sanitizeList(value);
+        boards[boardKey] = clean;
+        entries += clean.length;
+      }
+      return response({ boards, boardCount: Object.keys(boards).length, entryCount: entries });
+    }
+
+    if (request.method === 'POST' && url.pathname === '/clear') {
+      const stored = await this.ctx.storage.list({ prefix: 'board:' });
+      let entries = 0;
+      for (const value of stored.values()) entries += sanitizeList(value).length;
+      await this.ctx.storage.deleteAll();
+      this.recentSubmissions.clear();
+      return response({ clearedBoards: stored.size, clearedEntries: entries });
+    }
+
     if (request.method === 'GET' && url.pathname === '/entries') {
       const entries = sanitizeList(await this.ctx.storage.get(key));
       return response({ entries: entries.slice(0, PUBLIC_ENTRIES), total: entries.length });

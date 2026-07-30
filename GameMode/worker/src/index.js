@@ -204,6 +204,18 @@ export default {
         })), request, env);
       }
 
+      if (request.method === 'GET' && url.pathname === '/v1/admin/export-leaderboards') {
+        const auth = request.headers.get('Authorization') || '';
+        if (!env.ADMIN_CODE || !safeEqual(auth, `Bearer ${env.ADMIN_CODE}`)) return json(request, env, { error: 'unauthorized' }, 401);
+        return withCors(await boardStub(env).fetch(new Request(new URL('/export', request.url))), request, env);
+      }
+
+      if (request.method === 'DELETE' && url.pathname === '/v1/admin/leaderboards') {
+        const auth = request.headers.get('Authorization') || '';
+        if (!env.ADMIN_CODE || !safeEqual(auth, `Bearer ${env.ADMIN_CODE}`)) return json(request, env, { error: 'unauthorized' }, 401);
+        return withCors(await boardStub(env).fetch(new Request(new URL('/clear', request.url), { method: 'POST' })), request, env);
+      }
+
       const deleteEntry = url.pathname.match(/^\/v1\/admin\/entries\/([\w.:-]{1,64})$/);
       if (request.method === 'DELETE' && deleteEntry) {
         const auth = request.headers.get('Authorization') || '';
