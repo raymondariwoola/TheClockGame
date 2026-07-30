@@ -17,6 +17,7 @@ assert.equal(codeFromUrl('https://example.test/?ghost=2345-6789&token=secret'), 
     requests.push({ url, options });
     if (url.endsWith('/v1/ghosts')) return response(201, { ok: true, code: '2345-6789', hostToken: 'a'.repeat(48) });
     if (url.endsWith('/finish')) return response(200, { ok: true, challenge: { code: '2345-6789', state: 'open' } });
+    if (url.endsWith('/share-card')) return response(201, { ok: true });
     throw new Error('unexpected request');
   };
   const client = new GhostChallengeClient({ baseUrl: 'https://worker.test', fetchImpl, sessionStore: new Store() });
@@ -26,5 +27,8 @@ assert.equal(codeFromUrl('https://example.test/?ghost=2345-6789&token=secret'), 
   assert.equal(requests[0].options.body.includes(created.session.token), false);
   assert.equal(requests[1].options.headers.Authorization, `Bearer ${created.session.token}`);
   assert.equal(buildUrl('https://example.test/GameMode/', created.session.code).includes('token'), false);
+  await client.uploadShareCard(new Blob(['png'], { type: 'image/png' }), created.session.code);
+  assert.equal(requests[2].options.method, 'PUT');
+  assert.equal(requests[2].options.headers.Authorization, `Bearer ${created.session.token}`);
   console.log('✓ ghost client tests passed');
 })().catch((error) => { console.error(error); process.exit(1); });

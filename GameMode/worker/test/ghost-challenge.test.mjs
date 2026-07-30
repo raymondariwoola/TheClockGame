@@ -30,6 +30,7 @@ const hostResult = { score: 160, round: 2, perfect: 1, combo: 2, acc: 100 };
 function post(path, body) {
   return new Request(`https://ghost.test${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1]);
 
 test('replay sanitizer bounds events and strips undeclared cheat metadata', () => {
   const clean = sanitizeReplay(replay, draft);
@@ -53,6 +54,14 @@ test('ghost room supports draft, idempotent host finish, hidden score, guest res
   const retry = await room.fetch(post('/finish', { tokenHash: 'host-hash', result: { score: 999 }, replay }));
   assert.equal((await retry.json()).idempotent, true);
 
+  let cardResponse = await room.fetch(new Request('https://ghost.test/share-card', { method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': 'wrong' }, body: png }));
+  assert.equal(cardResponse.status, 401);
+  cardResponse = await room.fetch(new Request('https://ghost.test/share-card', { method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': 'host-hash' }, body: png }));
+  assert.equal(cardResponse.status, 201);
+  const storedCard = await room.fetch(new Request('https://ghost.test/share-card'));
+  assert.equal(storedCard.headers.get('Content-Type'), 'image/png');
+  assert.deepEqual(new Uint8Array(await storedCard.arrayBuffer()), png);
+
   const joined = await room.fetch(post('/join', { guestName: 'Guest', guestTokenHash: 'guest-hash' }));
   const joinedData = await joined.json();
   assert.equal(joinedData.challenge.host.result, null, 'hidden host final stays hidden before guest finish');
@@ -69,5 +78,6 @@ test('ghost room supports draft, idempotent host finish, hidden score, guest res
 
   await room.alarm();
   assert.equal(await storage.get('challenge'), undefined);
+  assert.equal(await storage.get('share-card'), undefined);
   assert.equal(storage.alarm, null);
 });

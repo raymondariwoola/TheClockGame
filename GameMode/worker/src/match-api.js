@@ -5,6 +5,7 @@ import {
 import { allowRequest } from './rate-limit.js';
 import { sha256hex } from './security.js';
 import { MATCH_TIMES } from './match-room.js';
+import { readPng } from './share-card.js';
 
 const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const MAX_BODY_BYTES = 2048;
@@ -77,7 +78,7 @@ export async function handleMatchRequest(request, env, cors) {
     return json({ ok: false, error: 'code_generation_failed' }, 503, cors);
   }
 
-  const match = /^\/v1\/matches\/([^/]+)(?:\/(join|ticket|socket))?$/.exec(url.pathname);
+  const match = /^\/v1\/matches\/([^/]+)(?:\/(join|ticket|socket|share-card))?$/.exec(url.pathname);
   if (!match) return json({ ok: false, error: 'not_found' }, 404, cors);
   let decoded; try { decoded = decodeURIComponent(match[1]); } catch { return json({ ok: false, error: 'bad_code' }, 400, cors); }
   const code = formatMatchCode(decoded);
@@ -107,6 +108,16 @@ export async function handleMatchRequest(request, env, cors) {
       tokenHash: await sha256hex(capability), ticketHash: await sha256hex(ticket), expiresAt: Date.now() + MATCH_TIMES.ticket,
     });
     return relay(response, cors, response.ok ? { ticket } : null);
+  }
+  if (action === 'share-card') {
+    if (request.method !== 'PUT') return json({ ok: false, error: 'method_not_allowed' }, 405, cors);
+    if (!allowRequest(client(request, 'match-share-card'), 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429, cors);
+    const capability = bearer(request); if (!capability) return json({ ok: false, error: 'unauthorized' }, 401, cors);
+    const parsed = await readPng(request); if (parsed.error) return json({ ok: false, error: parsed.error }, parsed.status, cors);
+    const response = await stub.fetch(new Request('https://match.internal/share-card', {
+      method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': await sha256hex(capability) }, body: parsed.bytes,
+    }));
+    return relay(response, cors);
   }
   if (action === 'socket') {
     if (request.method !== 'GET') return json({ ok: false, error: 'method_not_allowed' }, 405, cors);

@@ -3,8 +3,10 @@ import {
   ticketFromProtocols, validateMatchEnvelope,
 } from '../../shared/match-protocol.mjs';
 import { sha256hex } from './security.js';
+import { cardResponse, isPng, MAX_SHARE_CARD_BYTES } from './share-card.js';
 
 const ROOM_KEY = 'room';
+const CARD_KEY = 'share-card';
 const TICKET_PREFIX = 'ticket:';
 export const MATCH_TIMES = Object.freeze({
   waiting: 2 * 60 * 60 * 1000, countdown: 3000, active: 20 * 60 * 1000,
@@ -123,6 +125,14 @@ export class MatchRoom {
     }
     const room = await this.load(); if (!room) return json({ ok: false, error: 'room_not_found' }, 404);
     if (request.method === 'GET' && url.pathname === '/state') return json({ ok: true, room: publicMatch(room) });
+    if (request.method === 'GET' && url.pathname === '/share-card') return cardResponse(await this.ctx.storage.get(CARD_KEY));
+    if (request.method === 'PUT' && url.pathname === '/share-card') {
+      if (room.seats.host.tokenHash !== request.headers.get('X-Host-Token-Hash')) return json({ ok: false, error: 'unauthorized' }, 401);
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength > MAX_SHARE_CARD_BYTES) return json({ ok: false, error: 'share_card_too_large' }, 413);
+      if (!isPng(bytes)) return json({ ok: false, error: 'invalid_share_card' }, 400);
+      await this.ctx.storage.put(CARD_KEY, bytes); return json({ ok: true }, 201);
+    }
     if (request.method === 'POST' && url.pathname === '/join') {
       if (room.state !== MATCH_STATES.WAITING) return json({ ok: false, error: 'room_started' }, 409);
       if (room.seats.guest) return json({ ok: false, error: 'room_full' }, 409);

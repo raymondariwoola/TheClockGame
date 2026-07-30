@@ -1,8 +1,10 @@
 import { sanitizeGhostDraft, sanitizeGhostResult, sanitizeReplay, resultForSeats } from './ghost-validation.js';
+import { cardResponse, isPng, MAX_SHARE_CARD_BYTES } from './share-card.js';
 
 export const GHOST_DRAFT_MS = 2 * 60 * 60 * 1000;
 export const GHOST_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const KEY = 'challenge';
+const CARD_KEY = 'share-card';
 
 function json(body, status = 200) { return Response.json(body, { status }); }
 function now(env) { const value = Number(env?.__TEST_NOW); return Number.isFinite(value) ? value : Date.now(); }
@@ -73,6 +75,15 @@ export class GhostChallengeRoom {
     }
 
     if (request.method === 'GET' && url.pathname === '/state') return json({ ok: true, challenge: publicGhost(challenge) });
+
+    if (request.method === 'GET' && url.pathname === '/share-card') return cardResponse(await this.ctx.storage.get(CARD_KEY));
+    if (request.method === 'PUT' && url.pathname === '/share-card') {
+      if (challenge.host.tokenHash !== request.headers.get('X-Host-Token-Hash')) return json({ ok: false, error: 'unauthorized' }, 401);
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength > MAX_SHARE_CARD_BYTES) return json({ ok: false, error: 'share_card_too_large' }, 413);
+      if (!isPng(bytes)) return json({ ok: false, error: 'invalid_share_card' }, 400);
+      await this.ctx.storage.put(CARD_KEY, bytes); return json({ ok: true }, 201);
+    }
 
     if (request.method === 'POST' && url.pathname === '/join') {
       if (challenge.state !== 'open' || challenge.guest) return json({ ok: false, error: challenge.state === 'host_pending' ? 'challenge_not_ready' : 'challenge_claimed' }, 409);

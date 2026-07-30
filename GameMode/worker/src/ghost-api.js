@@ -2,6 +2,7 @@ import { cleanName, normalizeRoomCode } from '../../shared/protocol.mjs';
 import { allowRequest } from './rate-limit.js';
 import { sha256hex } from './security.js';
 import { sanitizeGhostDraft } from './ghost-validation.js';
+import { readPng } from './share-card.js';
 
 const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const MAX_BODY_BYTES = 64 * 1024;
@@ -70,7 +71,7 @@ export async function handleGhostRequest(request, env, cors) {
     return json({ ok: false, error: 'code_generation_failed' }, 503, cors);
   }
 
-  const match = /^\/v1\/ghosts\/([^/]+)(?:\/(join|finish|cancel))?$/.exec(url.pathname);
+  const match = /^\/v1\/ghosts\/([^/]+)(?:\/(join|finish|cancel|share-card))?$/.exec(url.pathname);
   if (!match) return json({ ok: false, error: 'not_found' }, 404, cors);
   const roomCode = normalizeRoomCode(decodeURIComponent(match[1]));
   if (!roomCode) return json({ ok: false, error: 'bad_code' }, 400, cors);
@@ -92,6 +93,17 @@ export async function handleGhostRequest(request, env, cors) {
     const guestToken = token();
     const response = await internal(stub, '/join', { guestName, guestTokenHash: await sha256hex(guestToken) });
     return relay(response, cors, response.ok ? { guestToken } : null);
+  }
+
+  if (action === 'share-card') {
+    if (request.method !== 'PUT') return json({ ok: false, error: 'method_not_allowed' }, 405, cors);
+    if (!allowRequest(client(request, 'ghost-share-card'), 10, 60_000)) return json({ ok: false, error: 'rate_limited' }, 429, cors);
+    const capability = bearer(request); if (!capability) return json({ ok: false, error: 'unauthorized' }, 401, cors);
+    const parsed = await readPng(request); if (parsed.error) return json({ ok: false, error: parsed.error }, parsed.status, cors);
+    const response = await stub.fetch(new Request('https://ghost.internal/share-card', {
+      method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': await sha256hex(capability) }, body: parsed.bytes,
+    }));
+    return relay(response, cors);
   }
 
   const capability = bearer(request);

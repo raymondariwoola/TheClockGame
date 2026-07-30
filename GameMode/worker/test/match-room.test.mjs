@@ -29,6 +29,7 @@ const request = (path, value, method = value == null ? 'GET' : 'POST') => new Re
 });
 const envelope = (type, seq, payload = {}) => JSON.stringify({ v: MATCH_PROTOCOL_VERSION, type, seq, payload });
 const result = (score) => ({ score, round: 1, perfect: 1, combo: 2, acc: 100, attempts: 1, cheated: true, cheats: ['hidden'] });
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1]);
 
 test('match room runs a tie through sudden death and accepts cheat-altered ordinary progress', async () => {
   const ctx = new Context(); const env = { __TEST_NOW: 1_000_000, MULTIPLAYER_ENABLED: 'true' };
@@ -37,6 +38,11 @@ test('match room runs a tie through sudden death and accepts cheat-altered ordin
   assert.equal(response.status, 201);
   response = await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
   assert.equal(response.status, 200);
+  response = await room.fetch(new Request('https://match.internal/share-card', { method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': 'a'.repeat(64) }, body: png }));
+  assert.equal(response.status, 201);
+  response = await room.fetch(new Request('https://match.internal/share-card'));
+  assert.equal(response.headers.get('Content-Type'), 'image/png');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), png);
   const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
 
   await room.webSocketMessage(host, envelope('ready', 0));

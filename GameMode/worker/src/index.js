@@ -6,6 +6,7 @@ import { handleMatchRequest, isMatchPath } from './match-api.js';
 import { allowRequest } from './rate-limit.js';
 import { safeEqual, signRun, verifyRun } from './security.js';
 import { MODES, normalizeBoardQuery, parseBoardQuery, sanitizeEntry, validateProgress } from './validation.js';
+import { handleShareRequest, isSharePath } from './share-pages.js';
 
 export { LeaderboardRoom, GhostChallengeRoom, MatchRoom };
 
@@ -18,7 +19,7 @@ function corsHeaders(request, env) {
   const allowed = configured.length === 0 || configured.includes('*') || configured.includes(origin);
   const headers = {
     'Access-Control-Allow-Origin': allowed && origin ? origin : (configured[0] || '*'),
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
@@ -162,6 +163,8 @@ export default {
         const rulesetVersion = 3;
         return json(request, env, { day, rulesetVersion, seed: `daily|${rulesetVersion}|${day}`, serverTime: Date.now() });
       }
+
+      if (isSharePath(url.pathname)) return handleShareRequest(request, env);
 
       if (isGhostPath(url.pathname)) return handleGhostRequest(request, env, corsHeaders(request, env));
       if (isMatchPath(url.pathname)) return handleMatchRequest(request, env, corsHeaders(request, env));

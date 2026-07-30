@@ -30,6 +30,7 @@
     "DAILY_ENABLED": "true",
     "GHOSTS_ENABLED": "true",
     "MULTIPLAYER_ENABLED": "true",
-    "CHEATS_ENABLED": "true"
+    "CHEATS_ENABLED": "true",
+    "PUBLIC_GAME_URL": "https://raymondariwoola.github.io/TheClockGame/GameMode/"
   }
 }
