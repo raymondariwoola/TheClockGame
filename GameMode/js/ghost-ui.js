@@ -129,6 +129,7 @@
     return {
       ...challenge.replay,
       name: challenge.host.name,
+      hideScore: challenge.hideHostScore && challenge.state !== 'finished' && !challenge.host.result,
       score: challenge.host.result?.score || challenge.replay.score || 0,
       rounds: challenge.replay.rounds,
     };

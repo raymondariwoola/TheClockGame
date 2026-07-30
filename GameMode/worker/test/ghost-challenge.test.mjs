@@ -56,6 +56,7 @@ test('ghost room supports draft, idempotent host finish, hidden score, guest res
   const joined = await room.fetch(post('/join', { guestName: 'Guest', guestTokenHash: 'guest-hash' }));
   const joinedData = await joined.json();
   assert.equal(joinedData.challenge.host.result, null, 'hidden host final stays hidden before guest finish');
+  assert.equal(joinedData.challenge.replay.score, 0, 'replay total does not leak the hidden host score');
   assert.equal(joinedData.challenge.replay.strikes[1].s, 0, 'cumulative replay score is hidden too');
 
   const guestFinish = await room.fetch(post('/finish', {

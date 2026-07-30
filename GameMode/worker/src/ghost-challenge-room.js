@@ -9,7 +9,11 @@ function now(env) { const value = Number(env?.__TEST_NOW); return Number.isFinit
 
 function publicReplay(replay, hideScores) {
   if (!replay) return null;
-  return { ...replay, strikes: replay.strikes.map((strike) => hideScores ? { ...strike, s: 0 } : { ...strike }) };
+  return {
+    ...replay,
+    score: hideScores ? 0 : replay.score,
+    strikes: replay.strikes.map((strike) => hideScores ? { ...strike, s: 0 } : { ...strike }),
+  };
 }
 
 export function publicGhost(challenge, you = null) {

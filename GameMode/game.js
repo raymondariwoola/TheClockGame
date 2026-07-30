@@ -1831,8 +1831,8 @@
     if (State.rivalRun && State.rivalRecord) {
       runStats.rival = true;
       runStats.rivalName = State.rivalRecord.name || 'Rival';
-      runStats.rivalScore = State.rivalRecord.score || 0;
-      runStats.beatRival = State.score > runStats.rivalScore;
+      runStats.rivalScore = Ghost.scoreHidden() ? null : (State.rivalRecord.score || 0);
+      runStats.beatRival = Ghost.scoreHidden() ? null : State.score > runStats.rivalScore;
       runStats.ghostChallenge = State.ghostChallenge || null;
     }
     // "Challenge a friend" — offer to copy this run as a Rival Code when it was
@@ -2882,7 +2882,7 @@
     function loadFromRecord(rec) {
       if (!rec || !Array.isArray(rec.strikes) || !rec.strikes.length) { playback = null; return null; }
       const idx = ChronosEngine.indexReplay(rec.strikes);
-      playback = { score: rec.score || 0, rounds: rec.rounds || 0, name: rec.name || 'Rival',
+      playback = { score: rec.score || 0, rounds: rec.rounds || 0, name: rec.name || 'Rival', hideScore: rec.hideScore === true,
         byRound: idx.byRound, scoreByRound: idx.scoreByRound, maxRound: idx.maxRound };
       return playback;
     }
@@ -2890,6 +2890,7 @@
     function hasGhost() { return !!playback; }
     function ghostScore() { return playback ? playback.score : 0; }
     function ghostName() { return playback ? (playback.name || 'Ghost') : 'Ghost'; }
+    function scoreHidden() { return !!playback?.hideScore; }
     function ghostScoreThroughRound(r) {
       if (!playback) return 0;
       if (r >= playback.maxRound) return playback.score;
@@ -2946,6 +2947,13 @@
       const el = document.getElementById('ghostHud');
       if (!el) return;
       if (!playback) { el.hidden = true; return; }
+      const label = playback.name ? `${playback.name} ` : '';
+      if (playback.hideScore) {
+        el.hidden = false;
+        el.className = 'ghost-hud';
+        el.textContent = `👻 ${label}· TARGET HIDDEN`;
+        return;
+      }
       const gAt = ghostScoreThroughRound(currentRound);
       const delta = yourScore - gAt;
       const sign = delta >= 0 ? '+' : '−';
@@ -2953,7 +2961,6 @@
       el.className = 'ghost-hud' + (delta >= 0 ? ' ahead' : ' behind');
       // Legacy Rival Codes are untrusted pasted input. Keeping the whole HUD
       // line as text prevents a crafted rival name from injecting markup.
-      const label = playback.name ? `${playback.name} ` : '';
       el.textContent = `👻 ${label}${ghostScore().toLocaleString()} · ${sign}${Math.abs(delta).toLocaleString()}`;
     }
 
@@ -2965,7 +2972,7 @@
 
     return {
       startRecording, recordStrike, recordedCount, isRecording, finalize, saveIfBest, storedForDate,
-      loadForToday, loadFromRecord, getRecording, hasGhost, ghostScore, ghostName,
+      loadForToday, loadFromRecord, getRecording, hasGhost, ghostScore, ghostName, scoreHidden,
       ghostScoreThroughRound, renderRound, tick, updateHud, clear,
     };
   })();
@@ -3485,6 +3492,7 @@
       hasGhost: Ghost.hasGhost(),
       ghostScore: Ghost.ghostScore(),
       ghostName: Ghost.ghostName(),
+      ghostScoreHidden: Ghost.scoreHidden(),
       rivalRun: !!State.rivalRun,
       ghostMarkers: (document.getElementById('ghostLayer') || {}).childElementCount || 0,
       hudHidden: (document.getElementById('ghostHud') || {}).hidden,
