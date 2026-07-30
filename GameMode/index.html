@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Chronos Strike — Reflex Clock</title>
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=7">
-<link rel="stylesheet" href="style.css?v=7" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=8">
+<link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -112,7 +112,7 @@
 
       <button class="menu-board-btn" id="menuBoardBtn">
         <span class="mb-icon">🏆</span>
-        <span class="mb-text">HALL OF TIME — GLOBAL TOP 20</span>
+        <span class="mb-text">HALL OF TIME — TOP 20 BOARDS</span>
         <span class="mb-arrow">→</span>
       </button>
 
@@ -346,7 +346,25 @@
     <div class="board-inner">
       <header class="board-head">
         <h2 class="board-title">HALL <span class="board-title-of">OF</span> TIME</h2>
-        <p class="board-sub">GLOBAL TOP 20 · CHRONOS STRIKE</p>
+        <p class="board-sub">TOP 20 · CHOOSE YOUR BOARD</p>
+        <nav class="board-switcher" aria-label="Leaderboard board selection">
+          <div class="board-filter-group">
+            <span class="board-filter-label">PLAYLIST</span>
+            <div class="board-segments" role="group" aria-label="Leaderboard playlist">
+              <button type="button" class="board-segment" data-board-mode="classic" aria-pressed="true">CLASSIC</button>
+              <button type="button" class="board-segment" data-board-mode="endless" aria-pressed="false">ENDLESS</button>
+              <button type="button" class="board-segment" data-board-mode="daily" aria-pressed="false">DAILY</button>
+            </div>
+          </div>
+          <div class="board-filter-group">
+            <span class="board-filter-label">DIFFICULTY</span>
+            <div class="board-segments" role="group" aria-label="Leaderboard difficulty">
+              <button type="button" class="board-segment" data-board-difficulty="normal" aria-pressed="true">NORMAL</button>
+              <button type="button" class="board-segment board-segment-hardcore" data-board-difficulty="hardcore" aria-pressed="false">HARDCORE</button>
+            </div>
+          </div>
+        </nav>
+        <p class="board-context" id="boardContext" aria-live="polite">CLASSIC · NORMAL</p>
         <div class="board-status" id="boardStatus">LOADING…</div>
       </header>
 
@@ -375,7 +393,7 @@
     <div class="overlay-card identity-card">
       <div class="identity-glyph">👤</div>
       <h2 class="identity-title">WHAT SHOULD WE CALL YOU?</h2>
-      <p class="identity-sub">Your name appears on share cards and, when you make the top 20, the global leaderboard.</p>
+      <p class="identity-sub">Your name appears on share cards and, when you make a top 20, its Hall of Time board.</p>
       <form id="identityForm" autocomplete="off">
         <div class="identity-fields">
           <input id="idFirst" type="text" maxlength="12" placeholder="FIRST NAME" required autocomplete="given-name" spellcheck="false">
@@ -433,7 +451,7 @@
       <h2 class="name-title">TOP 20!</h2>
       <p class="name-blurb">
         Your score of <span class="name-score" id="nameScore">0</span> ranks
-        <span class="name-rank" id="nameRank">#—</span> in the world.<br>
+        <span class="name-rank" id="nameRank">#—</span> on the <span class="name-board" id="nameBoard">selected</span> board.<br>
         Engrave your name in the Hall of Time.
       </p>
       <form id="nameForm" autocomplete="off">
@@ -468,20 +486,20 @@
   </div>
 
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=7"></script>
+  <script src="vendor/anime.min.js?v=8"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=7"></script>
-  <script src="js/storage.js?v=7"></script>
-  <script src="js/run-context.js?v=7"></script>
-  <script src="js/cheat-state.js?v=7"></script>
-  <script src="js/ghost-client.js?v=7"></script>
-  <script src="js/multiplayer.js?v=7"></script>
-  <script src="js/share-cards.js?v=7"></script>
-  <script src="leaderboard-config.js?v=7"></script>
-  <script src="game.js?v=7"></script>
-  <script src="leaderboard.js?v=7"></script>
-  <script src="js/ghost-ui.js?v=7"></script>
-  <script src="js/multiplayer-ui.js?v=7"></script>
-  <script src="share.js?v=7"></script>
+  <script src="engine.js?v=8"></script>
+  <script src="js/storage.js?v=8"></script>
+  <script src="js/run-context.js?v=8"></script>
+  <script src="js/cheat-state.js?v=8"></script>
+  <script src="js/ghost-client.js?v=8"></script>
+  <script src="js/multiplayer.js?v=8"></script>
+  <script src="js/share-cards.js?v=8"></script>
+  <script src="leaderboard-config.js?v=8"></script>
+  <script src="game.js?v=8"></script>
+  <script src="leaderboard.js?v=8"></script>
+  <script src="js/ghost-ui.js?v=8"></script>
+  <script src="js/multiplayer-ui.js?v=8"></script>
+  <script src="share.js?v=8"></script>
 </body>
 </html>

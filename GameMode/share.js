@@ -4,7 +4,7 @@
 // download / copy on platforms without file sharing.
 //
 // Fully additive: game.js calls setStats() at game over, leaderboard.js calls
-// setRank() once the global rank is known. Nothing else depends on this file.
+// setRank() once the board-specific rank is known. Nothing else depends on this file.
 
 (() => {
   'use strict';
@@ -13,7 +13,8 @@
   const $ = (id) => document.getElementById(id);
 
   let stats = null;       // run stats from game.js
-  let globalRank = null;  // global placement from leaderboard.js (if any)
+  let boardRank = null;   // placement within the selected Hall of Time board
+  let rankBoardLabel = '';
   let blob = null;        // generated PNG, ready before share() is invoked
   let objUrl = null;
 
@@ -29,8 +30,12 @@
   const RANK_COLOR = { S: C.yellow, A: C.cyan, B: C.green, C: C.violet, D: C.dim, F: C.red };
 
   // ---------- public API ----------
-  function setStats(s) { stats = s; globalRank = null; blob = null; }
-  function setRank(r) { globalRank = r; }
+  function setStats(s) { stats = s; boardRank = null; rankBoardLabel = ''; blob = null; }
+  function setRank(r, label = '') {
+    boardRank = Number.isFinite(Number(r)) ? Number(r) : null;
+    rankBoardLabel = String(label || '').replace(/[^A-Z0-9 ·-]/gi, '').trim().slice(0, 32);
+    blob = null;
+  }
 
   function playerName() {
     try {
@@ -221,11 +226,11 @@
     ctx.fillStyle = C.dim;
     spacedText(ctx, 'RANK', bx, by + br + 30, 6);
 
-    // ---- global placement ----
+    // ---- board placement ----
     let gText, gColor;
     if (isGod) { gText = 'DEMO RUN · NOT RANKED'; gColor = C.dim; }
-    else if (globalRank && globalRank <= 20) { gText = `GLOBAL #${globalRank} — TOP 20`; gColor = C.yellow; }
-    else if (globalRank) { gText = `GLOBAL #${globalRank}`; gColor = C.cyan; }
+    else if (boardRank && boardRank <= 20) { gText = `${rankBoardLabel || 'HALL OF TIME'} #${boardRank} · TOP 20`; gColor = C.yellow; }
+    else if (boardRank) { gText = `${rankBoardLabel || 'HALL OF TIME'} #${boardRank}`; gColor = C.cyan; }
     else { gText = 'HALL OF TIME'; gColor = C.violet; }
     ctx.font = '800 34px Orbitron, sans-serif';
     ctx.fillStyle = gColor;
@@ -290,8 +295,8 @@
     const score = stats ? stats.score.toLocaleString() : '0';
     const lines = [`⚡ I scored ${score} on CHRONOS STRIKE — ${mode}${hc}`];
     if (stats && stats.god) lines.push('(demo run — not ranked)');
-    else if (globalRank && globalRank <= 20) lines.push(`🏆 Global #${globalRank} — Top 20 in the Hall of Time!`);
-    else if (globalRank) lines.push(`Global rank #${globalRank}`);
+    else if (boardRank && boardRank <= 20) lines.push(`🏆 ${rankBoardLabel || 'Hall of Time'} #${boardRank} — Top 20 on that board!`);
+    else if (boardRank) lines.push(`${rankBoardLabel || 'Hall of Time'} rank #${boardRank}`);
     if (stats) lines.push(`Rank ${stats.rankLetter} · ${stats.perfect} perfect · ×${stats.combo} combo`);
     lines.push('');
     lines.push(`Think you're faster? ⏱️ ${GAME_URL}`);

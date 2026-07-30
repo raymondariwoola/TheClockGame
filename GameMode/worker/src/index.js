@@ -12,6 +12,7 @@ export { LeaderboardRoom, GhostChallengeRoom, MatchRoom };
 
 const MAX_BODY_BYTES = 48 * 1024;
 const RUN_LIFETIME_MS = 6 * 60 * 60 * 1000;
+const CURRENT_RULESET_VERSION = 3;
 
 function corsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
@@ -70,7 +71,7 @@ function boardUrl(request, query, path = '/entries') {
 async function issueRun(request, env, body) {
   if (!env.RUN_SIGNING_SECRET) return json(request, env, { error: 'run_signing_not_configured' }, 503);
   if (!MODES.has(body.mode) || !['normal', 'hardcore'].includes(body.difficulty) ||
-      !Number.isInteger(Number(body.rulesetVersion)) || Number(body.rulesetVersion) < 1) {
+      Number(body.rulesetVersion) !== CURRENT_RULESET_VERSION) {
     return json(request, env, { error: 'invalid_run_context' }, 400);
   }
   const query = normalizeBoardQuery({
@@ -109,6 +110,7 @@ async function finishRun(request, env, runId, body) {
   const auth = request.headers.get('Authorization') || '';
   const run = await verifyRun(auth.startsWith('Bearer ') ? auth.slice(7) : '', env.RUN_SIGNING_SECRET);
   if (!run || run.id !== runId) return json(request, env, { error: 'invalid_run_token' }, 401);
+  if (run.rulesetVersion !== CURRENT_RULESET_VERSION) return json(request, env, { error: 'unsupported_ruleset' }, 409);
   const entry = sanitizeEntry(body.entry, { ...run, runId, verification: 'accepted' });
   if (!entry || !validateProgress(body.progress, entry)) return json(request, env, { error: 'invalid_result_shape' }, 400);
   const target = boardUrl(request, entry, '/submit');
@@ -130,6 +132,7 @@ async function compatibilityPost(request, env, body) {
   }
   const entry = sanitizeEntry(body.entry || body, { verification: 'accepted' });
   if (!entry) return json(request, env, { error: 'invalid_entry' }, 400);
+  if (entry.rulesetVersion !== CURRENT_RULESET_VERSION) return json(request, env, { error: 'unsupported_ruleset' }, 409);
   const target = boardUrl(request, entry, '/submit');
   return withCors(await boardStub(env).fetch(new Request(target, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -160,7 +163,7 @@ export default {
       if (request.method === 'GET' && url.pathname === '/v1/daily') {
         if (env.DAILY_ENABLED === 'false') return json(request, env, { error: 'daily_disabled' }, 503);
         const day = new Date().toISOString().slice(0, 10);
-        const rulesetVersion = 3;
+        const rulesetVersion = CURRENT_RULESET_VERSION;
         return json(request, env, { day, rulesetVersion, seed: `daily|${rulesetVersion}|${day}`, serverTime: Date.now() });
       }
 
@@ -173,6 +176,7 @@ export default {
         if (env.LEADERBOARD_ENABLED === 'false') return json(request, env, { error: 'leaderboard_disabled' }, 503);
         const query = parseBoardQuery(Object.fromEntries(url.searchParams));
         if (!query) return json(request, env, { error: 'invalid_partition' }, 400);
+        if (query.rulesetVersion !== CURRENT_RULESET_VERSION) return json(request, env, { error: 'unsupported_ruleset' }, 409);
         return withCors(await boardStub(env).fetch(new Request(boardUrl(request, query))), request, env);
       }
 

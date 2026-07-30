@@ -9,8 +9,9 @@ assert.ok(submitStart >= 0 && submitEnd > submitStart, 'leaderboard submit flow 
 const submitFlow = source.slice(submitStart, submitEnd);
 
 assert.doesNotMatch(submitFlow, /await\s+show\s*\(/, 'publishing must not navigate away from Results');
-assert.match(submitFlow, /PUBLISHED — GLOBAL/, 'successful publishing confirms rank on Results');
+assert.match(submitFlow, /PUBLISHED —.*identity\.rankLabel/, 'successful publishing confirms the exact board rank on Results');
 assert.match(submitFlow, /ChronosShare\.setRank/, 'published rank updates the retained share card');
+assert.doesNotMatch(source, /GLOBAL #|GLOBAL RANK|LIVE GLOBAL/, 'partition ranks must never be presented as one global rank');
 assert.match(source, /show\('over'\)/, 'Hall opened from Results remembers Results as its return screen');
 assert.match(source, /BACK TO RESULTS/, 'Hall offers an explicit return to the completed run');
 assert.match(source, /showScreen\(boardReturnScreen\)/, 'Hall back action restores its originating screen');

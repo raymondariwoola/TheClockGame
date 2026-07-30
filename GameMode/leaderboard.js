@@ -11,12 +11,14 @@
   const LOCAL_KEY = 'cs_local_board';
   const CACHE_KEY = 'cs_board_cache';
   const NAME_KEY = 'cs_player_name';  // remembers first/last on this device
+  const BOARD_PREF_KEY = 'cs_board_preference';
 
   const $ = (id) => document.getElementById(id);
   const elStatus = $('boardStatus');
   const elPodium = $('podium');
   const elList = $('boardList');
   const elLbCheck = $('lbCheck');
+  const elBoardContext = $('boardContext');
   const elOverlay = $('nameOverlay');
   const elNameForm = $('nameForm');
   const elNameError = $('nameError');
@@ -26,7 +28,9 @@
   let lastSubmittedId = null; // highlight "YOU" on the board
   let boardReturnScreen = 'menu'; // preserve Results when Hall is opened from a completed run
   const CURRENT_RULESET = 3;
-  let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: CURRENT_RULESET };
+  const DEFAULT_PARTITION = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: CURRENT_RULESET, dailyDate: null };
+  let currentPartition = { ...DEFAULT_PARTITION };
+  let boardLoadSequence = 0;
   const issuedRuns = new Map();
 
   // ---------- storage ----------
@@ -43,6 +47,19 @@
     return (n && typeof n.first === 'string' && typeof n.last === 'string') ? n : null;
   };
   const saveName = (first, last) => writeJson(NAME_KEY, { first, last });
+
+  function loadBoardPreference() {
+    const saved = readJson(BOARD_PREF_KEY);
+    if (!saved || !['classic', 'endless'].includes(saved.mode) || !['normal', 'hardcore'].includes(saved.difficulty)) {
+      return { ...DEFAULT_PARTITION };
+    }
+    return { ...DEFAULT_PARTITION, mode: saved.mode, difficulty: saved.difficulty };
+  }
+
+  function saveBoardPreference(partition) {
+    if (partition.scope !== 'standard') return;
+    writeJson(BOARD_PREF_KEY, { mode: partition.mode, difficulty: partition.difficulty });
+  }
 
   const sortEntries = (list) =>
     [...list].sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
@@ -61,6 +78,21 @@
       rulesetVersion: stats.rulesetVersion || CURRENT_RULESET,
       dailyDate: stats.daily ? stats.dailyDate : null,
     };
+  }
+
+  const MODE_LABEL = { classic: 'CLASSIC', endless: 'ENDLESS', zen: 'ZEN' };
+
+  function boardIdentity(partition = currentPartition) {
+    if (partition.scope === 'daily') {
+      return {
+        label: `DAILY RIFT · ${partition.dailyDate || 'TODAY'}`,
+        rankLabel: 'DAILY RIFT',
+        spoken: `Daily Rift ${partition.dailyDate || 'today'}`,
+      };
+    }
+    const mode = MODE_LABEL[partition.mode] || 'CLASSIC';
+    const difficulty = partition.difficulty === 'hardcore' ? 'HARDCORE' : 'NORMAL';
+    return { label: `${mode} · ${difficulty}`, rankLabel: `${mode} ${difficulty}`, spoken: `${mode} ${difficulty}` };
   }
 
   function queryString(partition) {
@@ -122,6 +154,7 @@
   }
 
   async function submitEntry(entry, stats) {
+    const submissionPartition = partitionForStats(stats);
     if (REMOTE) {
       let issued = issuedRuns.get(stats.runId);
       if (!issued) {
@@ -146,18 +179,17 @@
       });
       issuedRuns.delete(stats.runId);
       const entries = normalize(data.entries);
-      writeJson(boardStorageKey(CACHE_KEY, currentPartition), entries);
+      writeJson(boardStorageKey(CACHE_KEY, submissionPartition), entries);
       if (data.entryId) entry.id = data.entryId;
       return { entries, made: !!data.made, source: 'remote' };
     }
-    const localKey = boardStorageKey(LOCAL_KEY, currentPartition);
+    const localKey = boardStorageKey(LOCAL_KEY, submissionPartition);
     const entries = sortEntries([...normalize(readJson(localKey)), entry]).slice(0, MAX_ENTRIES);
     writeJson(localKey, entries);
     return { entries, made: entries.some(e => e.id === entry.id), source: 'local' };
   }
 
   // ---------- rendering ----------
-  const MODE_LABEL = { classic: 'CLASSIC', endless: 'ENDLESS', zen: 'ZEN' };
   const MEDALS = ['🥇', '🥈', '🥉'];
 
   const fmtDate = (iso) => {
@@ -181,7 +213,7 @@
     if (!entries.length) {
       const empty = document.createElement('li');
       empty.className = 'board-empty';
-      empty.textContent = 'NO SCORES YET — BE THE FIRST LEGEND ⏳';
+      empty.textContent = `NO ${boardIdentity().label} SCORES YET — BE THE FIRST ⏳`;
       elList.appendChild(empty);
       return;
     }
@@ -251,29 +283,87 @@
     return b;
   }
 
-  // ---------- show / refresh ----------
+  // ---------- board selection / show / refresh ----------
+  function syncBoardControls() {
+    const daily = currentPartition.scope === 'daily';
+    document.querySelectorAll('[data-board-mode]').forEach((button) => {
+      const selected = daily ? button.dataset.boardMode === 'daily' : button.dataset.boardMode === currentPartition.mode;
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    document.querySelectorAll('[data-board-difficulty]').forEach((button) => {
+      const selected = button.dataset.boardDifficulty === currentPartition.difficulty;
+      button.setAttribute('aria-pressed', String(selected));
+      button.disabled = daily && button.dataset.boardDifficulty === 'hardcore';
+      button.title = button.disabled ? 'Daily Rift uses Normal difficulty' : '';
+    });
+    if (elBoardContext) elBoardContext.textContent = boardIdentity().label;
+  }
+
+  async function selectBoardMode(mode) {
+    if (mode === 'daily') {
+      setStatus('⏳ FINDING TODAY\'S DAILY RIFT…');
+      try {
+        const daily = await getDaily();
+        currentPartition = {
+          scope: 'daily', mode: 'classic', difficulty: 'normal',
+          rulesetVersion: daily.rulesetVersion || CURRENT_RULESET, dailyDate: daily.day,
+        };
+      } catch {
+        setStatus(`⚠ DAILY BOARD UNREACHABLE · STILL SHOWING ${boardIdentity().label}`, 'error');
+        return;
+      }
+    } else {
+      const previous = currentPartition.scope === 'standard' ? currentPartition : loadBoardPreference();
+      currentPartition = {
+        ...DEFAULT_PARTITION, mode,
+        difficulty: previous.difficulty === 'hardcore' ? 'hardcore' : 'normal',
+      };
+      saveBoardPreference(currentPartition);
+    }
+    syncBoardControls();
+    await refreshBoard();
+  }
+
+  async function selectBoardDifficulty(difficulty) {
+    if (currentPartition.scope === 'daily' || !['normal', 'hardcore'].includes(difficulty)) return;
+    currentPartition = { ...currentPartition, difficulty };
+    saveBoardPreference(currentPartition);
+    syncBoardControls();
+    await refreshBoard();
+  }
+
+  async function refreshBoard() {
+    const requestedPartition = { ...currentPartition };
+    const requestSequence = ++boardLoadSequence;
+    syncBoardControls();
+    setStatus(`⏳ LOADING ${boardIdentity(requestedPartition).label}…`);
+    try {
+      const { entries, source } = await loadBoard(requestedPartition);
+      if (requestSequence !== boardLoadSequence) return;
+      render(entries);
+      setStatus(source === 'remote'
+        ? `⚡ LIVE · ${boardIdentity(requestedPartition).label} · ${entries.length}/${MAX_ENTRIES} PLACES`
+        : `📍 LOCAL · ${boardIdentity(requestedPartition).label} — CLOUDFLARE NOT CONFIGURED`, source);
+    } catch (err) {
+      if (requestSequence !== boardLoadSequence) return;
+      const cached = readJson(boardStorageKey(CACHE_KEY, requestedPartition));
+      if (cached) {
+        render(normalize(cached));
+        setStatus(`⚠ OFFLINE · ${boardIdentity(requestedPartition).label} · LAST KNOWN STANDINGS`, 'error');
+      } else {
+        render([]);
+        setStatus(`⚠ ${boardIdentity(requestedPartition).label} UNREACHABLE — CHECK CONNECTION`, 'error');
+      }
+    }
+  }
+
   async function show(returnTo) {
     if (returnTo === 'over' || returnTo === 'menu') boardReturnScreen = returnTo;
+    if (returnTo === 'menu') currentPartition = loadBoardPreference();
     if (window.ChronosGame) window.ChronosGame.showScreen('board');
     const backButton = $('boardPlayBtn');
     if (backButton) backButton.textContent = boardReturnScreen === 'over' ? '◀ BACK TO RESULTS' : '◀ BACK TO GAME';
-    setStatus('⏳ SYNCING WITH THE TIMELINE…');
-    try {
-      const { entries, source } = await loadBoard();
-      render(entries);
-      setStatus(source === 'remote'
-        ? `⚡ LIVE GLOBAL BOARD · ${entries.length}/${MAX_ENTRIES} LEGENDS`
-        : '📍 LOCAL BOARD — CLOUDFLARE BACKEND NOT CONFIGURED', source);
-    } catch (err) {
-      const cached = readJson(boardStorageKey(CACHE_KEY, currentPartition));
-      if (cached) {
-        render(normalize(cached));
-        setStatus('⚠ OFFLINE — SHOWING LAST KNOWN STANDINGS', 'error');
-      } else {
-        render([]);
-        setStatus('⚠ LEADERBOARD UNREACHABLE — CHECK CONNECTION', 'error');
-      }
-    }
+    await refreshBoard();
   }
 
   // ---------- game-over qualification ----------
@@ -307,7 +397,8 @@
     if (stats.mode === 'zen' || stats.score <= 0) { elLbCheck.hidden = true; return; }
 
     elLbCheck.hidden = false;
-    elLbCheck.textContent = '⏳ CHECKING GLOBAL RANKS…';
+    const identity = boardIdentity(currentPartition);
+    elLbCheck.textContent = `⏳ CHECKING ${identity.label}…`;
     elLbCheck.className = 'lb-check';
 
     let entries;
@@ -322,15 +413,15 @@
     }
 
     const rank = entries.filter(e => e.score >= stats.score).length + 1;
-    if (window.ChronosShare) window.ChronosShare.setRank(rank); // feeds the share card
+    if (window.ChronosShare) window.ChronosShare.setRank(rank, identity.rankLabel); // feeds the share card
     if (rank <= MAX_ENTRIES) {
-      elLbCheck.textContent = `🏆 GLOBAL #${rank} — YOU MADE THE TOP 20!`;
+      elLbCheck.textContent = `🏆 ${identity.rankLabel} #${rank} — YOU MADE THIS TOP 20!`;
       elLbCheck.classList.add('qualified');
       pendingStats = stats;
       openNameOverlay(stats, rank);
     } else {
       const cutoff = entries[MAX_ENTRIES - 1] ? entries[MAX_ENTRIES - 1].score : 0;
-      elLbCheck.textContent = `GLOBAL RANK #${rank} — TOP 20 STARTS ABOVE ${cutoff.toLocaleString()}`;
+      elLbCheck.textContent = `${identity.rankLabel} #${rank} — TOP 20 STARTS ABOVE ${cutoff.toLocaleString()}`;
     }
   }
 
@@ -338,6 +429,7 @@
   function openNameOverlay(stats, rank) {
     $('nameScore').textContent = stats.score.toLocaleString();
     $('nameRank').textContent = '#' + rank;
+    if ($('nameBoard')) $('nameBoard').textContent = boardIdentity(partitionForStats(stats)).spoken;
     elNameError.hidden = true;
     elNameSubmit.disabled = false;
     elOverlay.hidden = false;
@@ -408,17 +500,19 @@
     elNameError.hidden = true;
 
     try {
+      const publishedPartition = partitionForStats(pendingStats);
       const { entries, made } = await submitEntry(entry, pendingStats);
       pendingStats = null;
       lastSubmittedId = made ? entry.id : null;
       closeNameOverlay();
       const exactRank = entries.findIndex((candidate) => candidate.id === entry.id);
       const finalRank = exactRank >= 0 ? exactRank + 1 : entries.filter((candidate) => candidate.score >= entry.score).length + 1;
-      if (window.ChronosShare) window.ChronosShare.setRank(finalRank);
+      const identity = boardIdentity(publishedPartition);
+      if (window.ChronosShare) window.ChronosShare.setRank(finalRank, identity.rankLabel);
       elLbCheck.hidden = false;
       elLbCheck.className = 'lb-check ' + (made ? 'qualified' : 'error');
       elLbCheck.textContent = made
-        ? `✅ PUBLISHED — GLOBAL #${finalRank} · SHARE IT OR SEND A GHOST CHALLENGE`
+        ? `✅ PUBLISHED — ${identity.rankLabel} #${finalRank} · SHARE IT OR SEND A GHOST CHALLENGE`
         : '⚠ EDGED OUT WHILE SUBMITTING — YOUR RESULT IS STILL READY TO SHARE';
       // Stay on the completed-run screen. Share-card and ghost-challenge state
       // belongs to that run and must not be hidden by automatic Hall navigation.
@@ -438,7 +532,13 @@
   // ---------- navigation ----------
   $('menuBoardBtn')?.addEventListener('click', () => show('menu'));
   $('overBoardBtn')?.addEventListener('click', () => show('over'));
-  $('boardRefreshBtn')?.addEventListener('click', () => show());
+  $('boardRefreshBtn')?.addEventListener('click', refreshBoard);
+  document.querySelectorAll('[data-board-mode]').forEach((button) => {
+    button.addEventListener('click', () => selectBoardMode(button.dataset.boardMode));
+  });
+  document.querySelectorAll('[data-board-difficulty]').forEach((button) => {
+    button.addEventListener('click', () => selectBoardDifficulty(button.dataset.boardDifficulty));
+  });
   $('boardPlayBtn')?.addEventListener('click', () => {
     if (window.ChronosGame) {
       if (boardReturnScreen === 'menu') window.ChronosGame.refreshMenuStats();
