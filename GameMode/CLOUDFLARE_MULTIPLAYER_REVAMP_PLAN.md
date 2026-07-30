@@ -4,7 +4,7 @@
 
 > Implementation status, 2026-07-30: Phases 0-13 are implemented, tested, committed, pushed, and deployed. The Cloudflare leaderboard was deliberately reset to zero entries, the retired Gist was backed up and deleted, Ruleset 2 bounds ordinary score compounding without limiting private cheats, and mobile shell revision 4 forces returning phones onto the Cloudflare-only client. `OWNER_ACTIONS.md` is the production authority.
 
-**Document status:** design and implementation complete; production verified  
+**Document status:** design and implementation complete; production verified
 **Scope:** `TheClockGame/GameMode/` only  
 **Prepared:** 2026-07-30  
 **Cost constraint:** Cloudflare Workers Free plan only; no paid services, ads, accounts, subscriptions, or usage-based overages  
