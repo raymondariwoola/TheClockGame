@@ -2,7 +2,7 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
-> Implementation status, 2026-07-30: Phases 0-19 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, completed-run publishing preserves sharing and ghost challenges, and mobile shell revision 7 adds image cards plus Cloudflare-hosted rich invitation previews. `OWNER_ACTIONS.md` is the production authority.
+> Implementation status, 2026-07-31: Phases 0-21 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, completed-run publishing preserves sharing and ghost challenges, mobile shell revision 8 exposes every current board with explicit rank context, and stale rulesets can no longer create hidden boards. `OWNER_ACTIONS.md` is the production authority.
 
 **Document status:** design and implementation complete; production verified
 **Scope:** `TheClockGame/GameMode/` only  
@@ -1012,7 +1012,23 @@ No credentials should be shared in code, chat, issues, or documentation.
 | Production CORS origin | Complete for `https://raymondariwoola.github.io`. |
 | Historical leaderboard archive | Complete in ignored local backups; production storage intentionally starts empty. |
 | GitHub Gist retirement | Complete: import tooling removed and both public Gist endpoints verified as HTTP 404. |
-| Worker/static deployment | Worker version `a85cb306-021e-40c6-bcf5-7d94eee4af39` is deployed; GitHub Pages mobile shell revision 7 contains universal share cards and preview links. |
+| Worker/static deployment | Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` is deployed; GitHub Pages mobile shell revision 8 adds explicit leaderboard navigation and contextual ranks. |
+
+### Phases 20-21 — explicit leaderboard navigation and stale-board closure
+
+Implemented on 31 July 2026:
+
+- added mobile-first Classic, Endless, and Daily playlist controls plus persistent Normal/Hardcore controls to the Hall of Time;
+- kept Classic and Endless separate because their run length and scoring are not comparable, while making all four standard combinations directly reachable without completing a run first;
+- made today's date-scoped Daily board directly reachable and visibly Normal-only;
+- replaced ambiguous `GLOBAL #` claims in the Hall, Results, name form, PNG score card, and share text with the exact playlist/difficulty board name;
+- made menu entry use the player's explicit saved board preference while Results opens the completed run's board and still allows immediate switching;
+- ignored stale network responses during rapid mobile tab switching;
+- restricted public leaderboard reads and submissions to current Ruleset 3 so older cached clients cannot recreate historical partitions;
+- archived and precisely removed the two remaining Ruleset 2 records, leaving all current Ruleset 3 family scores untouched;
+- upgraded the offline shell to revision 8 and validated the Hall at 390 × 844 and 320 × 568 without horizontal overflow.
+
+Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` contains the final server enforcement and empty-partition cleanup. The static revision is released through GitHub `main`.
 
 There is no blocking manual activation left. A two-physical-phone family session remains a useful real-world spot check for device-specific browser quirks, but it is not a deployment step and no configuration change is expected.
 

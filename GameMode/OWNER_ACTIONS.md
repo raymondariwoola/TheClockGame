@@ -1,6 +1,6 @@
 # Chronos Strike production status and owner runbook
 
-Last verified: **30 July 2026**
+Last verified: **31 July 2026**
 
 ## Production is live
 
@@ -33,7 +33,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
-- Upgraded every first-party mobile shell asset to cache revision 7, preventing an old gameplay, leaderboard, or share-card script from surviving on returning phones.
+- Upgraded every first-party mobile shell asset to cache revision 8, preventing an old gameplay, leaderboard, or share-card script from surviving on returning phones.
 - Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
 - Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
 - Removed the reported 60,475-point Ruleset 2 exploit result and cleared its now-empty stored partition; the complete production leaderboard export is again zero boards and zero entries before Ruleset 3 play begins.
@@ -42,6 +42,22 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Added 1080 × 1350 mobile share cards for Ghost/Daily invitations, Ghost results, Chrono Clash invitations, and Clash results. The existing finished-run score card remains available.
 - Added 1200 × 630 Cloudflare link-preview cards for Ghost/Daily and live Clash invitations. Copied invite links now use `/s/ghost/:code` or `/s/clash/:code`, show sanitized Open Graph metadata, and redirect players into the existing GameMode.
 - Kept hidden targets private in the attached card, link metadata, and public Worker state. Only a host capability may upload an invite preview image; it is deleted automatically with the expiring challenge or room.
+- Reworked the Hall of Time so Classic, Endless, and today's Daily Rift are directly selectable, with Normal and Hardcore controls always visible. Daily correctly remains Normal-only.
+- Replaced every misleading `GLOBAL #` rank with the exact board identity, including result notices, name entry, generated score cards, and copied share text.
+- Enforced Ruleset 3 on public board reads, run issuance, run completion, and the retired compatibility submission route so stale cached clients cannot create hidden historical boards.
+- Archived and removed the final two Ruleset 2 records. Production now contains only the current Ruleset 3 Classic Normal, Classic Hardcore, and dated Daily partitions.
+
+## How the Hall of Time now works
+
+The Hall never silently means one undifferentiated global score list. Classic and Endless have different scoring and run lengths, so combining them would be misleading. Current competitive boards are therefore:
+
+- Classic · Normal;
+- Classic · Hardcore;
+- Endless · Normal;
+- Endless · Hardcore;
+- today's Daily Rift · Normal.
+
+Players can switch among these from the Hall without first playing or publishing in that category. A position is always written with its board—for example, `CLASSIC NORMAL #1`—so two people can no longer both receive an unexplained `GLOBAL #1` screenshot. Daily Rift is date-scoped and automatically shows the current UTC day.
 
 ## Current temporary codes
 
@@ -95,7 +111,9 @@ The following checks passed against the deployed Worker and hosted mobile site:
 - Cheat-code verification and mid-match toggle on/off.
 - No cheat/menu state appeared to the other multiplayer tab.
 - 390 × 844 mobile viewport: leaderboard, lobby creation, invite join, match start, cheat menu, and ghost start.
-- Fresh Ruleset 3 normal and Hardcore leaderboard reads both return zero entries.
+- Production Ruleset 3 reads return the expected current entries: 2 Classic Normal, 10 Classic Hardcore, 0 Endless Normal, and 1 Daily entry for 30 July at the time of verification.
+- Obsolete Ruleset 2 public reads return HTTP 409 `unsupported_ruleset`; the old stored partition was archived and removed.
+- Mobile Hall pass at 390 × 844 and 320 × 568: playlist/difficulty switching, persisted selection, explicit board context, 46 px touch controls, and no horizontal overflow.
 - The production Daily endpoint issues Ruleset 3 identities.
 - Production CORS accepts the GitHub Pages origin.
 - Runtime source scan contains no GitHub Gist API access.
@@ -119,6 +137,12 @@ Its SHA-256 is:
 `fc067fe31301125ea170fc1a3007f8e1535650d95b8111db98df01a56fd6ab2e`
 
 Both backup files are ignored by Git. Do not add `GITHUB_TOKEN`, `GIST_ID`, or a Gist import path back to the Worker.
+
+The two final post-reset Ruleset 2 records were separately archived before removal at:
+
+`GameMode/worker/.local-migration/obsolete-ruleset2-leaderboard-20260731.json`
+
+This file is also ignored by Git and can be used for a manual recovery if ever required.
 
 ## Quick health check
 
