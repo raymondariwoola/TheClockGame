@@ -70,6 +70,52 @@
     if (kind === 'good') return 30;
     return 0;
   }
+  // Competitive scoring is deliberately bounded so ordinary power-ups cannot
+  // compound into runaway scores. Cheat-only multipliers are applied after the
+  // ordinary cap; the private troll menu therefore keeps its full behaviour.
+  const SCORE_RULES = Object.freeze({
+    maxComboMultiplier: 12,
+    maxEndlessMultiplier: 3,
+    maxOrdinaryHit: 2000,
+  });
+  function finiteOr(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+  function computeHitScore(options) {
+    const input = options || {};
+    const combo = Math.max(1, finiteOr(input.combo, 1));
+    const scoringCombo = Math.min(SCORE_RULES.maxComboMultiplier, combo);
+    const endlessMultiplier = Math.max(1, Math.min(
+      SCORE_RULES.maxEndlessMultiplier,
+      finiteOr(input.endlessMultiplier, 1)
+    ));
+    const powers = input.powers || {};
+    const powerMultipliers = [powers.double ? 2 : 1, powers.triple ? 3 : 1, powers.star ? 2 : 1];
+    const strongestPower = Math.max(...powerMultipliers);
+
+    let ordinary = scoreFor(input.kind) * scoringCombo;
+    if (input.modifier) ordinary *= 1.5;
+    if (input.boss) ordinary *= 2;
+    if (input.hardcore) ordinary *= 2;
+    ordinary *= endlessMultiplier;
+    if (input.overdrive && !input.cheatAlwaysOverdrive) ordinary *= 1.5;
+    ordinary *= strongestPower;
+    if (powers.frenzy) ordinary += 40 * scoringCombo;
+    if (finiteOr(input.perfectStreak, 0) > 1) ordinary += (finiteOr(input.perfectStreak, 0) - 1) * 25;
+    ordinary = Math.min(SCORE_RULES.maxOrdinaryHit, Math.max(0, ordinary));
+
+    // Explicit cheat exemptions. These sit outside the competitive cap so this
+    // balance change cannot silently weaken any option in the private menu.
+    let cheatFactor = Math.max(1, finiteOr(input.cheatMultiplier, 1));
+    if (input.cheatAlwaysOverdrive && input.overdrive) cheatFactor *= 1.5;
+    if (input.cheatComboUncapped && combo > scoringCombo) cheatFactor *= combo / scoringCombo;
+    if (input.allowPowerStack) {
+      const stackedPower = powerMultipliers.reduce((product, value) => product * value, 1);
+      cheatFactor *= stackedPower / strongestPower;
+    }
+    return Math.round(ordinary * cheatFactor);
+  }
   // Rank letter from ordered thresholds (best → worst); see CONFIG.ranks.
   function computeRank(ranks, score, acc) {
     for (const r of ranks) {
@@ -442,7 +488,7 @@
 
   return {
     xmur3, mulberry32, wrap, makeRNG,
-    angularDistance, classify, scoreFor, computeRank,
+    angularDistance, classify, scoreFor, computeHitScore, SCORE_RULES, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
     simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
     encodeRival, decodeRival, RIVAL_LIMITS, ACHIEVEMENTS, evaluateAchievements,

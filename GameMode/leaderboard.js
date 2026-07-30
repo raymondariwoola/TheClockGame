@@ -24,7 +24,8 @@
 
   let pendingStats = null;   // stats of the run awaiting name entry
   let lastSubmittedId = null; // highlight "YOU" on the board
-  let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: 1 };
+  const CURRENT_RULESET = 2;
+  let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: CURRENT_RULESET };
   const issuedRuns = new Map();
 
   // ---------- storage ----------
@@ -56,7 +57,7 @@
       scope: stats.daily ? 'daily' : 'standard',
       mode: stats.daily ? 'classic' : (stats.mode || 'classic'),
       difficulty: stats.hc ? 'hardcore' : 'normal',
-      rulesetVersion: stats.rulesetVersion || 1,
+      rulesetVersion: stats.rulesetVersion || CURRENT_RULESET,
       dailyDate: stats.daily ? stats.dailyDate : null,
     };
   }
@@ -66,7 +67,7 @@
       scope: partition.scope || 'standard',
       mode: partition.mode || 'classic',
       difficulty: partition.difficulty || 'normal',
-      rulesetVersion: String(partition.rulesetVersion || 1),
+      rulesetVersion: String(partition.rulesetVersion || CURRENT_RULESET),
     });
     if (partition.dailyDate) params.set('dailyDate', partition.dailyDate);
     return params.toString();

@@ -53,6 +53,28 @@ eq(E.scoreFor('good'), 30, 'scoreFor good');
 eq(E.scoreFor('miss'), 0, 'scoreFor miss');
 eq(E.scoreFor('nonsense'), 0, 'scoreFor unknown → 0');
 
+// ---------- bounded competitive scoring + explicit cheat exemptions ----------
+eq(E.SCORE_RULES.maxComboMultiplier, 12, 'ordinary combo multiplier is capped');
+eq(E.SCORE_RULES.maxEndlessMultiplier, 3, 'ordinary Endless multiplier is capped');
+eq(E.SCORE_RULES.maxOrdinaryHit, 2000, 'ordinary points per hit are capped');
+eq(E.computeHitScore({ kind: 'perfect', combo: 4 }), 400, 'ordinary perfect uses combo');
+eq(E.computeHitScore({ kind: 'perfect', powers: { double: true, triple: true, star: true } }), 300,
+  'overlapping ordinary point powers use the strongest effect');
+eq(E.computeHitScore({ kind: 'perfect', powers: { double: true, triple: true, star: true }, allowPowerStack: true }), 1200,
+  'Infinite Powers cheat preserves stacked power multiplication');
+const runawayOrdinary = {
+  kind: 'perfect', combo: 999, modifier: true, boss: true, hardcore: true,
+  endlessMultiplier: 999, overdrive: true,
+  powers: { double: true, triple: true, star: true, frenzy: true }, perfectStreak: 999,
+};
+eq(E.computeHitScore(runawayOrdinary), 2000, 'worst-case ordinary hit is bounded');
+eq(E.computeHitScore({ ...runawayOrdinary, cheatMultiplier: 10 }), 20000,
+  'score multiplier cheat applies after the ordinary cap');
+eq(E.computeHitScore({ ...runawayOrdinary, combo: 24, cheatComboUncapped: true }), 4000,
+  'combo-preserving cheats retain their uncapped combo effect');
+eq(E.computeHitScore({ kind: 'perfect', endlessMultiplier: 999 }),
+  E.computeHitScore({ kind: 'perfect', endlessMultiplier: 3 }), 'Endless multiplier cannot exceed its cap');
+
 // ---------- computeRank ----------
 eq(E.computeRank(RANKS, 9000, 95), 'S', 'rank S');
 eq(E.computeRank(RANKS, 9000, 70), 'B', 'rank high score, acc 70 → B (fails S & A acc gates)');

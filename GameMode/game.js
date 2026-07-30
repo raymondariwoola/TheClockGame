@@ -11,8 +11,8 @@
   // (e.g. the old "25 rounds" label vs the real 40-round campaign).
   // ============================================================
   const CONFIG = {
-    gameVersion: '1.1.0',   // bumped whenever balance/rules change
-    rulesetVersion: 1,      // increment when scoring/generation changes competitively
+    gameVersion: '1.2.0',   // bumped whenever balance/rules change
+    rulesetVersion: 2,      // increment when scoring/generation changes competitively
     classicRounds: 40,      // length of the Classic campaign
     lives: { classic: 3, endless: 1, zen: 0 },
     modes: {
@@ -1110,7 +1110,9 @@
     elRoundProgress.style.width = State.mode === 'classic' ? ((State.round - 1) / visibleRoundLimit * 100) + '%' : '100%';
 
     // Mode-specific progression
-    if (State.mode === 'endless' && State.round > 1) State.survivalMult += 0.15;
+    if (State.mode === 'endless' && State.round > 1) {
+      State.survivalMult = Math.min(ChronosEngine.SCORE_RULES.maxEndlessMultiplier, State.survivalMult + 0.15);
+    }
     updateRoundSub();
     updateVignette();
     if (State.mode === 'classic') maybeActBanner(State.round);
@@ -1258,8 +1260,6 @@
     handleHit(kind, best, bestIdx, sx, sy);
   }
 
-  const scoreFor = ChronosEngine.scoreFor;   // base hit-quality points (engine.js)
-
   function handleHit(kind, zone, idx, x, y) {
     zone.hit = true;
     State.totalHits++;
@@ -1285,19 +1285,21 @@
     // achievement: a perfect landed during a Reverse/Inverted round
     if (kind === 'perfect' && State.modifier && State.modifier.id === 'invert') State.reversePerfectThisRun = true;
 
-    let gained = scoreFor(kind) * State.combo;
-    if (State.modifier) gained *= 1.5;
-    if (State.bossRound) gained *= 2;
-    if (State.hardcore) gained *= 2;   // hardcore reward: double points
-    if (State.mode === 'endless') gained *= State.survivalMult; // deeper = richer
-    gained *= Cheat.getMult();
-    if (State.overdrive) gained *= 1.5;
-    if (State.powers.double) gained *= 2;
-    if (State.powers.triple) gained *= 3;
-    if (State.powers.star) gained *= 2;
-    if (State.powers.frenzy) gained += 40 * State.combo;
-    if (State.perfectStreak > 1) gained += (State.perfectStreak - 1) * 25;
-    gained = Math.round(gained);
+    const gained = ChronosEngine.computeHitScore({
+      kind,
+      combo: State.combo,
+      modifier: !!State.modifier,
+      boss: State.bossRound,
+      hardcore: State.hardcore,
+      endlessMultiplier: State.mode === 'endless' ? State.survivalMult : 1,
+      overdrive: State.overdrive,
+      powers: State.powers,
+      perfectStreak: State.perfectStreak,
+      cheatMultiplier: Cheat.getMult(),
+      cheatAlwaysOverdrive: Cheat.on('alwaysOverdrive'),
+      cheatComboUncapped: Cheat.on('lockCombo') || Cheat.on('noMissPenalty'),
+      allowPowerStack: Cheat.on('infinitePowers'),
+    });
     State.score = window.ChronosCheats.clampScore(State.score + gained);
 
     elScore.textContent = State.score;
@@ -1339,7 +1341,7 @@
     //   classic/zen → a random powerup (future home of full "super powers")
     if (State.comboStreak > 0 && State.comboStreak % 5 === 0) {
       if (State.mode === 'endless') {
-        State.survivalMult += 0.5;
+        State.survivalMult = Math.min(ChronosEngine.SCORE_RULES.maxEndlessMultiplier, State.survivalMult + 0.5);
         updateRoundSub(true);
         AudioFx.powerup();
         popupScore('SURVIVAL UP', x, y - 60, '#8b5cff');
