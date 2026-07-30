@@ -7,6 +7,8 @@ __MACOSX/
 Icon[
 ]
 
+.env
+
 # Resource forks
 ._*
 
