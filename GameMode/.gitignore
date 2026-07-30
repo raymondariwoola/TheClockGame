@@ -3,3 +3,4 @@ worker/node_modules/
 worker/.dev.vars
 worker/.wrangler/
 worker/.wrangler-dry-run/
+worker/.local-migration/
