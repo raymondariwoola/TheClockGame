@@ -36,6 +36,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Upgraded every first-party mobile shell asset to cache revision 5, preventing an old gameplay or leaderboard script from surviving on returning phones.
 - Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
 - Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
+- Removed the reported 60,475-point Ruleset 2 exploit result and cleared its now-empty stored partition; the complete production leaderboard export is again zero boards and zero entries before Ruleset 3 play begins.
 - Kept every private cheat available. Cheat score multiplication, cheat-preserved combo growth, Always Overdrive, and Infinite Powers stacking are applied outside the ordinary scoring guards.
 
 ## Current temporary codes
