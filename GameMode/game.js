@@ -480,7 +480,7 @@
   // Cache the coherent local game shell for offline single-player use. Online
   // APIs and sockets always remain network-only.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=3').catch(() => {}); });
   }
 
   // -------- Background starfield --------

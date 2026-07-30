@@ -7,10 +7,10 @@ const CACHE_VERSION = 3;
 const APP_CACHE = `cs-app-v${CACHE_VERSION}`;
 const TRACK_CACHE = `cs-soundtrack-v${CACHE_VERSION}`;
 const APP_SHELL = [
-  './', './index.html', './style.css', './engine.js', './game.js',
+  './', './index.html', './style.css', './engine.js', './game.js?v=3',
   './leaderboard-config.js', './leaderboard.js', './share.js',
   './js/storage.js', './js/run-context.js', './js/cheat-state.js',
-  './js/ghost-client.js', './js/ghost-ui.js', './js/multiplayer.js',
+  './js/ghost-client.js', './js/ghost-ui.js?v=3', './js/multiplayer.js',
   './js/multiplayer-ui.js', './vendor/anime.min.js', './vendor/fonts/fonts.css',
 ];
 const TRACK_RE = /\/soundtrack\/.+\.(wav|mp3|ogg|m4a|aac|flac)$/i;
