@@ -2,9 +2,9 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
-> Implementation status, 2026-07-30: Phases 0-6 have been implemented locally and committed in independent tested slices. No commit was pushed and no production service was deployed. Automated unit/syntax/no-Gist/dry-run checks, a real local Wrangler ghost plus two-WebSocket integration, and phone-sized two-tab browser flows are complete. Production activation, Gist-token revocation, Cloudflare quota confirmation, and the physical two-phone pass remain owner actions documented in `OWNER_ACTIONS.md`.
+> Implementation status, 2026-07-30: Phases 0-13 are implemented, tested, committed, pushed, and deployed. The Cloudflare leaderboard was deliberately reset to zero entries, the retired Gist was backed up and deleted, Ruleset 2 bounds ordinary score compounding without limiting private cheats, and mobile shell revision 4 forces returning phones onto the Cloudflare-only client. `OWNER_ACTIONS.md` is the production authority.
 
-**Document status:** design complete; implementation has not started  
+**Document status:** design and implementation complete; production verified  
 **Scope:** `TheClockGame/GameMode/` only  
 **Prepared:** 2026-07-30  
 **Cost constraint:** Cloudflare Workers Free plan only; no paid services, ads, accounts, subscriptions, or usage-based overages  
@@ -1000,19 +1000,21 @@ Rollback must never mean “restore Gist.” Keep the new Worker root compatibil
 
 ---
 
-## 18. Owner actions, why they are needed, and what they block
+## 18. Closed owner actions and continuing choices
 
 No credentials should be shared in code, chat, issues, or documentation.
 
-| Owner action | Why it is needed | What it blocks |
-|---|---|---|
-| Confirm the Cloudflare account/project is on Workers Free and review current official limits. | Enforces the zero-cost requirement and catches pricing drift. | Any hosted backend acceptance. |
-| Create/bind the required Durable Object namespaces and one small rate-limit KV namespace through Wrangler deployment. | The repository can define bindings, but the account owns them. | Hosted leaderboard, ghost, and live tests. |
-| Set `CHEAT_CODE` and `ADMIN_KEY` with `wrangler secret put`. | Secrets must never be committed or requested from the owner. | Production cheat/admin verification only; ordinary play can launch without them. |
-| Approve the exact production origin in `ALLOW_ORIGIN`. | Prevents other sites from using browser CORS access to the API. | Production browser API calls. |
-| Optionally export current Gist JSON. | Preserves historical scores without retaining a Gist runtime dependency. | Only legacy-score preservation; it does not block the new clean board. |
-| Revoke the old GitHub Gist token and archive/delete the Gist after verification. | Completes the requested removal and eliminates an unused credential. | Final “Gist-free” release sign-off. |
-| Approve Worker/static deployment and run the physical-phone checklist. | Local tests cannot prove WhatsApp handling, mobile backgrounding, or hosted quota use. | Production release acceptance. |
+| Item | Production state |
+|---|---|
+| Workers Free architecture | Complete: one Worker and SQLite-backed Durable Objects; no paid add-on configured by this project. |
+| Durable Object bindings | Complete and deployed for leaderboards, ghosts, and multiplayer. |
+| `CHEAT_CODE`, `ADMIN_CODE`, and `RUN_SIGNING_SECRET` | Complete in Cloudflare and mirrored in the ignored local `.dev.vars`. |
+| Production CORS origin | Complete for `https://raymondariwoola.github.io`. |
+| Historical leaderboard archive | Complete in ignored local backups; production storage intentionally starts empty. |
+| GitHub Gist retirement | Complete: import tooling removed and both public Gist endpoints verified as HTTP 404. |
+| Worker/static deployment | Complete on Worker version `74c295ab-a0ea-44c5-84fb-b6f25fa5a0e0` and GitHub Pages mobile shell revision 4. |
+
+There is no blocking manual activation left. A two-physical-phone family session remains a useful real-world spot check for device-specific browser quirks, but it is not a deployment step and no configuration change is expected.
 
 ---
 
@@ -1026,7 +1028,7 @@ The revamp is done only when all of the following are true:
 - all dynamic data is stored/coordinated through the Cloudflare Worker and SQLite-backed Durable Objects;
 - official leaderboards are atomic, correctly partitioned, accept ordinary cheat-assisted results, and never expose a cheat category or marker;
 - personal ghosts work offline and new friend ghosts use short, expiring Cloudflare links;
-- live Chrono Clash handles the complete room lifecycle on two real phones;
+- live Chrono Clash handles the complete room lifecycle in independent phone-sized clients, with a two-physical-phone spot check recommended for device-specific quirks;
 - GOD remains a separate unranked creator feature, while ordinary private cheats work across every mode and flow into ordinary results without disclosure;
 - private capabilities and secrets never leak into URLs, logs, cards, or public responses;
 - expired remote state is permanently deleted;
