@@ -2,7 +2,7 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
-> Implementation status, 2026-07-31: Phases 0-21 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, completed-run publishing preserves sharing and ghost challenges, mobile shell revision 8 exposes every current board with explicit rank context, and stale rulesets can no longer create hidden boards. `OWNER_ACTIONS.md` is the production authority.
+> Implementation status, 2026-07-31: Phases 0-22 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, mobile shell revision 9 exposes every current board with explicit rank context, stale rulesets cannot create hidden boards, and versioned local-stat resets run once per browser and reset ID. `OWNER_ACTIONS.md` is the production authority.
 
 **Document status:** design and implementation complete; production verified
 **Scope:** `TheClockGame/GameMode/` only  
@@ -1012,7 +1012,7 @@ No credentials should be shared in code, chat, issues, or documentation.
 | Production CORS origin | Complete for `https://raymondariwoola.github.io`. |
 | Historical leaderboard archive | Complete in ignored local backups; production storage intentionally starts empty. |
 | GitHub Gist retirement | Complete: import tooling removed and both public Gist endpoints verified as HTTP 404. |
-| Worker/static deployment | Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` is deployed; GitHub Pages mobile shell revision 8 adds explicit leaderboard navigation and contextual ranks. |
+| Worker/static deployment | Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` is deployed; GitHub Pages mobile shell revision 9 adds explicit leaderboard navigation, contextual ranks, and the one-time personal-stat reset. |
 
 ### Phases 20-21 — explicit leaderboard navigation and stale-board closure
 
@@ -1027,6 +1027,19 @@ Implemented on 31 July 2026:
 - restricted public leaderboard reads and submissions to current Ruleset 3 so older cached clients cannot recreate historical partitions;
 - archived and precisely removed the two remaining Ruleset 2 records, leaving all current Ruleset 3 family scores untouched;
 - upgraded the offline shell to revision 8 and validated the Hall at 390 × 844 and 320 × 568 without horizontal overflow.
+
+### Phase 22 — versioned one-time local personal-stat resets
+
+Implemented on 31 July 2026:
+
+- added the owner-facing `local-reset-config.js` control with initial reset ID `2026-07-31-family-reset-1`;
+- added a reusable storage helper that compares the deployed ID with a per-browser completion marker before changing data;
+- restricted the reset target to `cs_best_score`, `cs_best_combo`, and `cs_best_round`;
+- preserved names, Daily progress, ghosts, achievements, cosmetics, preferences, settings, cheats, multiplayer state, and all Cloudflare data;
+- proved that the first call clears the targets, reloads with the same ID preserve newly earned statistics, and a new ID starts exactly one later reset cycle;
+- upgraded the offline shell to revision 9 so returning mobile users receive the reset configuration and storage helper together.
+
+Future resets require only a new unique `personalStatsId` followed by the normal static verification and publication flow. They require no Worker deployment or Cloudflare data operation.
 
 Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` contains the final server enforcement and empty-partition cleanup. The static revision is released through GitHub `main`.
 

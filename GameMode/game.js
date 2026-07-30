@@ -182,6 +182,11 @@
     bestCombo: 'cs_best_combo',
     bestRound: 'cs_best_round',
   };
+  window.ChronosStorage.resetKeysOnce(
+    window.CHRONOS_LOCAL_RESET?.personalStatsId,
+    [LS.bestScore, LS.bestCombo, LS.bestRound],
+    'cs_local_stats_reset_applied'
+  );
   const loadInt = (k) => window.ChronosStorage.readInt(k, 0);
   const saveInt = (k, v) => window.ChronosStorage.writeInt(k, v);
 
@@ -480,7 +485,7 @@
   // Cache the coherent local game shell for offline single-player use. Online
   // APIs and sockets always remain network-only.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=8').catch(() => {}); });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=9').catch(() => {}); });
   }
 
   // -------- Background starfield --------

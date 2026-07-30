@@ -3,15 +3,15 @@
 // one coherent game revision. API, ghost, and multiplayer requests are never
 // cached; offline play simply falls back to the local game shell.
 
-const CACHE_VERSION = 8;
+const CACHE_VERSION = 9;
 const APP_CACHE = `cs-app-v${CACHE_VERSION}`;
 const TRACK_CACHE = `cs-soundtrack-v${CACHE_VERSION}`;
 const APP_SHELL = [
-  './', './index.html', './style.css?v=8', './engine.js?v=8', './game.js?v=8',
-  './leaderboard-config.js?v=8', './leaderboard.js?v=8', './share.js?v=8',
-  './js/storage.js?v=8', './js/run-context.js?v=8', './js/cheat-state.js?v=8',
-  './js/ghost-client.js?v=8', './js/ghost-ui.js?v=8', './js/multiplayer.js?v=8',
-  './js/multiplayer-ui.js?v=8', './js/share-cards.js?v=8', './vendor/anime.min.js?v=8', './vendor/fonts/fonts.css?v=8',
+  './', './index.html', './style.css?v=9', './engine.js?v=9', './game.js?v=9',
+  './local-reset-config.js?v=9', './leaderboard-config.js?v=9', './leaderboard.js?v=9', './share.js?v=9',
+  './js/storage.js?v=9', './js/run-context.js?v=9', './js/cheat-state.js?v=9',
+  './js/ghost-client.js?v=9', './js/ghost-ui.js?v=9', './js/multiplayer.js?v=9',
+  './js/multiplayer-ui.js?v=9', './js/share-cards.js?v=9', './vendor/anime.min.js?v=9', './vendor/fonts/fonts.css?v=9',
 ];
 const TRACK_RE = /\/soundtrack\/.+\.(wav|mp3|ogg|m4a|aac|flac)$/i;
 
@@ -37,7 +37,9 @@ self.addEventListener('fetch', (event) => {
   if (TRACK_RE.test(url.pathname)) { event.respondWith(serveTrack(request)); return; }
   if (url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') { event.respondWith(networkFirstPage(request)); return; }
-  if (url.pathname.endsWith('/leaderboard-config.js')) { event.respondWith(networkFirstAsset(request)); return; }
+  if (url.pathname.endsWith('/leaderboard-config.js') || url.pathname.endsWith('/local-reset-config.js')) {
+    event.respondWith(networkFirstAsset(request)); return;
+  }
   if (['script', 'style', 'font', 'image'].includes(request.destination)) event.respondWith(staleWhileRevalidate(request));
 });
 
@@ -67,7 +69,7 @@ async function staleWhileRevalidate(request) {
 async function networkFirstAsset(request) {
   const cache = await caches.open(APP_CACHE);
   try {
-    const response = await fetch(request);
+    const response = await fetch(new Request(request, { cache: 'no-store' }));
     if (response.ok) await cache.put(request, response.clone());
     return response;
   } catch {

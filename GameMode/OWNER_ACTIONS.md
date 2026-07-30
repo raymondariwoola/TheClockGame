@@ -33,7 +33,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
-- Upgraded every first-party mobile shell asset to cache revision 8, preventing an old gameplay, leaderboard, or share-card script from surviving on returning phones.
+- Upgraded every first-party mobile shell asset to cache revision 9, preventing an old gameplay, leaderboard, sharing, or local-reset script from surviving on returning phones.
 - Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
 - Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
 - Removed the reported 60,475-point Ruleset 2 exploit result and cleared its now-empty stored partition; the complete production leaderboard export is again zero boards and zero entries before Ruleset 3 play begins.
@@ -46,6 +46,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Replaced every misleading `GLOBAL #` rank with the exact board identity, including result notices, name entry, generated score cards, and copied share text.
 - Enforced Ruleset 3 on public board reads, run issuance, run completion, and the retired compatibility submission route so stale cached clients cannot create hidden historical boards.
 - Archived and removed the final two Ruleset 2 records. Production now contains only the current Ruleset 3 Classic Normal, Classic Hardcore, and dated Daily partitions.
+- Activated one-time local personal-stat reset `2026-07-31-family-reset-1`. On each browser's next updated GameMode load, only Best Score, Best Combo, and Round Reached are cleared; the same reset ID never clears them again.
 
 ## How the Hall of Time now works
 
@@ -143,6 +144,35 @@ The two final post-reset Ruleset 2 records were separately archived before remov
 `GameMode/worker/.local-migration/obsolete-ruleset2-leaderboard-20260731.json`
 
 This file is also ignored by Git and can be used for a manual recovery if ever required.
+
+## How to reset local personal statistics again
+
+The owner control is deliberately isolated in:
+
+`GameMode/local-reset-config.js`
+
+For a future reset, change only `personalStatsId` to a brand-new value that has never been deployed before. A date plus sequence is easy to recognize, for example:
+
+```js
+window.CHRONOS_LOCAL_RESET = Object.freeze({
+  personalStatsId: '2026-12-24-family-reset-2',
+});
+```
+
+Then run `npm run verify` from `GameMode`, commit, and publish the static site normally. No Cloudflare Worker deployment, secret, dashboard setting, or database operation is needed.
+
+How it behaves:
+
+- the first load carrying the new ID removes only `cs_best_score`, `cs_best_combo`, and `cs_best_round`;
+- that browser records the ID in `cs_local_stats_reset_applied` after the removal;
+- every later load with the same ID is a no-op, so newly earned statistics remain;
+- changing to another new ID initiates exactly one new reset per browser;
+- using an empty `personalStatsId` disables resets, but normally the deployed ID should simply be left unchanged;
+- the reset occurs when each person next opens the updated GameMode online; a site cannot reach a device that never loads it;
+- browser profiles, devices, private browsing, and different origins have separate local storage and therefore apply the reset independently;
+- names, Daily records, ghosts, achievements, cosmetics, settings, cheat state, leaderboard preferences, and every Cloudflare leaderboard score are untouched.
+
+Do not reuse an older ID: because it differs from a browser's latest marker, it would intentionally count as another reset cycle.
 
 ## Quick health check
 

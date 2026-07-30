@@ -43,6 +43,28 @@
     catch { return false; }
   }
 
+  // Applies a narrowly scoped localStorage reset once per reset ID and browser
+  // origin. Keeping the same ID makes subsequent page loads a no-op; changing
+  // it intentionally starts one new reset cycle on each device's next load.
+  function resetKeysOnce(resetId, keys, markerKey = 'cs_local_reset_applied') {
+    const store = backend();
+    const id = String(resetId || '').trim();
+    const targets = [...new Set((Array.isArray(keys) ? keys : [])
+      .map((key) => String(key || '').trim()).filter(Boolean))];
+    if (!store || !id || !targets.length || targets.includes(markerKey)) {
+      return { applied: false, resetId: id || null, removed: [] };
+    }
+    try {
+      if (store.getItem(markerKey) === id) return { applied: false, resetId: id, removed: [] };
+      const removed = targets.filter((key) => store.getItem(key) !== null);
+      targets.forEach((key) => store.removeItem(key));
+      store.setItem(markerKey, id);
+      return { applied: true, resetId: id, removed };
+    } catch {
+      return { applied: false, resetId: id, removed: [] };
+    }
+  }
+
   // Additive versioned migration helper. Each migration receives the previous
   // document and must return the next one; failures preserve the old value.
   function migrate(key, targetVersion, migrations, fallback = {}) {
@@ -62,5 +84,5 @@
     } catch { return current; }
   }
 
-  return { read, write, readInt, writeInt, migrate };
+  return { read, write, readInt, writeInt, resetKeysOnce, migrate };
 });
