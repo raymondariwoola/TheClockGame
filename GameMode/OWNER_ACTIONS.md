@@ -19,18 +19,23 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 ## What has already been completed
 
 - Deployed atomic normal, Hardcore, and Daily leaderboards to Cloudflare storage.
-- Preserved the old leaderboard: 20 source rows became 19 unique entries because one old row had a duplicate ID.
+- Completely cleared Cloudflare leaderboard storage: 23 entries across three stored partitions were removed.
+- Verified fresh Ruleset 2 normal and Hardcore boards both return zero entries.
 - Deployed seven-day cloud ghost challenges and hidden-score races.
 - Deployed two-player Chrono Clash with Normal, Hardcore, reconnect, forfeit, sudden death, and rematch support.
 - Deployed the private cheat menu in every mode, including ghosts and multiplayer.
 - Cheats may be enabled or disabled during a run. Scores are accepted normally and no cheat label is stored or shown.
 - Removed `GIST_ID`, `CHEAT_MULT`, and `CHEAT_UNLIMITED` from the Worker configuration.
 - Removed the old `GITHUB_TOKEN` secret from the Worker.
+- Deleted the retired GitHub Gist; both its public page and API now return HTTP 404.
 - Added `RUN_SIGNING_SECRET`, replaced `ADMIN_CODE`, and replaced `CHEAT_CODE` with strong temporary values.
 - Pointed the hosted GameMode at the production Worker.
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
+- Upgraded every first-party mobile shell asset to cache revision 4, preventing an old unversioned leaderboard script from surviving on returning phones.
+- Deployed Ruleset 2 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
+- Kept every private cheat available. Cheat score multiplication, cheat-preserved combo growth, Always Overdrive, and Infinite Powers stacking are applied outside the ordinary scoring guards.
 
 ## Current temporary codes
 
@@ -76,7 +81,7 @@ Cloudflare account billing status cannot be changed or inferred by source code. 
 
 The following checks passed against the deployed Worker and hosted mobile site:
 
-- 1,751 deterministic engine assertions and the complete automated verification suite.
+- 1,761 deterministic engine assertions and the complete automated verification suite.
 - Worker unit, syntax, no-Gist-runtime, binding, and deployment checks.
 - Live ghost creation, hidden replay, join, result, and expiry behavior.
 - Live two-WebSocket match, synchronized progress, rematch, and forfeit behavior.
@@ -84,7 +89,8 @@ The following checks passed against the deployed Worker and hosted mobile site:
 - Cheat-code verification and mid-match toggle on/off.
 - No cheat/menu state appeared to the other multiplayer tab.
 - 390 × 844 mobile viewport: leaderboard, lobby creation, invite join, match start, cheat menu, and ghost start.
-- Existing normal and Hardcore scores remained readable after migration.
+- Fresh Ruleset 2 normal and Hardcore leaderboard reads both return zero entries.
+- The production Daily endpoint issues Ruleset 2 identities.
 - Production CORS accepts the GitHub Pages origin.
 - Runtime source scan contains no GitHub Gist API access.
 
@@ -96,13 +102,15 @@ It is ignored by Git. Its SHA-256 is:
 
 `2bc7a03f37d120e8ece61f51b889901ee5e2b9de30b4a693bd6c8c517edadb09`
 
-## Optional old GitHub cleanup
+The final 20-row Gist snapshot is also kept locally at:
 
-This does **not** block production. The Worker no longer contains or uses the old token or Gist ID.
+`GameMode/worker/.local-migration/retired-gist-chronos-leaderboard-20260730.json`
 
-If the old GitHub token was created only for Chronos Strike, revoke it at <https://github.com/settings/tokens>. Cloudflare stored the old value encrypted, so it is not possible to identify a token by reading the Worker configuration. You may keep the old Gist as an inert archive or delete it after confirming the local backup above.
+Its SHA-256 is:
 
-Do not add `GITHUB_TOKEN` or `GIST_ID` back to Cloudflare.
+`fc067fe31301125ea170fc1a3007f8e1535650d95b8111db98df01a56fd6ab2e`
+
+Both backup files are ignored by Git. Do not add `GITHUB_TOKEN`, `GIST_ID`, or a Gist import path back to the Worker.
 
 ## Quick health check
 
