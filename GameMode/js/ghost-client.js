@@ -129,6 +129,15 @@
       this.challenge = data.challenge;
       return data.challenge;
     }
+
+    async uploadShareCard(blob, code = this.code) {
+      const session = this.session(code);
+      if (!session || session.seat !== 'host') throw new GhostClientError('session_missing');
+      if (!(blob && blob.type === 'image/png')) throw new GhostClientError('invalid_share_card');
+      return this.request(`/v1/ghosts/${session.code}/share-card`, {
+        method: 'PUT', headers: { 'Content-Type': 'image/png', Authorization: `Bearer ${session.token}` }, body: blob,
+      });
+    }
   }
 
   return { GhostChallengeClient, GhostClientError, normalizeCode, codeFromUrl, buildUrl };

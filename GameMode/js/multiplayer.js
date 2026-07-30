@@ -76,6 +76,11 @@
       const session = this.saveSession({ code: normalized, seat: 'guest', token: data.playerToken, nextSeq: 0 });
       this.code = normalized; this.room = data.room; return { room: data.room, session };
     }
+    async uploadShareCard(blob, code = this.code) {
+      const session = this.session(code); if (!session || session.seat !== 'host') throw new MultiplayerError('session_missing');
+      if (!(blob && blob.type === 'image/png')) throw new MultiplayerError('invalid_share_card');
+      return this.request(`/v1/matches/${session.code}/share-card`, { method: 'PUT', headers: { 'Content-Type': 'image/png', Authorization: `Bearer ${session.token}` }, body: blob });
+    }
     async read(code) { const normalized = normalizeCode(code); if (!normalized) throw new MultiplayerError('bad_code'); const data = await this.request(`/v1/matches/${normalized}`); this.code = normalized; this.room = data.room; return data.room; }
     async recover(code) { const room = await this.read(code); const session = this.session(code); if (session) await this.connect(session.code); return { room, session }; }
     async connect(code = this.code) {

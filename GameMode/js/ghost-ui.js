@@ -4,6 +4,8 @@
 
   const apiBase = String(root.CHRONOS_LB_CONFIG?.apiBase || '').replace(/\/+$/, '');
   const client = new root.ChronosGhostClient.GhostChallengeClient({ baseUrl: apiBase });
+  const cards = root.ChronosShareCards;
+  const inviteCards = new Map();
   let activeGuest = null;
 
   function name() {
@@ -71,6 +73,57 @@
     host.appendChild(summary);
   }
 
+  function gameUrl() { return `${location.origin}${location.pathname}`.replace(/index\.html?$/i, ''); }
+  function directUrl(code) { return root.ChronosGhostClient.buildUrl(location.href, code); }
+  function cardUrl(code) { return cards && apiBase ? cards.shareUrl(apiBase, 'ghost', code) : directUrl(code); }
+  function prepareInvite(challenge) {
+    if (!cards) return Promise.resolve({ portrait: null, preview: false });
+    if (inviteCards.has(challenge.code)) return inviteCards.get(challenge.code);
+    const pending = (async () => {
+      const model = cards.ghostInviteModel(challenge);
+      const [portrait, social] = await Promise.all([cards.build(model, 'portrait'), cards.build(model, 'social')]);
+      let preview = false;
+      const session = client.session(challenge.code);
+      if (session?.seat === 'host') {
+        try { await client.uploadShareCard(social, challenge.code); preview = true; } catch { preview = false; }
+      } else preview = true;
+      return { portrait, preview };
+    })().catch((error) => { inviteCards.delete(challenge.code); throw error; });
+    inviteCards.set(challenge.code, pending); return pending;
+  }
+  function inviteText(challenge, url) {
+    const target = challenge.hideHostScore ? 'The target is hidden until you finish.' : `Target: ${challenge.host.result?.score?.toLocaleString() || 0} points.`;
+    return `${challenge.host.name} challenged you to a ${challenge.difficulty} ${challenge.mode} run in Chronos Strike. ${target}\n\n${url}`;
+  }
+  function addInviteActions(host, challenge, close) {
+    const link = document.createElement('input'); link.className = 'ghost-cloud-input ghost-link'; link.readOnly = true; link.value = cardUrl(challenge.code);
+    const state = document.createElement('div'); state.className = 'ghost-cloud-status'; state.setAttribute('role', 'status'); state.textContent = 'Rendering challenge card…';
+    const actions = document.createElement('div'); actions.className = 'ghost-cloud-actions';
+    const copy = button('PREPARING…', 'btn-primary'); const share = button('PREPARING…'); copy.disabled = true; share.disabled = true;
+    actions.append(copy, share, close); host.append(link, state, actions);
+    const ready = prepareInvite(challenge).then((artifacts) => {
+      link.value = artifacts.preview ? cardUrl(challenge.code) : directUrl(challenge.code);
+      copy.disabled = false; share.disabled = false; copy.textContent = 'COPY LINK'; share.textContent = 'SHARE CARD';
+      state.textContent = artifacts.preview ? 'Image card and rich link preview are ready.' : 'Image card ready. Link preview upload was unavailable.';
+      return artifacts;
+    }).catch(() => {
+      link.value = directUrl(challenge.code); copy.disabled = false; copy.textContent = 'COPY LINK'; share.textContent = 'CARD UNAVAILABLE';
+      state.textContent = 'The link is ready, but the image could not be rendered.'; return null;
+    });
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(link.value); copy.textContent = 'COPIED ✓'; }
+      catch { link.focus(); link.select(); copy.textContent = 'SELECTED'; }
+    });
+    share.addEventListener('click', async () => {
+      const artifacts = await ready; if (!artifacts) return;
+      try {
+        const result = await cards.share({ blob: artifacts.portrait, title: 'Beat my Chronos Strike time', text: inviteText(challenge, link.value), url: link.value, filename: `chronos-ghost-${challenge.code}.png` });
+        if (result.action !== 'cancelled') state.textContent = result.file ? 'Challenge card shared.' : 'Challenge link shared. Save the card if you also want the image.';
+      } catch { state.textContent = 'Share failed. Copy the rich link instead.'; }
+    });
+    close.addEventListener('click', () => host.closest('.overlay')?.remove());
+  }
+
   function openCreate(stats, record) {
     if (!record?.strikes?.length) return;
     const modal = overlay();
@@ -108,20 +161,7 @@
     const host = modal.querySelector('.ghost-cloud-body');
     heading(host, 'CHALLENGE READY', 'SEND THE GHOST', 'The link contains only the public challenge code.');
     addSummary(host, challenge);
-    const url = root.ChronosGhostClient.buildUrl(location.href, challenge.code);
-    const link = document.createElement('input'); link.className = 'ghost-cloud-input ghost-link'; link.readOnly = true; link.value = url;
-    const actions = document.createElement('div'); actions.className = 'ghost-cloud-actions';
-    const copy = button('COPY LINK', 'btn-primary'); const share = button('SHARE'); const close = button('DONE');
-    actions.append(copy, share, close); host.append(link, actions);
-    copy.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(url); copy.textContent = 'COPIED ✓'; }
-      catch { link.focus(); link.select(); copy.textContent = 'SELECTED'; }
-    });
-    share.addEventListener('click', async () => {
-      if (navigator.share) await navigator.share({ title: 'Beat my Chronos Strike time', text: `Can you beat ${challenge.host.name}?`, url }).catch(() => {});
-      else copy.click();
-    });
-    close.addEventListener('click', () => modal.remove());
+    addInviteActions(host, challenge, button('DONE'));
   }
 
   function recordFrom(challenge) {
@@ -166,12 +206,7 @@
 
     if (session?.seat === 'host') {
       status.textContent = challenge.state === 'open' ? 'Waiting for your friend to accept.' : 'Your friend is playing now.';
-      const copy = button('COPY LINK', 'btn-primary');
-      copy.addEventListener('click', async () => {
-        const url = root.ChronosGhostClient.buildUrl(location.href, challenge.code);
-        await navigator.clipboard.writeText(url).catch(() => {}); copy.textContent = 'COPIED ✓';
-      });
-      actions.append(copy, close);
+      host.appendChild(status); addInviteActions(host, challenge, close); return;
     } else if (session?.seat === 'guest') {
       const start = button('START RACE', 'btn-primary');
       start.addEventListener('click', () => { if (startGuest(challenge)) modal.remove(); });
@@ -206,7 +241,17 @@
       guest.textContent = `${challenge.guest.name}: ${challenge.guest.result.score.toLocaleString()} · ${challenge.guest.result.perfect} perfects`;
       host.appendChild(guest);
     }
-    const close = button('DONE', 'btn-primary'); close.addEventListener('click', () => modal.remove()); host.appendChild(close);
+    const state = document.createElement('div'); state.className = 'ghost-cloud-status'; state.setAttribute('role', 'status'); state.textContent = 'Rendering result card…';
+    const share = button('PREPARING…', 'btn-primary'); share.disabled = true; const close = button('DONE');
+    const ready = cards ? cards.build(cards.ghostResultModel(challenge), 'portrait').then((blob) => { share.disabled = false; share.textContent = 'SHARE RESULT'; state.textContent = 'Result card ready.'; return blob; }).catch(() => { state.textContent = 'Result card unavailable.'; return null; }) : Promise.resolve(null);
+    share.addEventListener('click', async () => {
+      const blob = await ready; if (!blob) return; const url = gameUrl();
+      const text = `${challenge.host.name} scored ${challenge.host.result?.score?.toLocaleString() || 0}; ${challenge.guest?.name || 'Guest'} scored ${challenge.guest?.result?.score?.toLocaleString() || 0} in a Chronos Strike Ghost Challenge.\n\n${url}`;
+      try { const result = await cards.share({ blob, title: 'Chronos Strike Ghost Result', text, url, filename: `chronos-ghost-result-${challenge.code}.png` }); if (result.action !== 'cancelled') state.textContent = 'Result shared.'; }
+      catch { state.textContent = 'Share failed. Please try again.'; }
+    });
+    const actionRow = document.createElement('div'); actionRow.className = 'ghost-cloud-actions'; actionRow.append(share, close);
+    close.addEventListener('click', () => modal.remove()); host.append(state, actionRow);
   }
 
   async function onGameEnd(stats) {

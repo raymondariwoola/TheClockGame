@@ -3,6 +3,8 @@
   if (!root?.ChronosMultiplayerClient) return;
   const apiBase = String(root.CHRONOS_LB_CONFIG?.apiBase || '').replace(/\/+$/, '');
   const client = new root.ChronosMultiplayerClient.MultiplayerClient({ baseUrl: apiBase });
+  const cards = root.ChronosShareCards;
+  const inviteCards = new Map();
   let modal = null; let active = null; let lastSeed = null; let progressFloor = 0;
 
   function playerName() {
@@ -42,7 +44,26 @@
     const value = document.createElement('strong'); value.textContent = `${room.roundLimit || 10} ROUNDS · ${room.difficulty.toUpperCase()}`; meta.append(key, value); box.appendChild(meta);
     host.appendChild(box);
   }
-  function shareUrl(code) { return root.ChronosMultiplayerClient.buildUrl(location.href, code); }
+  function gameUrl() { return `${location.origin}${location.pathname}`.replace(/index\.html?$/i, ''); }
+  function directShareUrl(code) { return root.ChronosMultiplayerClient.buildUrl(location.href, code); }
+  function shareUrl(code) { return cards && apiBase ? cards.shareUrl(apiBase, 'clash', code) : directShareUrl(code); }
+  function prepareInvite(room) {
+    if (!cards) return Promise.resolve({ portrait: null, preview: false });
+    if (inviteCards.has(room.code)) return inviteCards.get(room.code);
+    const pending = (async () => {
+      const model = cards.clashInviteModel(room);
+      const [portrait, social] = await Promise.all([cards.build(model, 'portrait'), cards.build(model, 'social')]);
+      let preview = false; const session = client.session(room.code);
+      if (session?.seat === 'host') {
+        try { await client.uploadShareCard(social, room.code); preview = true; } catch { preview = false; }
+      } else preview = true;
+      return { portrait, preview };
+    })().catch((error) => { inviteCards.delete(room.code); throw error; });
+    inviteCards.set(room.code, pending); return pending;
+  }
+  function inviteText(room, url) {
+    return `${room.seats.host.name} challenged you to a live ${room.difficulty} Chrono Clash: ${room.roundLimit || 10} rounds on the same clock.\n\n${url}`;
+  }
 
   function openMenu() {
     const view = overlay(); const host = view.querySelector('.clash-body');
@@ -56,7 +77,7 @@
       create.disabled = true; create.textContent = 'CREATING…';
       try {
         const created = await client.create({ name: name.value, difficulty: difficulty.value });
-        history.replaceState(null, '', shareUrl(created.session.code));
+        history.replaceState(null, '', directShareUrl(created.session.code));
         await client.connect(); showLobby(created.room);
       }
       catch (error) { create.disabled = false; create.textContent = 'RETRY'; state.textContent = safeMessage(error.code); }
@@ -83,12 +104,24 @@
     if (!room) return; const view = overlay(); const host = view.querySelector('.clash-body');
     heading(host, `ROOM ${room.code}`, room.state === 'waiting' ? 'ASSEMBLE THE TIMELINE' : 'CLASH IN PROGRESS', 'Capabilities stay in this tab; the shared link contains only the room code.');
     roomRows(host, room); const connection = status(); connection.textContent = client.connection === 'connected' ? '● Live connection ready' : 'Connecting…';
-    const ready = button('READY', true); const copy = button('COPY INVITE'); const share = button('SHARE'); const leave = button('LEAVE');
+    const ready = button('READY', true); const copy = button('PREPARING CARD…'); const share = button('PREPARING CARD…'); const leave = button('LEAVE');
     const own = room.you || client.session(room.code)?.seat; const ownSeat = room.seats?.[own];
     ready.disabled = !room.seats.guest || ownSeat?.ready || room.state !== 'waiting'; ready.textContent = ownSeat?.ready ? 'READY ✓' : 'READY';
     ready.addEventListener('click', () => { try { client.ready(); ready.disabled = true; ready.textContent = 'READY ✓'; } catch (error) { connection.textContent = safeMessage(error.code); } });
-    copy.addEventListener('click', async () => { const url = shareUrl(room.code); await navigator.clipboard.writeText(url).catch(() => {}); copy.textContent = 'COPIED ✓'; });
-    share.addEventListener('click', async () => { const url = shareUrl(room.code); if (navigator.share) await navigator.share({ title: 'Chrono Clash', text: 'Race me in Chronos Strike', url }).catch(() => {}); else copy.click(); });
+    copy.disabled = true; share.disabled = true;
+    const cardState = prepareInvite(room).then((artifacts) => {
+      copy.disabled = false; share.disabled = false; copy.textContent = 'COPY INVITE'; share.textContent = 'SHARE CARD'; return artifacts;
+    }).catch(() => { copy.disabled = false; copy.textContent = 'COPY INVITE'; share.textContent = 'CARD UNAVAILABLE'; return null; });
+    copy.addEventListener('click', async () => {
+      const artifacts = await cardState; const url = artifacts?.preview ? shareUrl(room.code) : directShareUrl(room.code);
+      await navigator.clipboard.writeText(url).catch(() => {}); copy.textContent = 'COPIED ✓';
+    });
+    share.addEventListener('click', async () => {
+      const artifacts = await cardState; if (!artifacts) return;
+      const url = artifacts.preview ? shareUrl(room.code) : directShareUrl(room.code);
+      try { await cards.share({ blob: artifacts.portrait, title: 'Chrono Clash', text: inviteText(room, url), url, filename: `chronos-clash-${room.code}.png` }); }
+      catch { connection.textContent = 'Share failed. Copy the invite instead.'; }
+    });
     leave.addEventListener('click', () => { try { client.forfeit(); } catch {} client.disconnect(); client.clearSession(room.code); active = null; hideHud(); close(); });
     host.append(connection, actions(ready, copy, share, leave));
     if (room.state === 'countdown' || room.state === 'playing') startRoom(room);
@@ -144,9 +177,17 @@
     heading(host, room.suddenDeath ? `SUDDEN DEATH ${room.suddenDeath}` : `MATCH ${room.matchNumber}`, title, room.result?.reason === 'disconnect' ? 'The other timeline disconnected.' : 'Final ordinary scores—no labels, no callouts.');
     roomRows(host, room); const scores = document.createElement('div'); scores.className = 'clash-final';
     scores.textContent = `${room.seats.host.name}: ${room.seats.host.progress.score.toLocaleString()} · ${room.seats.guest?.name || 'Guest'}: ${(room.seats.guest?.progress.score || 0).toLocaleString()}`;
-    const rematch = button('REMATCH', true); const done = button('DONE');
+    const rematch = button('REMATCH', true); const share = button('PREPARING CARD…'); const done = button('DONE'); share.disabled = true;
     rematch.disabled = !seatId; rematch.addEventListener('click', () => { try { client.rematch(); rematch.disabled = true; rematch.textContent = 'WAITING…'; } catch {} });
-    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, actions(rematch, done));
+    const cardState = status(); cardState.textContent = 'Rendering result card…';
+    const prepared = cards ? cards.build(cards.clashResultModel(room), 'portrait').then((blob) => { share.disabled = false; share.textContent = 'SHARE RESULT'; cardState.textContent = 'Result card ready.'; return blob; }).catch(() => { cardState.textContent = 'Result card unavailable.'; return null; }) : Promise.resolve(null);
+    share.addEventListener('click', async () => {
+      const blob = await prepared; if (!blob) return; const url = gameUrl();
+      const text = `${room.seats.host.name} scored ${room.seats.host.progress.score.toLocaleString()}; ${room.seats.guest?.name || 'Guest'} scored ${(room.seats.guest?.progress.score || 0).toLocaleString()} in Chrono Clash.\n\n${url}`;
+      try { const result = await cards.share({ blob, title: 'Chrono Clash Result', text, url, filename: `chronos-clash-result-${room.code}.png` }); if (result.action !== 'cancelled') cardState.textContent = 'Result shared.'; }
+      catch { cardState.textContent = 'Share failed. Please try again.'; }
+    });
+    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, cardState, actions(rematch, share, done));
   }
   function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', close); host.appendChild(done); }
   function forfeit() { if (!active) return; try { client.forfeit(); } catch {} active = null; hideHud(); }
