@@ -91,7 +91,10 @@ export class LeaderboardRoom {
       const result = await this.ctx.storage.transaction(async (txn) => {
         const before = sanitizeList(await txn.get(key));
         const entries = before.filter((entry) => entry.id !== id);
-        if (entries.length !== before.length) await txn.put(key, entries);
+        if (entries.length !== before.length) {
+          if (entries.length) await txn.put(key, entries);
+          else await txn.delete(key);
+        }
         return { removed: before.length - entries.length, retained: entries.length };
       });
       return response(result);

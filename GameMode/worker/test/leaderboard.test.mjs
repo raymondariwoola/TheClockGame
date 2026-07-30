@@ -7,6 +7,7 @@ class FakeStorage {
   constructor() { this.values = new Map(); this.queue = Promise.resolve(); }
   async get(key) { return structuredClone(this.values.get(key)); }
   async put(key, value) { this.values.set(key, structuredClone(value)); }
+  async delete(key) { return this.values.delete(key); }
   async list({ prefix } = {}) {
     return new Map([...this.values].filter(([key]) => !prefix || key.startsWith(prefix)).map(([key, value]) => [key, structuredClone(value)]));
   }
@@ -106,4 +107,21 @@ test('admin export snapshots every board and clear removes boards plus submissio
 
   const empty = await (await room.fetch(new Request('https://worker.test/export'))).json();
   assert.deepEqual(empty, { boards: {}, boardCount: 0, entryCount: 0 });
+});
+
+test('deleting the final entry removes the obsolete partition itself', async () => {
+  const storage = new FakeStorage();
+  const room = new LeaderboardRoom({ storage });
+  const url = 'https://worker.test/submit?mode=classic&difficulty=hardcore&rulesetVersion=2';
+  await room.fetch(new Request(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entry: entry({ id: 'obsolete', hc: true, rulesetVersion: 2 }) }),
+  }));
+  const removed = await room.fetch(new Request(url.replace('/submit', '/delete'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'obsolete' }),
+  }));
+  assert.deepEqual(await removed.json(), { removed: 1, retained: 0 });
+  assert.deepEqual(await (await room.fetch(new Request('https://worker.test/export'))).json(), {
+    boards: {}, boardCount: 0, entryCount: 0,
+  });
 });
