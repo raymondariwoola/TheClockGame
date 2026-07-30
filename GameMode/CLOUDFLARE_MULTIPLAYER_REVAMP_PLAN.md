@@ -2,7 +2,7 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
-> Implementation status, 2026-07-30: Phases 0-16 are implemented, tested, committed, pushed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, and mobile shell revision 5 forces returning phones onto the current Cloudflare-only client. `OWNER_ACTIONS.md` is the production authority.
+> Implementation status, 2026-07-30: Phases 0-17 are implemented, tested, committed, pushed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, completed-run publishing preserves sharing and ghost challenges, and mobile shell revision 6 forces returning phones onto the current Cloudflare-only client. `OWNER_ACTIONS.md` is the production authority.
 
 **Document status:** design and implementation complete; production verified
 **Scope:** `TheClockGame/GameMode/` only  
@@ -1012,7 +1012,7 @@ No credentials should be shared in code, chat, issues, or documentation.
 | Production CORS origin | Complete for `https://raymondariwoola.github.io`. |
 | Historical leaderboard archive | Complete in ignored local backups; production storage intentionally starts empty. |
 | GitHub Gist retirement | Complete: import tooling removed and both public Gist endpoints verified as HTTP 404. |
-| Worker/static deployment | Complete on Worker version `b2eb3e86-2458-4a2c-8e70-0f3cd01715a3` and GitHub Pages mobile shell revision 5. |
+| Worker/static deployment | Complete on Worker version `b2eb3e86-2458-4a2c-8e70-0f3cd01715a3` and GitHub Pages mobile shell revision 6. |
 
 There is no blocking manual activation left. A two-physical-phone family session remains a useful real-world spot check for device-specific browser quirks, but it is not a deployment step and no configuration change is expected.
 

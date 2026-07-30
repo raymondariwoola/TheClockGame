@@ -24,6 +24,7 @@
 
   let pendingStats = null;   // stats of the run awaiting name entry
   let lastSubmittedId = null; // highlight "YOU" on the board
+  let boardReturnScreen = 'menu'; // preserve Results when Hall is opened from a completed run
   const CURRENT_RULESET = 3;
   let currentPartition = { scope: 'standard', mode: 'classic', difficulty: 'normal', rulesetVersion: CURRENT_RULESET };
   const issuedRuns = new Map();
@@ -251,8 +252,11 @@
   }
 
   // ---------- show / refresh ----------
-  async function show() {
+  async function show(returnTo) {
+    if (returnTo === 'over' || returnTo === 'menu') boardReturnScreen = returnTo;
     if (window.ChronosGame) window.ChronosGame.showScreen('board');
+    const backButton = $('boardPlayBtn');
+    if (backButton) backButton.textContent = boardReturnScreen === 'over' ? '◀ BACK TO RESULTS' : '◀ BACK TO GAME';
     setStatus('⏳ SYNCING WITH THE TIMELINE…');
     try {
       const { entries, source } = await loadBoard();
@@ -404,12 +408,20 @@
     elNameError.hidden = true;
 
     try {
-      const { made } = await submitEntry(entry, pendingStats);
+      const { entries, made } = await submitEntry(entry, pendingStats);
       pendingStats = null;
       lastSubmittedId = made ? entry.id : null;
       closeNameOverlay();
-      await show();
-      if (!made) setStatus('⚠ EDGED OUT WHILE SUBMITTING — SO CLOSE!', 'error');
+      const exactRank = entries.findIndex((candidate) => candidate.id === entry.id);
+      const finalRank = exactRank >= 0 ? exactRank + 1 : entries.filter((candidate) => candidate.score >= entry.score).length + 1;
+      if (window.ChronosShare) window.ChronosShare.setRank(finalRank);
+      elLbCheck.hidden = false;
+      elLbCheck.className = 'lb-check ' + (made ? 'qualified' : 'error');
+      elLbCheck.textContent = made
+        ? `✅ PUBLISHED — GLOBAL #${finalRank} · SHARE IT OR SEND A GHOST CHALLENGE`
+        : '⚠ EDGED OUT WHILE SUBMITTING — YOUR RESULT IS STILL READY TO SHARE';
+      // Stay on the completed-run screen. Share-card and ghost-challenge state
+      // belongs to that run and must not be hidden by automatic Hall navigation.
     } catch (err) {
       elNameSubmit.disabled = false;
       elNameSubmit.textContent = 'RETRY';
@@ -424,13 +436,13 @@
   });
 
   // ---------- navigation ----------
-  $('menuBoardBtn')?.addEventListener('click', show);
-  $('overBoardBtn')?.addEventListener('click', show);
-  $('boardRefreshBtn')?.addEventListener('click', show);
+  $('menuBoardBtn')?.addEventListener('click', () => show('menu'));
+  $('overBoardBtn')?.addEventListener('click', () => show('over'));
+  $('boardRefreshBtn')?.addEventListener('click', () => show());
   $('boardPlayBtn')?.addEventListener('click', () => {
     if (window.ChronosGame) {
-      window.ChronosGame.refreshMenuStats();
-      window.ChronosGame.showScreen('menu');
+      if (boardReturnScreen === 'menu') window.ChronosGame.refreshMenuStats();
+      window.ChronosGame.showScreen(boardReturnScreen);
     }
   });
 
