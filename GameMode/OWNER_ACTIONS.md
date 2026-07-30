@@ -20,7 +20,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 
 - Deployed atomic normal, Hardcore, and Daily leaderboards to Cloudflare storage.
 - Completely cleared Cloudflare leaderboard storage: 23 entries across three stored partitions were removed.
-- Verified fresh Ruleset 2 normal and Hardcore boards both return zero entries.
+- Verified fresh Ruleset 3 normal and Hardcore boards both return zero entries.
 - Deployed seven-day cloud ghost challenges and hidden-score races.
 - Deployed two-player Chrono Clash with Normal, Hardcore, reconnect, forfeit, sudden death, and rematch support.
 - Deployed the private cheat menu in every mode, including ghosts and multiplayer.
@@ -33,8 +33,9 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
-- Upgraded every first-party mobile shell asset to cache revision 4, preventing an old unversioned leaderboard script from surviving on returning phones.
-- Deployed Ruleset 2 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
+- Upgraded every first-party mobile shell asset to cache revision 5, preventing an old gameplay or leaderboard script from surviving on returning phones.
+- Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
+- Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
 - Kept every private cheat available. Cheat score multiplication, cheat-preserved combo growth, Always Overdrive, and Infinite Powers stacking are applied outside the ordinary scoring guards.
 
 ## Current temporary codes
@@ -81,7 +82,7 @@ Cloudflare account billing status cannot be changed or inferred by source code. 
 
 The following checks passed against the deployed Worker and hosted mobile site:
 
-- 1,761 deterministic engine assertions and the complete automated verification suite.
+- 1,769 deterministic engine assertions and the complete automated verification suite.
 - Worker unit, syntax, no-Gist-runtime, binding, and deployment checks.
 - Live ghost creation, hidden replay, join, result, and expiry behavior.
 - Live two-WebSocket match, synchronized progress, rematch, and forfeit behavior.
@@ -89,8 +90,8 @@ The following checks passed against the deployed Worker and hosted mobile site:
 - Cheat-code verification and mid-match toggle on/off.
 - No cheat/menu state appeared to the other multiplayer tab.
 - 390 × 844 mobile viewport: leaderboard, lobby creation, invite join, match start, cheat menu, and ghost start.
-- Fresh Ruleset 2 normal and Hardcore leaderboard reads both return zero entries.
-- The production Daily endpoint issues Ruleset 2 identities.
+- Fresh Ruleset 3 normal and Hardcore leaderboard reads both return zero entries.
+- The production Daily endpoint issues Ruleset 3 identities.
 - Production CORS accepts the GitHub Pages origin.
 - Runtime source scan contains no GitHub Gist API access.
 
