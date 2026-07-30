@@ -33,12 +33,15 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
-- Upgraded every first-party mobile shell asset to cache revision 6, preventing an old gameplay or leaderboard script from surviving on returning phones.
+- Upgraded every first-party mobile shell asset to cache revision 7, preventing an old gameplay, leaderboard, or share-card script from surviving on returning phones.
 - Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
 - Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
 - Removed the reported 60,475-point Ruleset 2 exploit result and cleared its now-empty stored partition; the complete production leaderboard export is again zero boards and zero entries before Ruleset 3 play begins.
 - Fixed the completed-run publishing flow: leaderboard publication now confirms the final rank in place, leaving Share and Beat My Time available. Opening the Hall from Results is optional, and its back button returns to the same completed-run screen.
 - Kept every private cheat available. Cheat score multiplication, cheat-preserved combo growth, Always Overdrive, and Infinite Powers stacking are applied outside the ordinary scoring guards.
+- Added 1080 × 1350 mobile share cards for Ghost/Daily invitations, Ghost results, Chrono Clash invitations, and Clash results. The existing finished-run score card remains available.
+- Added 1200 × 630 Cloudflare link-preview cards for Ghost/Daily and live Clash invitations. Copied invite links now use `/s/ghost/:code` or `/s/clash/:code`, show sanitized Open Graph metadata, and redirect players into the existing GameMode.
+- Kept hidden targets private in the attached card, link metadata, and public Worker state. Only a host capability may upload an invite preview image; it is deleted automatically with the expiring challenge or room.
 
 ## Current temporary codes
 
@@ -96,6 +99,8 @@ The following checks passed against the deployed Worker and hosted mobile site:
 - The production Daily endpoint issues Ruleset 3 identities.
 - Production CORS accepts the GitHub Pages origin.
 - Runtime source scan contains no GitHub Gist API access.
+- Production Ghost preview upload, Open Graph page, PNG response, game redirect, capability check, and hidden-target protection.
+- Mobile visual pass at 390 × 844: four 1080 × 1350 attached-card layouts and four 1200 × 630 link-preview layouts. Preview PNGs measured 670–697 KB against a 1.5 MB server ceiling.
 
 The leaderboard backup is kept locally at:
 

@@ -6,6 +6,8 @@ The GameMode uses one Cloudflare Worker plus three SQLite-backed Durable Object 
 - `GhostChallengeRoom` for seven-day asynchronous challenges;
 - `MatchRoom` for two-seat hibernating-WebSocket Chrono Clash rooms.
 
+Ghost/Daily and Clash invitations also store one bounded 1200 × 630 PNG inside their existing room object. The Worker serves capability-free `/s/ghost/:code` and `/s/clash/:code` Open Graph pages, while `PUBLIC_GAME_URL` controls the safe redirect back to GameMode. No R2 bucket, image service, KV namespace, or paid add-on is used.
+
 There is no runtime GitHub Gist dependency and no browser-side secret. For the complete production activation, phone acceptance, monitoring, rollback, and Gist-retirement checklist, follow [OWNER_ACTIONS.md](OWNER_ACTIONS.md).
 
 ## Local setup
@@ -47,5 +49,7 @@ git diff --check
 ```
 
 `test:integration` expects the local Worker to already be running. It completes a real ghost lifecycle and a two-WebSocket live match, including rematch and forfeit.
+
+Share-card tests verify PNG type/size limits, host-only uploads, expiry cleanup, HTML escaping, 1200 × 630 metadata, and hidden-target privacy. `PUBLIC_GAME_URL` is a plaintext deployment setting in `wrangler.jsonc`; it is not a secret.
 
 The missing `soundtrack/Normal.mp3` is deliberate: Normal mode uses the offline procedural WebAudio track. `Hardcore.mp3` remains range-cached.
