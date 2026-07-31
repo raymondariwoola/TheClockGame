@@ -33,7 +33,7 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Published all implementation commits to GitHub `main`.
 - Fixed the hidden ghost score so neither the API replay nor the in-game HUD reveals it before the result.
 - Versioned the offline shell so returning mobile devices receive the current files.
-- Upgraded every first-party mobile shell asset to cache revision 9, preventing an old gameplay, leaderboard, sharing, or local-reset script from surviving on returning phones.
+- Upgraded every first-party mobile shell asset to cache revision 10, preventing an old gameplay, leaderboard, sharing, cheat-state, or local-reset script from surviving on returning phones.
 - Deployed Ruleset 3 scoring: ordinary combo scoring caps at ×12, Endless caps at ×3, one ordinary hit caps at 2,000 points, and overlapping Double/Triple/Star effects use the strongest value rather than multiplying together.
 - Fixed the ordinary accuracy-power exploit: Deadeye and Star only upgrade valid in-zone hits. Star protects a life on a miss but still records the miss and resets the ordinary combo, so rapid random tapping cannot score or preserve its streak.
 - Removed the reported 60,475-point Ruleset 2 exploit result and cleared its now-empty stored partition; the complete production leaderboard export is again zero boards and zero entries before Ruleset 3 play begins.
@@ -47,6 +47,8 @@ The production Worker is the existing **`chronos-leaderboard`** Worker shown in 
 - Enforced Ruleset 3 on public board reads, run issuance, run completion, and the retired compatibility submission route so stale cached clients cannot create hidden historical boards.
 - Archived and removed the final two Ruleset 2 records. Production now contains only the current Ruleset 3 Classic Normal, Classic Hardcore, and dated Daily partitions.
 - Activated one-time local personal-stat reset `2026-07-31-family-reset-1`. On each browser's next updated GameMode load, only Best Score, Best Combo, and Round Reached are cleared; the same reset ID never clears them again.
+- Made the private cheat unlock, Cheats Active master switch, individual toggles, and selector values persistent in that browser across reloads, tab closures, retries, rematches, and every supported game mode.
+- Kept cheat persistence local-only: the passphrase is never stored, and cheat state is never sent to Cloudflare, opponents, leaderboards, ghosts, results, or share cards. Turning Cheats Active off preserves favorite selections; Disable All persistently clears them.
 
 ## How the Hall of Time now works
 

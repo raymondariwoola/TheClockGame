@@ -2,7 +2,7 @@
 
 ## Cloudflare-only backend, multiplayer, ghost play, expanded cheat menu, cleanup, and family gameplay plan
 
-> Implementation status, 2026-07-31: Phases 0-22 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, mobile shell revision 9 exposes every current board with explicit rank context, stale rulesets cannot create hidden boards, and versioned local-stat resets run once per browser and reset ID. `OWNER_ACTIONS.md` is the production authority.
+> Implementation status, 2026-07-31: Phases 0-23 are implemented, tested, committed, and deployed. The Cloudflare leaderboard was deliberately reset, the retired Gist was backed up and deleted, Ruleset 3 bounds ordinary score compounding and requires real target overlap for Deadeye/Star without limiting private cheats, mobile shell revision 10 exposes every current board with explicit rank context, stale rulesets cannot create hidden boards, local-stat resets run once per reset ID, and private cheat preferences persist locally across browser sessions and game modes. `OWNER_ACTIONS.md` is the production authority.
 
 **Document status:** design and implementation complete; production verified
 **Scope:** `TheClockGame/GameMode/` only  
@@ -27,7 +27,7 @@ Cheat mode is an intentional private trolling feature for the owner's inner grou
 - cheat-assisted scores remain eligible for ordinary leaderboards, personal bests, Daily results, ghosts, achievements, and multiplayer results;
 - leaderboards, opponent payloads, results, history, ghost cards, and share cards never disclose or label cheat use;
 - an unlocked player may open the private cheat menu and enable, change, or disable individual effects at any point in any game mode, including a live multiplayer round;
-- the cheat menu should follow StackFall's useful shape: a master active state, independent boolean toggles, multiplier/override selectors, quick actions, a local-only badge, session unlock, and a reset/disable-all action.
+- the cheat menu should follow StackFall's useful shape: a master active state, independent boolean toggles, multiplier/override selectors, quick actions, a local-only badge, browser-persistent unlock/preferences, and a reset/disable-all action.
 
 This is the same architectural direction proven in StackFall—static frontend, shared seeded gameplay, short room codes, capability-safe invitations, SQLite Durable Objects, hibernating WebSockets, milestone synchronization, cleanup alarms, kill switches, and real-browser tests—adapted to Chronos Strike's strike events, bosses, modifiers, replays, accessibility assists, and ruleset identity.
 
@@ -111,7 +111,7 @@ These are implementation requirements, not optional polish.
 | R-003 | Client and Worker accept a claimed final score with few structural checks. | Malformed or absurd payloads can consume storage/quota. | Require a server-issued run identity and validate bounded event shape, ordering, ruleset identity, finite integers, monotonic progress, and generous safety caps. Deliberately do not recompute/reject scores under clean-only rules because legitimate private cheats alter those values. |
 | R-004 | Classic, Endless, Normal, and Hardcore scores are displayed in one top-20 list. | Mechanically incomparable runs compete directly. | Partition boards by ruleset, playlist, difficulty, category, and period. |
 | R-005 | The current cheat is one fixed package: hidden lives plus one score multiplier. | The owner cannot choose the joke/effect or adjust it during play. | Replace it with a StackFall-style menu of independent toggles, selectors, and quick actions that are read live by the engine. |
-| R-006 | `runStats.cheat` exposes an internal cheat flag to the current Worker payload. | Future backend or UI code could reject, label, or accidentally reveal the troll. | Remove cheat status from every remote run, replay, progress, result, and leaderboard schema. Cheat state stays entirely inside the local game session. |
+| R-006 | `runStats.cheat` exposes an internal cheat flag to the current Worker payload. | Future backend or UI code could reject, label, or accidentally reveal the troll. | Remove cheat status from every remote run, replay, progress, result, and leaderboard schema. Cheat state stays entirely inside local browser storage and live memory. |
 | R-007 | Current cheat behavior is not uniformly defined for Daily, Rival/ghost, Zen, GOD interaction, and multiplayer. | Some modes may disable, reject, expose, or inconsistently apply effects. | Define every cheat's behavior for every mode; allow ordinary cheats everywhere, keep GOD separate, and add cross-mode/multiplayer tests. |
 | R-008 | Rival Codes are client-authored base64url values containing the claimed score and replay. | They are forgeable, long, unrevokable, and have no expiry/use policy. | Preserve a bounded v1 decoder only for local legacy import; use short Cloudflare challenge codes for new sharing. |
 | R-009 | A decoded rival name reaches `ghostHud.innerHTML`. | A crafted Rival Code can inject markup into the page. | Render all remote names with `textContent`; sanitize and length-bound at decode and server boundaries; add an XSS regression test. |
@@ -212,7 +212,7 @@ Freeze this object at countdown/start and use it everywhere:
 }
 ```
 
-Live cheat settings are maintained in a separate session-scoped `CheatState`, not frozen into `RunContext`. The engine reads that state at the point each effect matters, allowing a toggle or selector change to take effect immediately and allowing Disable All to restore normal rules for subsequent actions in the same run.
+Live cheat settings are maintained in a separate browser-persisted `CheatState`, not frozen into `RunContext`. The engine reads that state at the point each effect matters, allowing a toggle or selector change to take effect immediately and allowing Disable All to restore normal rules for subsequent actions in the same run. Only the local unlock boolean, master switch, and validated registry values persist; the passphrase never does.
 
 ---
 
@@ -351,7 +351,7 @@ All responses are JSON except WebSocket upgrades. Prefix new routes with `/v1`; 
 
 | Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/v1/cheats/verify` | rate-limited passphrase check; unlock the local tab/session |
+| `POST` | `/v1/cheats/verify` | rate-limited passphrase check; unlock private controls in that browser |
 | `GET` | `/v1/admin/summary` | bounded board/room counts; `X-Admin-Key` header only |
 | `DELETE` | `/v1/admin/entries/:id` | remove a specific abusive/accidental score |
 
@@ -478,12 +478,12 @@ Ordinary cheat mode does not create a taint, category, disqualification, warning
 
 - keep the hidden five-tap logo trigger and desktop Backquote shortcut;
 - add the local player's **You** label as the touch-friendly reopen trigger during multiplayer;
-- after successful unlock, keep the menu unlocked for that browser tab/session;
+- after successful unlock, keep the menu unlocked in that browser until explicit lock or site-data removal;
 - opening the menu pauses only the local gameplay clock and remembers the previous pause state;
 - closing the menu restores that previous local pause state;
 - multiplayer room time, the opponent, sockets, reconnect deadlines, and server lifecycle do not pause;
 - a master **Cheats Active** switch arms/disarms the configured effects without erasing the selections;
-- **Disable All** resets every effect to its normal value but keeps the menu unlocked for the session;
+- **Disable All** persistently resets every effect to its normal value but keeps the menu unlocked;
 - every toggle/select is read live by the engine, including the already active round;
 - show a small clickable local-only badge while at least one effect is engaged; never transmit or render that badge remotely.
 
@@ -516,7 +516,7 @@ Exact names and values should live in one data-driven registry so the menu, engi
 ### 11.4 Availability and persistence
 
 - cheats work in Classic, Endless, Zen/Precision Lab, Daily Rift, legacy Rival races, server ghost challenges, live Chrono Clash, Hardcore, sudden death, and rematches;
-- enabled selections survive retry/rematch within the unlocked session so the player can keep trolling without re-entry;
+- enabled selections survive mode changes, retry, rematch, reload, and browser restart so the player can keep favorite settings without re-entry;
 - individual controls may be changed mid-round and take effect immediately;
 - ordinary local bests, Daily bests/ghosts, achievements, remote boards, match results, and share cards use the resulting values normally;
 - a ghost records the resulting strikes and cumulative scores but no “cheat used” label;
@@ -531,7 +531,7 @@ Exact names and values should live in one data-driven registry so the menu, engi
 - use timing-safe comparison;
 - never log submitted codes, request bodies, names, room URLs, capabilities, or stacks;
 - return only the unlock result needed by the local menu; never attach the passphrase, an unlock receipt, cheat flag, or effect timeline to a run, ghost, leaderboard, or multiplayer message;
-- keep `Cheats.unlocked` and all selections in memory or `sessionStorage`; clear them on tab closure or explicit lock;
+- keep `Cheats.unlocked`, master state, and validated selections in `localStorage`; never store the passphrase, and clear state only on explicit lock/Disable All or browser site-data removal;
 - remote validators accept nonstandard-but-bounded resulting values without needing to know why they changed;
 - acknowledge that browser effect values are observable at runtime and the feature is playful access control, not strong secrecy.
 
@@ -930,7 +930,7 @@ Do these after the Phase 6 release gate so gameplay experiments do not destabili
 | Layer | Required coverage |
 |---|---|
 | Pure rules | deterministic generation, boss/modifier draw order, classification, scoring, transcript replay, result comparator, 1,000-round simulations |
-| Storage/context | additive local migrations, identity ownership, immutable run snapshot, live session-scoped cheat state, session capability recovery |
+| Storage/context | additive local migrations, identity ownership, immutable run snapshot, persistent local cheat state, session capability recovery |
 | Leaderboard | board partitions, concurrent insert, idempotency, trim/rank, Daily day validation, legacy category, cheat acceptance/privacy, rejected malformed/forged input |
 | Ghost room | lifecycle, schema bounds, owner/guest authorization, one result each, digest, expiry/delete, result comparison |
 | Match room | state transitions, room-full, tickets, replay rejection, ready/countdown, sequence ordering, reconnect/replacement, forfeit, sudden death, rematch, kill switch |
@@ -1012,7 +1012,7 @@ No credentials should be shared in code, chat, issues, or documentation.
 | Production CORS origin | Complete for `https://raymondariwoola.github.io`. |
 | Historical leaderboard archive | Complete in ignored local backups; production storage intentionally starts empty. |
 | GitHub Gist retirement | Complete: import tooling removed and both public Gist endpoints verified as HTTP 404. |
-| Worker/static deployment | Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` is deployed; GitHub Pages mobile shell revision 9 adds explicit leaderboard navigation, contextual ranks, and the one-time personal-stat reset. |
+| Worker/static deployment | Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` is deployed; GitHub Pages mobile shell revision 10 adds explicit leaderboard navigation, contextual ranks, one-time personal-stat resets, and persistent local cheat preferences. |
 
 ### Phases 20-21 — explicit leaderboard navigation and stale-board closure
 
@@ -1040,6 +1040,19 @@ Implemented on 31 July 2026:
 - upgraded the offline shell to revision 9 so returning mobile users receive the reset configuration and storage helper together.
 
 Future resets require only a new unique `personalStatsId` followed by the normal static verification and publication flow. They require no Worker deployment or Cloudflare data operation.
+
+### Phase 23 — persistent private cheat preferences
+
+Implemented on 31 July 2026:
+
+- moved the private cheat state from tab-lifetime `sessionStorage` to browser-persistent `localStorage` under versioned key `cs_private_cheats_v3`;
+- persisted the local unlock boolean, Cheats Active master switch, every registered toggle, and every validated selector value while continuing never to store the passphrase;
+- retained one shared live state across Classic, Endless, Zen, Daily Rift, Rival/ghost, cloud ghost, and Chrono Clash gameplay;
+- preserved the distinction between disarming Cheats Active, which keeps favorite selections, and Disable All, which persistently returns every selection to normal;
+- added a one-time migration for an already-open tab carrying `cs_private_cheats_v2`, then removes the retired session record after successful durable storage;
+- rejected unknown cheat keys and invalid saved selector values during restoration;
+- verified persistence across module/page reloads, explicit disarm/re-arm, Disable All, and legacy migration;
+- upgraded the offline shell to revision 10 so returning mobile browsers receive the state change coherently.
 
 Worker version `34373023-619f-4a74-bc7d-7b3c934cf850` contains the final server enforcement and empty-partition cleanup. The static revision is released through GitHub `main`.
 

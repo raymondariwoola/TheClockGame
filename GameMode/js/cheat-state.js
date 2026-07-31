@@ -5,7 +5,8 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createCheatState(root) {
   'use strict';
 
-  const SESSION_KEY = 'cs_private_cheats_v2';
+  const STORAGE_KEY = 'cs_private_cheats_v3';
+  const LEGACY_SESSION_KEY = 'cs_private_cheats_v2';
   const SCORE_CEILING = 2_000_000_000;
   const REGISTRY = Object.freeze([
     { key: 'autoPerfect', label: 'Auto-Perfect', type: 'toggle', hint: 'Every strike chooses the best valid target.' },
@@ -30,22 +31,49 @@
   let values = defaults();
   const listeners = new Set();
 
-  function storage() {
+  function persistentStorage() {
+    try { return root && root.localStorage ? root.localStorage : null; } catch { return null; }
+  }
+
+  function legacyStorage() {
     try { return root && root.sessionStorage ? root.sessionStorage : null; } catch { return null; }
   }
 
   function persist() {
-    try { storage()?.setItem(SESSION_KEY, JSON.stringify({ unlocked, master, values })); } catch {}
+    try {
+      const store = persistentStorage();
+      if (!store) return false;
+      store.setItem(STORAGE_KEY, JSON.stringify({ version: 3, unlocked, master, values }));
+      return true;
+    } catch { return false; }
+  }
+
+  function read(store, key) {
+    try {
+      return JSON.parse(store?.getItem(key) || 'null');
+    } catch { return null; }
+  }
+
+  function restore(saved) {
+    if (!saved || saved.unlocked !== true) return false;
+    unlocked = true;
+    master = saved.master === true;
+    for (const [key, value] of Object.entries(saved.values || {})) setValue(key, value, false);
+    return true;
   }
 
   function load() {
-    try {
-      const saved = JSON.parse(storage()?.getItem(SESSION_KEY) || 'null');
-      if (!saved || saved.unlocked !== true) return;
-      unlocked = true;
-      master = saved.master === true;
-      for (const [key, value] of Object.entries(saved.values || {})) setValue(key, value, false);
-    } catch {}
+    const saved = read(persistentStorage(), STORAGE_KEY);
+    // A durable record (including an explicit locked record) is authoritative.
+    if (saved) { restore(saved); return; }
+
+    // One-time upgrade for a tab that still has the old session-only state
+    // when this release arrives. The passphrase itself is never stored.
+    const legacyStore = legacyStorage();
+    if (!restore(read(legacyStore, LEGACY_SESSION_KEY))) return;
+    if (persist()) {
+      try { legacyStore?.removeItem(LEGACY_SESSION_KEY); } catch {}
+    }
   }
 
   function emit(key) {

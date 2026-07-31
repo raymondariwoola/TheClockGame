@@ -485,7 +485,7 @@
   // Cache the coherent local game shell for offline single-player use. Online
   // APIs and sockets always remain network-only.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=9').catch(() => {}); });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=10').catch(() => {}); });
   }
 
   // -------- Background starfield --------
@@ -2213,8 +2213,8 @@
 
   // ============================================================
   // PRIVATE CHEAT MENU — playful family/friend trolling, accepted like normal
-  // play. Unlock/selection state stays in this tab and is never put into run,
-  // leaderboard, ghost, share, or multiplayer payloads.
+  // play. Unlock/master/selections persist only in this browser and are never
+  // put into run, leaderboard, ghost, share, or multiplayer payloads.
   // ============================================================
   const Cheat = (() => {
     const Cheats = window.ChronosCheats;
