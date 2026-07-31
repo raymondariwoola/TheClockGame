@@ -2,9 +2,17 @@
 
 Last verified: **31 July 2026**
 
-## Production is live
+## Pending static PWA release
 
-There is no deployment step left for you to complete.
+PWA installability, run-safe updates, and offline/cloud-status polish are complete in four local commits but have intentionally **not** been pushed or synced. The owner requested manual publication.
+
+Read [PWA_IMPLEMENTATION.md](PWA_IMPLEMENTATION.md) for the exact publish command, expected revision-14 upgrade behavior, Android/iPhone acceptance checks, troubleshooting, and forward-only rollback procedure.
+
+This release changes only static files under `GameMode/`. It requires **no Cloudflare Worker deployment, variable, secret, Durable Object migration, leaderboard reset, or `.dev.vars` change**.
+
+## Current production remains live
+
+The existing production version remains live and healthy. The only pending publication is the static PWA release described above; no Worker-side action is pending.
 
 | Component | Production location | Status |
 |---|---|---|

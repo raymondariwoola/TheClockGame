@@ -97,6 +97,7 @@ try {
 // Sanity: the public surfaces must have been exported by a full run.
 const problems = [];
 if (typeof ctx.window.ChronosGame !== 'object') problems.push('window.ChronosGame not exported (IIFE did not reach the bottom)');
+if (typeof ctx.window.ChronosGame?.canApplyPwaUpdate !== 'function') problems.push('safe PWA update hook not exported');
 if (typeof ctx.window.ChronosIdentity !== 'object') problems.push('window.ChronosIdentity not exported');
 if (problems.length) {
   console.error('✗ game.js load smoke-test FAILED:\n  ' + problems.join('\n  '));
