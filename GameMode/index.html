@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=11">
-<link rel="stylesheet" href="style.css?v=11" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=12">
+<link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -512,23 +512,35 @@
     </div>
   </div>
 
+  <!-- Non-modal update notice; activation is deferred until the game reports a safe menu state. -->
+  <aside id="pwaUpdateBanner" class="pwa-update-banner" role="status" aria-live="polite" hidden>
+    <div class="pwa-update-copy">
+      <strong>NEW VERSION READY</strong>
+      <span id="pwaUpdateText">Update now for the latest fixes.</span>
+    </div>
+    <div class="pwa-update-actions">
+      <button id="pwaUpdateAction" class="btn-primary" type="button">UPDATE NOW</button>
+      <button id="pwaUpdateLater" class="pwa-update-later" type="button">LATER</button>
+    </div>
+  </aside>
+
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=11"></script>
+  <script src="vendor/anime.min.js?v=12"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=11"></script>
-  <script src="js/storage.js?v=11"></script>
-  <script src="js/run-context.js?v=11"></script>
-  <script src="js/cheat-state.js?v=11"></script>
-  <script src="js/ghost-client.js?v=11"></script>
-  <script src="js/multiplayer.js?v=11"></script>
-  <script src="js/share-cards.js?v=11"></script>
-  <script src="local-reset-config.js?v=11"></script>
-  <script src="leaderboard-config.js?v=11"></script>
-  <script src="js/pwa.js?v=11"></script>
-  <script src="game.js?v=11"></script>
-  <script src="leaderboard.js?v=11"></script>
-  <script src="js/ghost-ui.js?v=11"></script>
-  <script src="js/multiplayer-ui.js?v=11"></script>
-  <script src="share.js?v=11"></script>
+  <script src="engine.js?v=12"></script>
+  <script src="js/storage.js?v=12"></script>
+  <script src="js/run-context.js?v=12"></script>
+  <script src="js/cheat-state.js?v=12"></script>
+  <script src="js/ghost-client.js?v=12"></script>
+  <script src="js/multiplayer.js?v=12"></script>
+  <script src="js/share-cards.js?v=12"></script>
+  <script src="local-reset-config.js?v=12"></script>
+  <script src="leaderboard-config.js?v=12"></script>
+  <script src="js/pwa.js?v=12"></script>
+  <script src="game.js?v=12"></script>
+  <script src="leaderboard.js?v=12"></script>
+  <script src="js/ghost-ui.js?v=12"></script>
+  <script src="js/multiplayer-ui.js?v=12"></script>
+  <script src="share.js?v=12"></script>
 </body>
 </html>

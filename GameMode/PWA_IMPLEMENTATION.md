@@ -15,7 +15,7 @@ Make Chronos Strike reliably installable, safely updateable, and clear about off
 | Phase | Scope | Status |
 |---|---|---|
 | PWA-1 | Installability foundation, icon set, manifest, and install guidance | Complete locally |
-| PWA-2 | Run-safe service-worker update discovery and activation | Pending |
+| PWA-2 | Run-safe service-worker update discovery and activation | Complete locally |
 | PWA-3 | Offline/cloud status, recovery actions, and relevant messaging | Pending |
 | PWA-4 | Full regression validation and owner handoff | Pending |
 
@@ -32,7 +32,7 @@ Implemented:
 - standalone detection so installed players are not prompted again;
 - ordinary tab play remains available when installation is declined or unsupported.
 
-Validation required before commit:
+Validation completed before commit:
 
 - manifest parses and references existing icons;
 - generated PNG signatures and dimensions are correct;
@@ -48,3 +48,27 @@ Validation required before commit:
 4. A failed update leaves the current working shell intact.
 5. Installed and ordinary-tab play remain functionally equivalent.
 6. Every phase updates this file and `FUTURE_ENHANCEMENT.md`, then passes tests before commit.
+
+## Phase PWA-2 — run-safe updates
+
+Implemented:
+
+- removed unconditional `skipWaiting()` from service-worker installation;
+- a new worker becomes available only after its complete shell cache succeeds;
+- a non-modal update notice distinguishes `UPDATE NOW` from `UPDATE AFTER THIS RUN`;
+- update activation is allowed only on the main menu with no modal or countdown open;
+- results, sharing, leaderboard, Ghost, Clash, game, pause, and identity flows are reload-unsafe;
+- an armed mid-run update waits until the player returns to the safe menu;
+- controller change reloads only after the page initiated safe activation;
+- returning to a visible tab checks for updates at most once every 15 minutes;
+- failed registration or update checks leave the current game untouched.
+
+Validation completed before commit:
+
+- service-worker tests prove install no longer calls `skipWaiting()`;
+- update activation requires the page’s explicit `SKIP_WAITING` message;
+- safe-state helper tests fail closed;
+- an old controlled page discovers the new waiting worker;
+- update notice is readable and touch-friendly at mobile widths;
+- choosing `LATER` never reloads;
+- the complete GameMode verification suite passes.

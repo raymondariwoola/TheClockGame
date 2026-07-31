@@ -11,6 +11,15 @@
 
   let deferredPrompt = null;
   let initialized = false;
+  let registration = null;
+  let waitingWorker = null;
+  let updateArmed = false;
+  let activating = false;
+  let lastUpdateCheck = 0;
+
+  function canApplyUpdate(game = root?.ChronosGame) {
+    try { return game?.canApplyPwaUpdate?.() === true; } catch { return false; }
+  }
 
   function isIOS(navigatorLike = root?.navigator) {
     const ua = String(navigatorLike?.userAgent || '');
@@ -49,7 +58,11 @@
     const text = doc.getElementById('pwaInstallText');
     const action = doc.getElementById('pwaInstallAction');
     const close = doc.getElementById('pwaInstallClose');
-    if (!button || !overlay || !title || !text || !action || !close) return;
+    const updateBanner = doc.getElementById('pwaUpdateBanner');
+    const updateText = doc.getElementById('pwaUpdateText');
+    const updateAction = doc.getElementById('pwaUpdateAction');
+    const updateLater = doc.getElementById('pwaUpdateLater');
+    if (!button || !overlay || !title || !text || !action || !close || !updateBanner || !updateText || !updateAction || !updateLater) return;
 
     function announce(message) {
       const live = doc.getElementById('a11yLive');
@@ -101,7 +114,85 @@
       hideInstalled();
       announce('Chronos Strike installed.');
     });
+
+    function renderUpdate() {
+      if (!waitingWorker || activating) { updateBanner.hidden = true; return; }
+      const safe = canApplyUpdate();
+      updateBanner.hidden = false;
+      if (updateArmed && !safe) {
+        updateText.textContent = 'Your run and results are safe. The update will apply when you return to the menu.';
+        updateAction.textContent = 'UPDATE ARMED';
+        updateAction.disabled = true;
+      } else {
+        updateText.textContent = safe ? 'Update now for the latest fixes.' : 'Finish this run or result flow first. Nothing will be interrupted.';
+        updateAction.textContent = safe ? 'UPDATE NOW' : 'UPDATE AFTER THIS RUN';
+        updateAction.disabled = false;
+      }
+    }
+
+    function offerUpdate(worker) {
+      if (!worker) return;
+      waitingWorker = worker;
+      renderUpdate();
+    }
+
+    function activateUpdate() {
+      if (!waitingWorker || activating || !canApplyUpdate()) return false;
+      activating = true;
+      updateText.textContent = 'Applying the update…';
+      updateAction.textContent = 'UPDATING';
+      updateAction.disabled = true;
+      updateLater.hidden = true;
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      return true;
+    }
+
+    updateAction.addEventListener('click', () => {
+      if (canApplyUpdate()) { activateUpdate(); return; }
+      updateArmed = true;
+      renderUpdate();
+    });
+    updateLater.addEventListener('click', () => {
+      updateArmed = false;
+      updateBanner.hidden = true;
+    });
+    root.addEventListener('chronos:screenchange', () => {
+      if (updateArmed && canApplyUpdate()) activateUpdate();
+      else renderUpdate();
+    });
+
+    if ('serviceWorker' in root.navigator) {
+      root.navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!activating) return;
+        root.location.reload();
+      });
+      const registerWorker = async () => {
+        try {
+          registration = await root.navigator.serviceWorker.register('sw.js?v=12', { updateViaCache: 'none' });
+          if (registration.waiting && root.navigator.serviceWorker.controller) offerUpdate(registration.waiting);
+          registration.addEventListener('updatefound', () => {
+            const installing = registration.installing;
+            if (!installing) return;
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' && root.navigator.serviceWorker.controller) offerUpdate(installing);
+            });
+          });
+        } catch {
+          root.dispatchEvent(new CustomEvent('chronos:pwa-registration', { detail: { ok: false } }));
+        }
+      };
+      if (doc.readyState === 'complete') registerWorker();
+      else root.addEventListener('load', registerWorker, { once: true });
+
+      root.addEventListener('visibilitychange', () => {
+        if (doc.visibilityState !== 'visible' || !registration) return;
+        const now = Date.now();
+        if (now - lastUpdateCheck < 15 * 60 * 1000) return;
+        lastUpdateCheck = now;
+        registration.update().catch(() => {});
+      });
+    }
   }
 
-  return { init, isIOS, isStandalone, guidance };
+  return { init, isIOS, isStandalone, guidance, canApplyUpdate };
 });

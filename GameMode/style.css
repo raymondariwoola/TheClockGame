@@ -810,6 +810,40 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
   .strike-btn { width: 100%; max-width: 340px; }
 }
 
+.pwa-update-banner {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 260;
+  max-width: 720px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(45,255,170,0.55);
+  border-radius: 16px;
+  background: rgba(5,8,22,0.97);
+  box-shadow: 0 12px 42px rgba(0,0,0,0.65), 0 0 30px rgba(0,240,255,0.14);
+  backdrop-filter: blur(12px);
+}
+.pwa-update-banner[hidden] { display: none; }
+.pwa-update-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pwa-update-copy strong { color: var(--neon-green); font: 800 11px/1.2 'Orbitron', sans-serif; letter-spacing: 2px; }
+.pwa-update-copy span { color: var(--ink); font-size: 14px; line-height: 1.3; }
+.pwa-update-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pwa-update-actions .btn-primary { min-height: 44px; padding: 10px 15px; font-size: 10px; white-space: nowrap; }
+.pwa-update-later { min-height: 44px; padding: 8px 10px; border: 0; background: transparent; color: var(--ink-dim); font: 700 10px/1 'Orbitron', sans-serif; letter-spacing: 1px; cursor: pointer; }
+.pwa-update-later:hover { color: var(--ink); }
+
+@media (max-width: 560px) {
+  .pwa-update-banner { align-items: stretch; flex-direction: column; gap: 10px; padding: 13px; }
+  .pwa-update-actions { width: 100%; }
+  .pwa-update-actions .btn-primary { flex: 1; }
+}
+
 /* Short viewports (landscape phones, small tablets in landscape) —
    height, not width, is the constraint, so shrink the clock and gaps. */
 @media (max-height: 760px) {

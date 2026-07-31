@@ -482,12 +482,6 @@
     return { start, stop, pause, resume, setMuted, isMuted };
   })();
 
-  // Cache the coherent local game shell for offline single-player use. Online
-  // APIs and sockets always remain network-only.
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=11').catch(() => {}); });
-  }
-
   // -------- Background starfield --------
   const Stars = (() => {
     let stars = [];
@@ -894,6 +888,7 @@
       if (!el) return;
       el.classList.toggle('active', k === id);
     });
+    window.dispatchEvent(new CustomEvent('chronos:screenchange', { detail: { screen: id } }));
   }
 
   function flashJudgment(text, kind) {
@@ -3469,6 +3464,12 @@
 
   window.ChronosGame = {
     showScreen, refreshMenuStats,
+    // A service-worker update may reload only from the idle menu with no modal
+    // open. Results and sharing deliberately remain unsafe until the player
+    // returns to the menu.
+    canApplyPwaUpdate: () => screens.menu.classList.contains('active') &&
+      !Array.from(document.querySelectorAll('.overlay')).some((overlay) => !overlay.hidden) &&
+      $('countdown').hidden,
     // Deterministic-run surface (used by share cards, Daily Rift, and tests).
     RNG,
     getRunInfo: () => {

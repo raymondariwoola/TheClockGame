@@ -11,5 +11,8 @@ assert.match(PWA.guidance({ userAgent: 'Android', platform: 'Linux' }).text, /br
 assert.equal(PWA.isStandalone({ navigator: {}, matchMedia: () => ({ matches: true }) }), true);
 assert.equal(PWA.isStandalone({ navigator: { standalone: true }, matchMedia: () => ({ matches: false }) }), true);
 assert.equal(PWA.isStandalone({ navigator: {}, matchMedia: () => ({ matches: false }) }), false);
+assert.equal(PWA.canApplyUpdate({ canApplyPwaUpdate: () => true }), true);
+assert.equal(PWA.canApplyUpdate({ canApplyPwaUpdate: () => false }), false);
+assert.equal(PWA.canApplyUpdate({ canApplyPwaUpdate: () => { throw new Error('not ready'); } }), false);
 
 console.log('✓ PWA install guidance tests passed');
