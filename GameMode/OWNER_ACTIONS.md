@@ -2,11 +2,11 @@
 
 Last verified: **31 July 2026**
 
-## Pending static PWA release
+## Pending mobile gameplay gesture-lock release
 
-PWA installability, run-safe updates, and offline/cloud-status polish are complete in four local commits but have intentionally **not** been pushed or synced. The owner requested manual publication.
+The earlier PWA implementation commits are now present on GitHub `main`. The gameplay-only double-tap and pinch-zoom lock is complete in one newer local commit but has intentionally **not** been pushed or synced. The owner requested manual publication.
 
-Read [PWA_IMPLEMENTATION.md](PWA_IMPLEMENTATION.md) for the exact publish command, expected revision-14 upgrade behavior, Android/iPhone acceptance checks, troubleshooting, and forward-only rollback procedure.
+Read [MOBILE_GAMEPLAY_GESTURE_LOCK.md](MOBILE_GAMEPLAY_GESTURE_LOCK.md) for the exact behavior, publish command, Android/iPhone acceptance checks, and forward-only rollback procedure. The update moves the static shell from revision 14 to revision 15.
 
 This release changes only static files under `GameMode/`. It requires **no Cloudflare Worker deployment, variable, secret, Durable Object migration, leaderboard reset, or `.dev.vars` change**.
 

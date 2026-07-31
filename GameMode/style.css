@@ -40,6 +40,24 @@ body {
 }
 button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
 
+/* Gameplay is a fixed reflex surface: browser double-tap and pinch gestures
+   must never resize it. Informational surfaces deliberately retain native
+   panning and pinch zoom for accessibility. */
+#screen-game,
+#screen-game .hud,
+#screen-game .arena,
+#screen-game .clock-stage,
+#screen-game .strike-btn {
+  touch-action: none;
+  -ms-touch-action: none;
+}
+#screen-menu,
+#screen-over,
+#screen-board,
+.overlay {
+  touch-action: manipulation;
+}
+
 #bgFx, #fxCanvas {
   position: fixed; inset: 0;
   width: 100%; height: 100%;

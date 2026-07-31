@@ -180,12 +180,16 @@ After GitHub Pages finishes, open:
 Do not redeploy an old service-worker revision unchanged. Browsers compare and cache worker scripts independently, so rollback must be a **new forward commit**:
 
 1. Revert the faulty player-facing change in source.
-2. Increase `CACHE_VERSION` and every matching `?v=` reference to a brand-new number higher than 14.
+2. Increase `CACHE_VERSION` and every matching `?v=` reference to a brand-new number higher than the currently deployed revision.
 3. Keep the safe waiting-worker lifecycle intact unless it is itself the defect.
 4. Run `npm run verify`.
 5. Commit and push the forward fix.
 
 This preserves a coherent cache upgrade path and avoids stranding returning phones between incompatible asset revisions.
+
+## Follow-on mobile gesture phase
+
+Gameplay-only browser zoom protection is implemented in shell revision 15. It deliberately preserves browser zoom on informational screens. See `MOBILE_GAMEPLAY_GESTURE_LOCK.md` for the behavior, accessibility decision, verification, publication, and rollback instructions.
 
 ## Phase PWA-3 — offline and cloud status
 

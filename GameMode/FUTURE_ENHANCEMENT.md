@@ -424,6 +424,8 @@ The shortlist is not the only viable path. This section covers the broader optio
 
 ### 8.2 Mobile comfort and accessibility
 
+> **Implementation update — Phase 28:** gameplay-only double-tap and pinch zoom protection is complete locally in shell revision 15. Browser zoom remains available on menus, results, boards, and dialogs. See `MOBILE_GAMEPLAY_GESTURE_LOCK.md`.
+
 | Idea | Why it is useful | Implementation / caution | Rating |
 |---|---|---|---|
 | **One-thumb layout presets** | Moves secondary controls and HUD away from the preferred strike area. | Build on left-handed mode; test common small screens and safe areas. | H · M · None · Now |

@@ -27,7 +27,7 @@ assert.match(html, /<link rel="apple-touch-icon" sizes="180x180" href="assets\/i
 
 const cacheVersion = Number(/const CACHE_VERSION = (\d+);/.exec(worker)?.[1]);
 const registeredVersion = Number(/register\('sw\.js\?v=(\d+)'/.exec(pwa)?.[1]);
-assert.equal(cacheVersion, 14, 'release cache revision');
+assert.equal(cacheVersion, 15, 'release cache revision');
 assert.equal(registeredVersion, cacheVersion, 'page and service worker revision must match');
 for (const match of html.matchAll(/[?&]v=(\d+)/g)) assert.equal(Number(match[1]), cacheVersion, `HTML asset revision ${match[1]} must match cache`);
 for (const match of worker.matchAll(/[?&]v=(\d+)/g)) assert.equal(Number(match[1]), cacheVersion, `shell asset revision ${match[1]} must match cache`);
