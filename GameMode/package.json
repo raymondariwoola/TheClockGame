@@ -5,7 +5,7 @@
   "description": "Chronos Strike static game, shared rules, tests, and Cloudflare backend",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
-    "test": "node engine.test.mjs && node game.loadtest.cjs && node tests/run-context.test.cjs && node tests/storage-reset.test.cjs && node tests/protocol.test.mjs && node tests/match-protocol.test.mjs && node tests/cheat-state.test.cjs && node tests/ghost-client.test.cjs && node tests/multiplayer-client.test.cjs && node tests/share-cards.test.cjs && node tests/result-publish-flow.test.cjs && node tests/leaderboard-navigation.test.cjs && node tests/service-worker.test.cjs && npm --prefix worker test",
+    "test": "node engine.test.mjs && node game.loadtest.cjs && node tests/run-context.test.cjs && node tests/storage-reset.test.cjs && node tests/protocol.test.mjs && node tests/match-protocol.test.mjs && node tests/cheat-state.test.cjs && node tests/ghost-client.test.cjs && node tests/multiplayer-client.test.cjs && node tests/share-cards.test.cjs && node tests/result-publish-flow.test.cjs && node tests/leaderboard-navigation.test.cjs && node tests/pwa-install.test.cjs && node tests/service-worker.test.cjs && npm --prefix worker test",
     "test:integration": "npm --prefix worker run test:integration",
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:no-gist": "node scripts/check-no-gist-runtime.mjs",

@@ -3,10 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#080416" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Chronos Strike" />
 <title>Chronos Strike — Reflex Clock</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=10">
-<link rel="stylesheet" href="style.css?v=10" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=11">
+<link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -131,6 +139,12 @@
       <button class="menu-board-btn a11y" id="menuA11yBtn">
         <span class="mb-icon">♿</span>
         <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
+        <span class="mb-arrow">→</span>
+      </button>
+
+      <button class="menu-board-btn pwa-install" id="pwaInstallBtn" type="button" hidden>
+        <span class="mb-icon">↧</span>
+        <span class="mb-text">INSTALL CHRONOS STRIKE</span>
         <span class="mb-arrow">→</span>
       </button>
 
@@ -485,22 +499,36 @@
     </div>
   </div>
 
+  <!-- Progressive web app installation guidance. -->
+  <div id="pwaInstallOverlay" class="overlay" hidden>
+    <div class="overlay-card pwa-install-card" role="dialog" aria-modal="true" aria-labelledby="pwaInstallTitle">
+      <div class="pwa-install-icon" aria-hidden="true">↧</div>
+      <h2 id="pwaInstallTitle">INSTALL CHRONOS STRIKE</h2>
+      <p id="pwaInstallText">Install for quick access and offline single-player after the first successful load.</p>
+      <div class="pwa-install-actions">
+        <button class="btn-primary" id="pwaInstallAction" type="button">INSTALL</button>
+        <button class="btn-secondary" id="pwaInstallClose" type="button">NOT NOW</button>
+      </div>
+    </div>
+  </div>
+
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=10"></script>
+  <script src="vendor/anime.min.js?v=11"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=10"></script>
-  <script src="js/storage.js?v=10"></script>
-  <script src="js/run-context.js?v=10"></script>
-  <script src="js/cheat-state.js?v=10"></script>
-  <script src="js/ghost-client.js?v=10"></script>
-  <script src="js/multiplayer.js?v=10"></script>
-  <script src="js/share-cards.js?v=10"></script>
-  <script src="local-reset-config.js?v=10"></script>
-  <script src="leaderboard-config.js?v=10"></script>
-  <script src="game.js?v=10"></script>
-  <script src="leaderboard.js?v=10"></script>
-  <script src="js/ghost-ui.js?v=10"></script>
-  <script src="js/multiplayer-ui.js?v=10"></script>
-  <script src="share.js?v=10"></script>
+  <script src="engine.js?v=11"></script>
+  <script src="js/storage.js?v=11"></script>
+  <script src="js/run-context.js?v=11"></script>
+  <script src="js/cheat-state.js?v=11"></script>
+  <script src="js/ghost-client.js?v=11"></script>
+  <script src="js/multiplayer.js?v=11"></script>
+  <script src="js/share-cards.js?v=11"></script>
+  <script src="local-reset-config.js?v=11"></script>
+  <script src="leaderboard-config.js?v=11"></script>
+  <script src="js/pwa.js?v=11"></script>
+  <script src="game.js?v=11"></script>
+  <script src="leaderboard.js?v=11"></script>
+  <script src="js/ghost-ui.js?v=11"></script>
+  <script src="js/multiplayer-ui.js?v=11"></script>
+  <script src="share.js?v=11"></script>
 </body>
 </html>

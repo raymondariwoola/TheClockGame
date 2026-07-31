@@ -112,7 +112,7 @@ If only a handful of items are selected, these provide the best combination of f
 | 8 | Pass-the-phone Party Relay | H | M | None | Immediate group fun with no network setup |
 | 9 | Personal mastery and expanded achievements | M-H | M | None | Adds long-term goals without accounts or spending |
 | 10 | QR invitation and join flow | M-H | S | None | Removes room-code friction when people are together |
-| 11 | PWA install, update, and offline-status polish | M-H | M | None | Prevents stale mobile builds and makes the game feel app-like |
+| 11 | PWA install, update, and offline-status polish | M-H | M | None | **Selected; PWA-1 complete locally.** Prevents stale mobile builds and makes the game feel app-like |
 | 12 | Private Family Cup | H | L | Moderate | A lightweight, expiring group season without public accounts |
 
 ### 4.1 Practice from mistakes
@@ -664,7 +664,7 @@ Copy this table into a new implementation issue/plan and mark the desired items.
 | [ ] | Practice from mistakes | Skill improvement | FE-1 |
 | [ ] | Results coach / rival comparison | Meaningful results and rematches | FE-1 |
 | [ ] | QR invites / deep-link recovery | Easier mobile joining | FE-1 |
-| [ ] | PWA update / offline polish | Reliability on returning phones | FE-1 |
+| [x] | PWA update / offline polish | **In progress: install foundation complete; safe updates and status pending** | FE-1 |
 | [ ] | One-thumb / orientation / battery pass | Mobile comfort | FE-1 |
 | [ ] | Quick Strike | Short repeatable play | FE-2 |
 | [ ] | Pure Skill | Clean skill benchmark | FE-2 |
