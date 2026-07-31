@@ -16,7 +16,7 @@ Make Chronos Strike reliably installable, safely updateable, and clear about off
 |---|---|---|
 | PWA-1 | Installability foundation, icon set, manifest, and install guidance | Complete locally |
 | PWA-2 | Run-safe service-worker update discovery and activation | Complete locally |
-| PWA-3 | Offline/cloud status, recovery actions, and relevant messaging | Pending |
+| PWA-3 | Offline/cloud status, recovery actions, and relevant messaging | Complete locally |
 | PWA-4 | Full regression validation and owner handoff | Pending |
 
 ## Phase PWA-1 — installability foundation
@@ -71,4 +71,29 @@ Validation completed before commit:
 - an old controlled page discovers the new waiting worker;
 - update notice is readable and touch-friendly at mobile widths;
 - choosing `LATER` never reloads;
+- the complete GameMode verification suite passes.
+
+## Phase PWA-3 — offline and cloud status
+
+Implemented:
+
+- separate `offline`, `cloud_unavailable`, `checking`, and `online` states;
+- a bounded `/v1/health` check on initial load, browser reconnect, manual retry, and return to a visible tab after five minutes;
+- known browser-offline state never wastes a health request;
+- a persistent menu status appears only when offline or Cloudflare is unavailable;
+- a short non-blocking status notice keeps active gameplay readable;
+- the detail panel explicitly lists local features that remain available and cloud features that need connectivity;
+- a manual `TRY AGAIN` action recovers without reloading the page;
+- online recovery hides the warning and briefly confirms that cloud play is ready;
+- local development uses the existing same-origin `/v1` proxy while production uses the configured Cloudflare Worker;
+- health responses and connectivity state remain transient and store no player data.
+
+Validation completed before commit:
+
+- monitor tests cover browser offline, healthy Cloudflare, failed fetch, and unhealthy response;
+- health requests use `no-store` and never run when `navigator.onLine` is false;
+- local and production health base URLs resolve correctly;
+- offline/cloud controls remain usable at narrow mobile widths;
+- status does not obscure the strike control or interrupt a run;
+- update notices yield to open dialogs, and the modal observer ignores its own banner changes;
 - the complete GameMode verification suite passes.

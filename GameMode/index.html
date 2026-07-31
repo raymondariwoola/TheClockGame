@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=12">
-<link rel="stylesheet" href="style.css?v=12" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=14">
+<link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -146,6 +146,12 @@
         <span class="mb-icon">↧</span>
         <span class="mb-text">INSTALL CHRONOS STRIKE</span>
         <span class="mb-arrow">→</span>
+      </button>
+
+      <button class="menu-board-btn pwa-connection" id="pwaConnectionBtn" type="button" hidden>
+        <span class="mb-icon" id="pwaConnectionIcon">○</span>
+        <span class="mb-text" id="pwaConnectionLabel">CHECKING CONNECTION</span>
+        <span class="mb-arrow">DETAILS</span>
       </button>
 
       <div class="menu-controls">
@@ -512,6 +518,29 @@
     </div>
   </div>
 
+  <!-- Connectivity detail. Online status stays out of the menu unless attention is needed. -->
+  <div id="pwaConnectionOverlay" class="overlay" hidden>
+    <div class="overlay-card pwa-connection-card" role="dialog" aria-modal="true" aria-labelledby="pwaConnectionTitle">
+      <div class="pwa-connection-glyph" id="pwaConnectionGlyph" aria-hidden="true">⌁</div>
+      <h2 id="pwaConnectionTitle">CONNECTION STATUS</h2>
+      <p class="pwa-connection-summary" id="pwaConnectionSummary">Checking cloud availability…</p>
+      <div class="pwa-availability local">
+        <strong>AVAILABLE LOCALLY</strong>
+        <span>Classic · Endless · Zen · personal ghosts · achievements · cosmetics · private cheats</span>
+      </div>
+      <div class="pwa-availability cloud" id="pwaCloudAvailability">
+        <strong>CLOUD PLAY</strong>
+        <span id="pwaCloudAvailabilityText">Checking leaderboard, Daily, Ghost challenges, and Chrono Clash…</span>
+      </div>
+      <div class="pwa-connection-actions">
+        <button class="btn-primary" id="pwaConnectionRetry" type="button">TRY AGAIN</button>
+        <button class="btn-secondary" id="pwaConnectionClose" type="button">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pwaConnectionToast" class="pwa-connection-toast" role="status" aria-live="polite" hidden></div>
+
   <!-- Non-modal update notice; activation is deferred until the game reports a safe menu state. -->
   <aside id="pwaUpdateBanner" class="pwa-update-banner" role="status" aria-live="polite" hidden>
     <div class="pwa-update-copy">
@@ -525,22 +554,22 @@
   </aside>
 
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=12"></script>
+  <script src="vendor/anime.min.js?v=14"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=12"></script>
-  <script src="js/storage.js?v=12"></script>
-  <script src="js/run-context.js?v=12"></script>
-  <script src="js/cheat-state.js?v=12"></script>
-  <script src="js/ghost-client.js?v=12"></script>
-  <script src="js/multiplayer.js?v=12"></script>
-  <script src="js/share-cards.js?v=12"></script>
-  <script src="local-reset-config.js?v=12"></script>
-  <script src="leaderboard-config.js?v=12"></script>
-  <script src="js/pwa.js?v=12"></script>
-  <script src="game.js?v=12"></script>
-  <script src="leaderboard.js?v=12"></script>
-  <script src="js/ghost-ui.js?v=12"></script>
-  <script src="js/multiplayer-ui.js?v=12"></script>
-  <script src="share.js?v=12"></script>
+  <script src="engine.js?v=14"></script>
+  <script src="js/storage.js?v=14"></script>
+  <script src="js/run-context.js?v=14"></script>
+  <script src="js/cheat-state.js?v=14"></script>
+  <script src="js/ghost-client.js?v=14"></script>
+  <script src="js/multiplayer.js?v=14"></script>
+  <script src="js/share-cards.js?v=14"></script>
+  <script src="local-reset-config.js?v=14"></script>
+  <script src="leaderboard-config.js?v=14"></script>
+  <script src="js/pwa.js?v=14"></script>
+  <script src="game.js?v=14"></script>
+  <script src="leaderboard.js?v=14"></script>
+  <script src="js/ghost-ui.js?v=14"></script>
+  <script src="js/multiplayer-ui.js?v=14"></script>
+  <script src="share.js?v=14"></script>
 </body>
 </html>

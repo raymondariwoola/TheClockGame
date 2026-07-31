@@ -990,6 +990,11 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
   background: linear-gradient(90deg, rgba(45,255,170,0.08), rgba(0,240,255,0.08));
 }
 .menu-board-btn.pwa-install .mb-icon { color: var(--neon-green); filter: drop-shadow(0 0 10px rgba(45,255,170,0.7)); }
+.menu-board-btn.pwa-connection { border-color: rgba(255,224,102,0.48); background: linear-gradient(90deg, rgba(255,224,102,0.08), rgba(255,120,50,0.07)); }
+.menu-board-btn.pwa-connection .mb-icon { color: var(--neon-yellow); filter: drop-shadow(0 0 10px rgba(255,224,102,0.65)); }
+.menu-board-btn.pwa-connection .mb-arrow { color: var(--ink-dim); font-size: 9px; letter-spacing: 1px; }
+.menu-board-btn.pwa-connection[data-state="offline"] { border-color: rgba(255,80,110,0.5); }
+.menu-board-btn.pwa-connection[data-state="offline"] .mb-icon { color: var(--neon-red); }
 
 .pwa-install-card {
   max-width: 440px;
@@ -1010,10 +1015,48 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 .pwa-install-card p { color: var(--ink-dim); line-height: 1.55; margin: 6px 0 22px; }
 .pwa-install-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
+.pwa-connection-card { max-width: 500px; text-align: center; }
+.pwa-connection-glyph { color: var(--neon-yellow); font: 800 38px/1 'Orbitron', sans-serif; margin-bottom: 8px; }
+.pwa-connection-card[data-state="online"] .pwa-connection-glyph { color: var(--neon-green); }
+.pwa-connection-card[data-state="offline"] .pwa-connection-glyph { color: var(--neon-red); }
+.pwa-connection-summary { color: var(--ink); font-size: 15px; line-height: 1.45; margin: 6px 0 16px; }
+.pwa-availability { padding: 12px 14px; margin-top: 10px; border: 1px solid rgba(230,239,255,0.13); border-radius: 12px; text-align: left; background: rgba(255,255,255,0.025); }
+.pwa-availability strong { display: block; color: var(--neon-green); font: 800 9px/1.3 'Orbitron', sans-serif; letter-spacing: 2px; margin-bottom: 5px; }
+.pwa-availability span { color: var(--ink-dim); font-size: 13px; line-height: 1.4; }
+.pwa-availability.cloud strong { color: var(--neon-yellow); }
+.pwa-connection-card[data-state="online"] .pwa-availability.cloud strong { color: var(--neon-green); }
+.pwa-connection-card[data-state="offline"] .pwa-availability.cloud strong { color: var(--neon-red); }
+.pwa-connection-actions { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+.pwa-connection-toast {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 255;
+  max-width: min(92vw, 500px);
+  padding: 9px 14px;
+  border: 1px solid rgba(255,224,102,0.5);
+  border-radius: 999px;
+  color: var(--neon-yellow);
+  background: rgba(5,8,22,0.96);
+  box-shadow: 0 8px 26px rgba(0,0,0,0.55);
+  font: 800 9px/1.25 'Orbitron', sans-serif;
+  letter-spacing: 1.4px;
+  text-align: center;
+  pointer-events: none;
+}
+.pwa-connection-toast[hidden] { display: none; }
+.pwa-connection-toast.online { color: var(--neon-green); border-color: rgba(45,255,170,0.5); }
+.pwa-connection-toast.offline { color: var(--neon-red); border-color: rgba(255,80,110,0.5); }
+
 @media (max-width: 500px) {
   .pwa-install-card { width: min(92vw, 440px); padding: 24px 18px; }
   .pwa-install-actions { flex-direction: column; }
   .pwa-install-actions button { width: 100%; min-height: 48px; }
+  .pwa-connection-card { width: min(92vw, 500px); padding: 22px 16px; }
+  .pwa-connection-actions { flex-direction: column; }
+  .pwa-connection-actions button { width: 100%; min-height: 48px; }
 }
 
 /* Game-over qualification banner */
