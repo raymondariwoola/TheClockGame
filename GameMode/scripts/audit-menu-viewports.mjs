@@ -65,6 +65,7 @@ async function auditViewport(width, height) {
   });
   await send('Page.navigate', { url: `${gameUrl}?ui-audit=${width}x${height}` });
   await waitForGame();
+  await wait(1450); // allow the optional entrance animation to settle before visual capture
 
   const snapshot = await evaluate(`(() => {
     const rect = (element) => {
@@ -75,6 +76,7 @@ async function auditViewport(width, height) {
       viewport: { width: innerWidth, height: innerHeight },
       overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       nav: rect(document.querySelector('.menu-nav')),
+      start: rect(document.querySelector('#menuStartBtn')),
       buttons: [...document.querySelectorAll('[data-menu-nav]')].map((button) => ({
         name: button.dataset.menuNav, current: button.getAttribute('aria-current'), ...rect(button),
       })),
@@ -93,6 +95,8 @@ async function auditViewport(width, height) {
     assert.ok(button.left >= 0 && button.right <= width, `${button.name} stays inside the viewport`);
     assert.ok(button.height >= 44, `${button.name} keeps a 44px touch target`);
   }
+  assert.ok(snapshot.start.top >= 0 && snapshot.start.bottom <= snapshot.nav.top,
+    `${width}x${height} keeps the complete Start action above the fixed navigation`);
   assert.equal(snapshot.active, 'play');
   assert.equal(snapshot.panels.filter((panel) => !panel.hidden && !panel.inert).length, 1, 'one destination is exposed initially');
 
@@ -136,6 +140,9 @@ try {
   });
   await send('Page.enable');
   await send('Runtime.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: "try { localStorage.setItem('cs_identity_prompted', '1'); } catch {}",
+  });
   const results = [];
   for (const viewport of [[320, 568], [390, 844]]) results.push(await auditViewport(...viewport));
   console.log('✓ menu viewport audit passed');

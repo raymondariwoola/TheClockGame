@@ -14,7 +14,7 @@
 |---|---|---|
 | UI-0 | Characterization and interaction contract | Complete |
 | UI-1 | Menu shell and four-destination navigation | Complete |
-| UI-2 | Compact Play destination | Not started |
+| UI-2 | Compact Play destination | Complete |
 | UI-3 | Compete destination and deep-link routing | Not started |
 | UI-4 | Progress and Settings destinations | Not started |
 | UI-5 | Responsive visual/PWA polish | Not started |
@@ -58,7 +58,7 @@ At 390 × 844 the menu measured 2,467 px, approximately 2.9 screens. At 320 × 5
 ### Interaction contract
 
 - Existing action and state IDs remain unique and authoritative.
-- The three `.mode-card` controls remain the local-run launch entry points until UI-2 intentionally introduces selection plus Start.
+- The three `.mode-card` controls are now UI-only selectors; one explicit Start control delegates to the unchanged `startMode` entry point.
 - Difficulty continues to use the current `easy` and `hardcore` values internally.
 - Existing overlay modules remain responsible for identity, achievements, cosmetics, accessibility, installation, connection status, Clash, Ghost, and leaderboard flows.
 - The menu remains the safe screen for applying a waiting service-worker update.
@@ -95,6 +95,30 @@ Completed before commit on 1 August 2026:
 - syntax, no-Gist-runtime, and Worker deployment dry-run checks passed;
 - device-emulated 320 × 568 and 390 × 844 audits confirmed four visible destinations, minimum 44 px targets, correct exclusive panel state, correct `aria-current`, and no horizontal overflow;
 - screenshots were visually inspected at both audited sizes;
+- `git diff --check` passed.
+
+## UI-2 — Compact Play destination
+
+### Implemented
+
+- Converted Classic, Endless, and Zen from three expanded launch cards into a compact, announced selector.
+- Added one prominent Start action that clears special-run context and delegates to the existing `startMode` function.
+- Persisted only the last local menu selection under `cs_menu_mode_v1`; run state and run construction remain authoritative in the existing game module.
+- Kept Normal / Hardcore persistence and added correct `aria-pressed` state.
+- Added a single contextual mode description instead of three permanently expanded descriptions.
+- Added a compact Daily preview on Play. Its Play action shares the same `Daily.play` launcher as the full Compete card, and Details changes only the active destination.
+- Compacted the menu brand/header and Play spacing enough to keep the full Start control above the fixed navigation at both audited phone sizes.
+
+### UI-2 validation
+
+Completed before commit on 1 August 2026:
+
+- menu contract, shell, compact-Play, run-context, Daily, leaderboard, Ghost, multiplayer, cheat, PWA, and service-worker tests passed;
+- static tests prove that mode taps only select and the explicit Start action calls the unchanged `startMode(selected)` path;
+- full and compact Daily controls share one launcher;
+- all 1,769 engine assertions and the full client/Worker validation passed;
+- 320 × 568 and 390 × 844 device-emulated audits confirmed no horizontal overflow, four visible destinations, and the complete Start action above fixed navigation;
+- settled-state screenshots were visually inspected at both sizes;
 - `git diff --check` passed.
 
 ## Resume rule

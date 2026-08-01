@@ -1,6 +1,6 @@
 # Chronos Strike future enhancements
 
-> **Status:** living roadmap — PWA polish is complete locally; menu/UI cleanup implementation is active, with UI-0 and UI-1 complete locally.
+> **Status:** living roadmap — PWA polish is complete locally; menu/UI cleanup implementation is active, with UI-0 through UI-2 complete locally.
 >
 > **Scope:** `GameMode/` only.
 >
@@ -535,7 +535,7 @@ The following may sound impressive but are poor choices for this game now.
 
 > **Decision:** complete this work before adding another major gameplay enhancement.
 >
-> **Current state:** UI-0 characterization and UI-1 four-destination shell are complete locally. UI-2 through UI-6 remain in progress; see `UI_CLEANUP_IMPLEMENTATION.md`.
+> **Current state:** UI-0 characterization, UI-1 four-destination shell, and UI-2 compact Play are complete locally. UI-3 through UI-6 remain in progress; see `UI_CLEANUP_IMPLEMENTATION.md`.
 >
 > **Scope:** the `GameMode/` menu and its navigation surfaces. The clock gameplay, scoring, powers, cheats, multiplayer protocols, Worker API, leaderboards, ghosts, sharing, and result flows are protected behavior and are not being redesigned in this phase.
 
@@ -995,7 +995,7 @@ Copy this table into a new implementation issue/plan and mark the desired items.
 
 | Select | Enhancement | Main reason | Suggested phase |
 |:---:|---|---|---|
-| [x] | Mobile menu and UI information architecture | **Implementation active; UI-0 and UI-1 complete locally** | UI-0 to UI-6 |
+| [x] | Mobile menu and UI information architecture | **Implementation active; UI-0 through UI-2 complete locally** | UI-0 to UI-6 |
 | [ ] | Practice from mistakes | Skill improvement | FE-1 |
 | [ ] | Results coach / rival comparison | Meaningful results and rematches | FE-1 |
 | [ ] | QR invites / deep-link recovery | Easier mobile joining | FE-1 |

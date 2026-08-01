@@ -53,32 +53,51 @@
             <h2 id="menuHubPlayTitle" tabindex="-1">PLAY</h2>
           </div>
 
-          <div class="difficulty-row">
-            <span class="diff-title">DIFFICULTY</span>
-            <div class="difficulty-toggle" role="group" aria-label="Difficulty">
-              <button class="diff-opt selected" data-diff="easy" type="button">😌 NORMAL</button>
-              <button class="diff-opt" data-diff="hardcore" type="button">💀 HARDCORE <span class="diff-mult">2×</span></button>
-            </div>
-            <p class="diff-hint">Hardcore is faster, meaner, and relentlessly taunts you — but pays <strong>double points</strong>. (Zen ignores this.)</p>
-          </div>
-
-          <div class="menu-modes">
-            <button class="mode-card" data-mode="classic">
+          <div class="menu-modes" role="group" aria-label="Game mode">
+            <button class="mode-card selected" data-mode="classic" type="button" aria-pressed="true">
               <span class="mode-emoji">⚡</span>
               <span class="mode-title">Classic</span>
               <span class="mode-desc">40 rounds, 3 lives, escalating mayhem</span>
             </button>
-            <button class="mode-card" data-mode="endless">
+            <button class="mode-card" data-mode="endless" type="button" aria-pressed="false">
               <span class="mode-emoji">∞</span>
               <span class="mode-title">Endless</span>
               <span class="mode-desc">No end. One life. How far can you go?</span>
             </button>
-            <button class="mode-card" data-mode="zen">
+            <button class="mode-card" data-mode="zen" type="button" aria-pressed="false">
               <span class="mode-emoji">🌀</span>
               <span class="mode-title">Zen</span>
               <span class="mode-desc">No lives, no rush. Practice your timing.</span>
             </button>
           </div>
+
+          <p class="menu-mode-summary" id="menuModeSummary" aria-live="polite">40 rounds, 3 lives, escalating mayhem</p>
+
+          <div class="difficulty-row">
+            <span class="diff-title">DIFFICULTY</span>
+            <div class="difficulty-toggle" role="group" aria-label="Difficulty">
+              <button class="diff-opt selected" data-diff="easy" type="button" aria-pressed="true">😌 NORMAL</button>
+              <button class="diff-opt" data-diff="hardcore" type="button" aria-pressed="false">💀 HARDCORE <span class="diff-mult">2×</span></button>
+            </div>
+            <p class="diff-hint">Hardcore is faster, meaner, and relentlessly taunts you — but pays <strong>double points</strong>. (Zen ignores this.)</p>
+          </div>
+
+          <button class="menu-start-btn" id="menuStartBtn" type="button">
+            <span class="menu-start-icon" aria-hidden="true">▶</span>
+            <span id="menuStartLabel">START CLASSIC</span>
+          </button>
+
+          <article class="daily-quick" id="dailyQuickCard" hidden aria-labelledby="dailyQuickTitle">
+            <div class="daily-quick-copy">
+              <span class="daily-quick-kicker">TODAY'S RIFT</span>
+              <strong id="dailyQuickTitle">—</strong>
+              <span id="dailyQuickStatus">Classic · Normal</span>
+            </div>
+            <div class="daily-quick-actions">
+              <button id="dailyQuickPlayBtn" type="button">PLAY</button>
+              <button id="dailyQuickDetailsBtn" type="button" aria-label="Open Daily Rift details">DETAILS</button>
+            </div>
+          </article>
         </section>
 
         <section class="menu-hub" id="menuHubCompete" data-menu-destination="compete" aria-labelledby="menuHubCompeteTitle" hidden inert>

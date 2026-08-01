@@ -1987,23 +1987,87 @@
   }
 
   // -------- Bindings --------
-  $$('.mode-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      State.dailyRun = false; State.rivalRun = false; State.ghostChallenge = null; State.clashRun = null;
-      if (window.anime) {
-        anime({ targets: btn, scale: [1, 1.1, 1], duration: 250 });
+  const ModeMenu = (() => {
+    const KEY = 'cs_menu_mode_v1';
+    const cards = $$('.mode-card');
+    const startButton = $('menuStartBtn');
+    const summary = $('menuModeSummary');
+    let selected = 'classic';
+    let starting = false;
+    try {
+      const saved = localStorage.getItem(KEY);
+      if (CONFIG.modes[saved]) selected = saved;
+    } catch {}
+
+    function paint() {
+      cards.forEach((card) => {
+        const active = card.dataset.mode === selected;
+        card.classList.toggle('selected', active);
+        card.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      const mode = CONFIG.modes[selected];
+      if (summary) {
+        const description = mode.desc.replace('{rounds}', CONFIG.classicRounds);
+        summary.textContent = selected === 'zen' ? `${description} Difficulty is ignored.` : description;
       }
-      setTimeout(() => startMode(mode), 200);
-    });
-  });
+      const hardcore = selected !== 'zen' && !!document.querySelector('.diff-opt[data-diff="hardcore"].selected');
+      const label = $('menuStartLabel');
+      if (label) label.textContent = selected === 'zen'
+        ? 'START PRECISION LAB'
+        : `START ${mode.title.toUpperCase()}${hardcore ? ' · HARDCORE' : ''}`;
+    }
+
+    function select(mode, options = {}) {
+      if (!CONFIG.modes[mode]) return selected;
+      selected = mode;
+      try { localStorage.setItem(KEY, selected); } catch {}
+      paint();
+      const card = cards.find((item) => item.dataset.mode === selected);
+      if (options.animate !== false && card && window.anime) {
+        anime({ targets: card, scale: [1, 1.06, 1], duration: 220 });
+      }
+      return selected;
+    }
+
+    function start() {
+      if (starting) return false;
+      starting = true;
+      if (startButton) startButton.disabled = true;
+      State.dailyRun = false;
+      State.rivalRun = false;
+      State.rivalRecord = null;
+      State.ghostChallenge = null;
+      State.clashRun = null;
+      if (window.anime && startButton) anime({ targets: startButton, scale: [1, 1.025, 1], duration: 180 });
+      setTimeout(() => {
+        starting = false;
+        if (startButton) startButton.disabled = false;
+        startMode(selected);
+      }, 160);
+      return true;
+    }
+
+    function wire() {
+      cards.forEach((card) => card.addEventListener('click', () => select(card.dataset.mode)));
+      startButton?.addEventListener('click', start);
+      paint();
+    }
+
+    return { wire, select, start, refresh: paint, selected: () => selected };
+  })();
+  ModeMenu.wire();
 
   // Daily Rift launch
   const dailyPlayBtn = $('dailyPlayBtn');
-  if (dailyPlayBtn) dailyPlayBtn.addEventListener('click', (e) => {
-    if (window.anime) anime({ targets: dailyPlayBtn, scale: [1, 1.08, 1], duration: 220 });
+  const dailyQuickPlayBtn = $('dailyQuickPlayBtn');
+  function launchDaily(e) {
+    const source = e?.currentTarget || dailyPlayBtn;
+    if (window.anime && source) anime({ targets: source, scale: [1, 1.08, 1], duration: 220 });
     setTimeout(() => Daily.play(e), 180);
-  });
+  }
+  dailyPlayBtn?.addEventListener('click', launchDaily);
+  dailyQuickPlayBtn?.addEventListener('click', launchDaily);
+  $('dailyQuickDetailsBtn')?.addEventListener('click', () => MenuShell.select('compete', { focusHeading: true }));
 
   // Rival Codes: share your best Daily ghost, or paste a code to race one.
   const dailyChallengeBtn = $('dailyChallengeBtn');
@@ -2125,8 +2189,13 @@
     try { hardcore = localStorage.getItem(KEY) === '1'; } catch (e) {}
     const opts = $$('.diff-opt');
     function paint() {
-      opts.forEach(b => b.classList.toggle('selected', (b.dataset.diff === 'hardcore') === hardcore));
+      opts.forEach(b => {
+        const selected = (b.dataset.diff === 'hardcore') === hardcore;
+        b.classList.toggle('selected', selected);
+        b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
       document.body.classList.toggle('hardcore-armed', hardcore);
+      ModeMenu.refresh();
     }
     opts.forEach(b => b.addEventListener('click', () => {
       hardcore = b.dataset.diff === 'hardcore';
@@ -3502,8 +3571,10 @@
       const prev = previewFor(key);
       const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
       set('dailyName', nameFor(key));
+      set('dailyQuickTitle', nameFor(key));
       const bits = [`Opens ${prev.opensDir}`, `${prev.modifierCount} modifiers`, `${prev.bossCount} bosses`];
       set('dailyPreview', 'Classic · Normal · ' + bits.join(' · '));
+      set('dailyQuickStatus', rec.completed ? 'Cleared today · play again' : 'Classic · Normal · one shared seed');
       set('dailyBest', rec.best > 0 ? `Best today: ${rec.best.toLocaleString()} (${rec.bestRank})` : 'Best today: —');
       set('dailyAttempts', `Attempts: ${rec.attempts}`);
       // Ghost line: if a best-run ghost exists for today, advertise the race.
@@ -3519,6 +3590,8 @@
       const badge = document.getElementById('dailyDone');
       if (badge) badge.hidden = !rec.completed;
       card.hidden = false;
+      const quickCard = document.getElementById('dailyQuickCard');
+      if (quickCard) quickCard.hidden = false;
       tickCountdown();
       if (!countdownTimer) countdownTimer = setInterval(tickCountdown, 1000);
     }

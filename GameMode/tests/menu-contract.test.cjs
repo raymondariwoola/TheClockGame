@@ -55,8 +55,9 @@ for (const difficulty of ['easy', 'hardcore']) {
 }
 
 const requiredBindings = [
-  [/\$\$\('\.mode-card'\)\.forEach/, 'local mode handlers'],
-  [/dailyPlayBtn\.addEventListener\('click'/, 'Daily launch handler'],
+  [/cards\.forEach\(\(card\) => card\.addEventListener\('click'/, 'local mode selection handlers'],
+  [/startButton\?\.addEventListener\('click', start\)/, 'explicit local-run Start handler'],
+  [/dailyPlayBtn\?\.addEventListener\('click', launchDaily\)/, 'Daily launch handler'],
   [/rivalRaceBtn\.addEventListener\('click'/, 'Rival Code handler'],
   [/menuAchBtn\.addEventListener\('click'/, 'achievement handler'],
   [/menuCosBtn\.addEventListener\('click'/, 'cosmetics handler'],
