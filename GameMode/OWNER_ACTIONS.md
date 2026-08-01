@@ -2,38 +2,36 @@
 
 Last verified: **1 August 2026**
 
-## Current pending release: five family-session enhancements
+## Current pending release: room code and mobile gameplay header correction
 
-UI-0 through UI-6 are already published. The five selected family-session enhancements are complete locally in the requested order: Preset Reactions, Time Shards / Secret Sabotage, Compact Rematch Stories, voluntary Skill Handicap Presets, and Objective Cards. A follow-up now adds verified reaction delivery feedback and prevents the mobile Clash controls from covering STRIKE.
+UI-0 through UI-6, the five selected family-session enhancements, and the reaction/mobile-action correction are published. The current local follow-up restores a prominent voiceable Clash room code and rebuilds the narrow gameplay header so score, combo, round, Clash status, lives, audio, pause, Objective Cards, and powers cannot cover one another.
 
-The local sequence now advances the static PWA shell from revision 16 to revision 22 and updates the existing Match Durable Object code. Publication requires one deployment of the existing Worker followed by the ordinary Git push. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not deployed, pushed, or synchronized it.
+This client-only correction advances the static PWA shell from revision 22 to revision 23. It requires **no Worker deployment, new binding, secret, Durable Object change, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
 
-### Confirmed cause of the missing reactions
+### Cloudflare deployment screenshot review
 
-Production is currently mixed-version. GitHub Pages serves shell revision 21, but `wrangler deployments list` shows Cloudflare's newest Worker upload is version `34373023-619f-4a74-bc7d-7b3c934cf850`, created 30 July 2026—before Preset Reactions and the other four family phases were implemented. The old Worker rejects the client's reaction envelope, so the rival cannot receive it. Deploying the current Worker is required; changing browser storage or creating another Worker will not fix it.
+The attached terminal output is a successful deployment. Wrangler uploaded `chronos-leaderboard`, retained the three expected Durable Object bindings and feature flags, deployed the `workers.dev` trigger, and reported current version `74815113-0d2b-496a-9cd3-22fd830cf6bb`. There is no error or warning requiring a Worker fix.
+
+Wrangler 4.118.0 being available is informational. The repository intentionally pins 4.115.0, which completed the deployment, so do not update it as part of this UI release. The Cloudflare-skills installation message concerns local coding assistants; it does not change the Worker runtime, bindings, storage, leaderboard, or billing.
 
 ### Your publication steps
 
-Deploy the backward-compatible Worker first, then publish the client that uses its new Clash messages:
+Run the checks, then publish the static revision:
 
 ```powershell
 cd D:\GitHub\TheClockGame\GameMode
 npm run verify
 npm run audit:menu
 
-cd worker
-npx wrangler whoami
-npm run deploy
-
-cd ..\..
+cd ..
 git status --short --branch
 git log --oneline origin/main..main
 git push origin main
 ```
 
-`npm run verify`, `npm run audit:menu`, `wrangler whoami`, `git status`, and `git log` are checks. `npm run deploy` updates the existing `chronos-leaderboard` Worker; `git push` publishes the static site through the existing GitHub Pages workflow. Before either publication command, confirm Wrangler names the intended Cloudflare account and the Git output contains only the reviewed family-feature work plus this reaction/layout correction. Do not create a new Worker in the dashboard.
+`npm run verify`, `npm run audit:menu`, `git status`, and `git log` are checks. `git push` publishes the static site through the existing GitHub Pages workflow. Confirm the Git output contains only the reviewed room-code/mobile-header correction before pushing. Do not redeploy or create a Worker for this release.
 
-After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 22 can install cleanly.
+After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 23 can install cleanly.
 
 ### Required physical acceptance
 
@@ -50,19 +48,21 @@ Use at least one ordinary Android phone and, if available, one iPhone:
 - Family/friend check: without coaching, ask one person to start Normal Classic, find Clash, view the Hall, change accessibility, and find install/update guidance.
 - Objective Cards: start a local run and confirm exactly two cards fit without covering the clock; complete one if practical, finish the run, and confirm its result plus the Progress mastery summary survive a reload.
 - Clash setup: create a room on one phone, join on the other, select different voluntary handicaps, and confirm both labels are visible before each player accepts and readies.
+- Clash room code: confirm the lobby shows a large eight-character code grouped four-and-four; read it aloud to the second player and confirm `COPY CODE` copies only those eight characters.
 - Clash play: send preset reactions in both directions; the sender must see `Sent to rival` and the recipient must see the named reaction. Then mute incoming reactions on one phone, earn a shard with three consecutive Perfects, and confirm a sabotage is announced before it affects the rival's next round.
 - Clash mobile layout: the reaction/shard dock must remain below STRIKE in normal page flow at portrait and landscape sizes; horizontally scroll its reaction row on a narrow phone and confirm STRIKE remains fully visible and tappable. The three sabotage choices must remain absent until a player with a shard opens them.
+- Gameplay header: on the affected iPhone browser and at 200% text if practical, confirm score, combo, lives, audio, pause, round, both Clash score chips, and both Objective Cards are simultaneously readable with no overlap. Activate a power and confirm its timer stays below the HUD.
 - Clash result: confirm the compact margin/lead-change story appears beside Rematch and the local Objective Cards result remains visible while waiting.
 
 If all checks pass, no further production action is required.
 
 ### Forward-only rollback
 
-Do not redeploy an older shell revision unchanged, and do not touch Cloudflare or leaderboard data for a client issue. The Worker additions are backward-compatible and may safely remain deployed if the static release must be paused. Revert only the smallest responsible client phase, then advance every shell-version reference together from 22 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. Do not roll the Worker back while revision 21 or 22 clients are live.
+Do not touch Cloudflare or leaderboard data for this client-only issue. Revert only the smallest responsible client change, then advance every shell-version reference together from 23 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. The deployed Worker can remain unchanged.
 
 ## Current production remains live
 
-The existing production version remains live. The five local feature phases described above are pending both the one-time Worker deployment and the static GameMode publication.
+The existing production version remains live. Only the static revision-23 correction described above is pending publication.
 
 | Component | Production location | Status |
 |---|---|---|

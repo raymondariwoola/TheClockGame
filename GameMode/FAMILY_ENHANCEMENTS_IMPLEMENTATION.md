@@ -127,8 +127,6 @@
 - Existing engine, leaderboard, cheat, Ghost, multiplayer, sharing, gesture, PWA, Worker, syntax, no-Gist, and dry-deployment checks remain green.
 - `git diff --check` passes before the phase commit.
 
-## Resume rule
-
 ## Follow-up reliability correction — reactions and mobile controls
 
 - Confirmed the production mismatch on 1 August 2026: GitHub Pages was serving shell revision 21, while Cloudflare's newest Worker upload was still `34373023-619f-4a74-bc7d-7b3c934cf850` from 30 July, before the five family phases. The old Worker rejects reaction messages and cannot provide the newer Clash server behavior.
@@ -139,7 +137,17 @@
 - Corrected the sabotage panel's CSS so its flex layout cannot override the native `hidden` state; its three choices now appear only after an available shard control is opened.
 - Kept sabotage choices above the clock/strike action area while deliberately expanded and left reactions ephemeral, unlabelled, and absent from room storage.
 - Wrapped STRIKE and the Clash dock into one responsive action stack so portrait and side-by-side landscape layouts keep their relationship intact.
-- Extended the browser audit to prove the real action dock remains below STRIKE, within the viewport, and free of horizontal page overflow at 390 × 844, 320 × 568, and 844 × 390.
+- Extended the browser audit to prove the real action dock remains below STRIKE, within the viewport, and free of horizontal page overflow at 390 × 844, iPhone-width 315 × 546, and 844 × 390.
 - Advanced the coherent PWA shell to revision 22.
 
-The owner-selected five-phase sequence and its reliability correction are complete locally. Publish the existing Match Worker first and the static PWA second by following `OWNER_ACTIONS.md`; no new Cloudflare resource or secret is required.
+## Follow-up correction — voiceable room code and mobile HUD
+
+- Added a dedicated lobby panel that groups the eight-character room code four-and-four for speaking or typing, exposes a character-by-character accessible label, and copies only the code through a separate `COPY CODE` action.
+- Replaced the overloaded one-row phone HUD with two explicit rows: score/combo/lives/actions first, then round and the two live Clash score chips.
+- Moved Objective Cards and active power timers from fixed overlays into the clock's responsive layout flow.
+- Made the phone clock height-aware so the complete HUD, objectives, clock, STRIKE, reactions, and shard control fit inside short in-browser iPhone viewports.
+- Hid the transient connectivity pill only during active gameplay; connection information remains available on informational screens without covering live HUD values.
+- Kept the responsive STRIKE/action stack intact in portrait and landscape.
+- Advanced the coherent PWA shell to revision 23. This correction is client-only and does not require another Worker deployment.
+
+The owner-selected sequence and both reliability corrections are complete locally. Publish the static PWA by following `OWNER_ACTIONS.md`; no new Cloudflare resource or secret is required.

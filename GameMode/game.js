@@ -957,6 +957,7 @@
     if (id !== 'game') Music.stop(); // soundtrack only lives on the game screen
     if (id !== 'game' && typeof Lab !== 'undefined') Lab.exit(); // Precision Lab is game-screen only
     if (id !== 'game' && typeof Ghost !== 'undefined') Ghost.clear(); // ghost markers are game-screen only
+    document.body.classList.toggle('gameplay-active', id === 'game');
     Object.entries(screens).forEach(([k, el]) => {
       if (!el) return;
       el.classList.toggle('active', k === id);

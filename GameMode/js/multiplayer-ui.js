@@ -137,6 +137,19 @@
     const value = document.createElement('strong'); value.textContent = `${room.roundLimit || 10} ROUNDS · ${room.difficulty.toUpperCase()}`; meta.append(key, value); box.appendChild(meta);
     host.appendChild(box);
   }
+  function roomCodePanel(code) {
+    const normalized = root.ChronosMultiplayerClient.normalizeCode(code); const spoken = `${normalized.slice(0, 4)} ${normalized.slice(4)}`.trim();
+    const panel = document.createElement('section'); panel.className = 'clash-code-panel'; panel.setAttribute('aria-label', 'Clash room code');
+    const label = document.createElement('span'); label.textContent = 'SAY OR TYPE THIS CODE';
+    const value = document.createElement('output'); value.className = 'clash-room-code'; value.textContent = spoken;
+    value.setAttribute('aria-label', `Room code ${normalized.split('').join(' ')}`);
+    const copy = button('COPY CODE'); copy.classList.add('clash-copy-code');
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(normalized); copy.textContent = 'CODE COPIED ✓'; }
+      catch { copy.textContent = 'CODE SHOWN ABOVE'; }
+    });
+    panel.append(label, value, copy); return panel;
+  }
   function gameUrl() { return `${location.origin}${location.pathname}`.replace(/index\.html?$/i, ''); }
   function directShareUrl(code) { return root.ChronosMultiplayerClient.buildUrl(location.href, code); }
   function shareUrl(code) { return cards && apiBase ? cards.shareUrl(apiBase, 'clash', code) : directShareUrl(code); }
@@ -197,8 +210,8 @@
 
   function showLobby(room = client.room) {
     if (!room) return; const view = overlay(); const host = view.querySelector('.clash-body');
-    heading(host, `ROOM ${room.code}`, room.state === 'waiting' ? 'ASSEMBLE THE TIMELINE' : 'CLASH IN PROGRESS', 'Capabilities stay in this tab; the shared link contains only the room code.');
-    roomRows(host, room); const connection = status(); connection.textContent = client.connection === 'connected' ? '● Live connection ready' : 'Connecting…';
+    heading(host, 'LIVE PRIVATE ROOM', room.state === 'waiting' ? 'ASSEMBLE THE TIMELINE' : 'CLASH IN PROGRESS', 'Share the link or say the eight-character room code.');
+    host.appendChild(roomCodePanel(room.code)); roomRows(host, room); const connection = status(); connection.textContent = client.connection === 'connected' ? '● Live connection ready' : 'Connecting…';
     const ready = button('READY', true); const copy = button('PREPARING CARD…'); const share = button('PREPARING CARD…'); const leave = button('LEAVE');
     const own = room.you || client.session(room.code)?.seat; const ownSeat = room.seats?.[own];
     ready.disabled = !room.seats.guest || ownSeat?.ready || room.state !== 'waiting'; ready.textContent = ownSeat?.ready ? 'HANDICAPS ACCEPTED ✓' : 'ACCEPT HANDICAPS & READY';

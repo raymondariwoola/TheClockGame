@@ -150,18 +150,27 @@ async function auditCriticalTasks() {
     document.querySelector('#menuStartBtn').click();
   })()`);
   await wait(420);
-  const started = await evaluate(`(() => ({
-    gameVisible: document.querySelector('#screen-game').classList.contains('active'),
-    run: window.ChronosGame.getRunInfo(),
-    objectives: document.querySelectorAll('#objectiveHud .objective-card').length,
-    objectiveBounds: (() => { const r = document.querySelector('#objectiveHud').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; })(),
-  }))()`);
+  const started = await evaluate(`(() => {
+    const center = document.querySelector('.hud-center'); let clash = document.querySelector('#clashHud');
+    if (!clash) { clash = document.createElement('div'); clash.id = 'clashHud'; clash.className = 'clash-hud'; center.appendChild(clash); }
+    clash.hidden = false; clash.innerHTML = '<button class="clash-chip you">YOU · 50</button><div class="clash-chip rival">RIVAL · 40 · R2</div>';
+    const bounds = (selector) => { const r = document.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+    const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const hudLeft = bounds('.hud-left'), hudCenter = bounds('.hud-center'), hudRight = bounds('.hud-right'); const objectiveBounds = bounds('#objectiveHud'); const hudBounds = bounds('.hud');
+    return {
+      gameVisible: document.querySelector('#screen-game').classList.contains('active'), run: window.ChronosGame.getRunInfo(),
+      objectives: document.querySelectorAll('#objectiveHud .objective-card').length, objectiveBounds, hudBounds,
+      hudOverlaps: overlaps(hudLeft, hudCenter) || overlaps(hudLeft, hudRight) || overlaps(hudCenter, hudRight),
+    };
+  })()`);
   assert.equal(started.gameVisible, true, 'a player can start a game from Play');
   assert.equal(started.run.mode, 'classic', 'the task starts Classic');
   assert.equal(started.run.hardcore, false, 'the task starts Normal difficulty');
   assert.equal(started.objectives, 2, 'a run starts with exactly two optional Objective Cards');
   assert.ok(started.objectiveBounds.left >= 0 && started.objectiveBounds.right <= 390 && started.objectiveBounds.top >= 0 && started.objectiveBounds.bottom <= 844,
     'Objective Cards stay inside the mobile gameplay viewport');
+  assert.equal(started.hudOverlaps, false, 'score, combo, round, Clash status, lives, and controls occupy non-overlapping HUD rows');
+  assert.ok(started.objectiveBounds.top >= started.hudBounds.bottom, 'Objective Cards begin below the complete HUD instead of floating over it');
   const clashControls = await evaluate(`(() => {
     const dock = document.querySelector('#clashActionDock'); const reaction = document.querySelector('#clashReactionDock');
     const sabotage = document.querySelector('#clashSabotageDock'); dock.hidden = false; reaction.hidden = false; sabotage.hidden = false;
@@ -175,21 +184,24 @@ async function auditCriticalTasks() {
   const objectiveScreenshot = join(outputDir, 'objective-cards-390x844.png');
   await writeFile(objectiveScreenshot, Buffer.from(objectiveImage.result.data, 'base64'));
 
-  await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 568, deviceScaleFactor: 1, mobile: true, screenWidth: 320, screenHeight: 568 });
-  await send('Page.navigate', { url: `${gameUrl}?ui-task=clash-controls-small` }); await waitForGame(); await wait(180);
+  await send('Emulation.setDeviceMetricsOverride', { width: 315, height: 546, deviceScaleFactor: 1, mobile: true, screenWidth: 315, screenHeight: 546 });
+  await send('Page.navigate', { url: `${gameUrl}?ui-task=clash-controls-iphone` }); await waitForGame(); await wait(180);
   await evaluate(`(() => { document.querySelector('[data-menu-nav="play"]').click(); document.querySelector('.mode-card[data-mode="classic"]').click(); document.querySelector('#menuStartBtn').click(); })()`);
   await wait(420);
   const smallControls = await evaluate(`(() => {
+    const center = document.querySelector('.hud-center'); const clash = document.createElement('div'); clash.id = 'clashHud'; clash.className = 'clash-hud'; clash.innerHTML = '<button class="clash-chip you">YOU · 50</button><div class="clash-chip rival">RIVAL · 40 · R2</div>'; center.appendChild(clash);
     const dock = document.querySelector('#clashActionDock'); dock.hidden = false; document.querySelector('#clashReactionDock').hidden = false; document.querySelector('#clashSabotageDock').hidden = false;
-    const strike = document.querySelector('#strikeBtn').getBoundingClientRect(); const actions = dock.getBoundingClientRect();
-    return { strikeBottom: strike.bottom, actionsTop: actions.top, actionsLeft: actions.left, actionsRight: actions.right, viewportWidth: innerWidth, viewportHeight: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth };
+    const strike = document.querySelector('#strikeBtn').getBoundingClientRect(); const actions = dock.getBoundingClientRect(); const hud = document.querySelector('.hud').getBoundingClientRect(); const objectives = document.querySelector('#objectiveHud').getBoundingClientRect();
+    return { strikeBottom: strike.bottom, actionsTop: actions.top, actionsLeft: actions.left, actionsRight: actions.right, hudBottom: hud.bottom, objectivesTop: objectives.top, viewportWidth: innerWidth, viewportHeight: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth };
   })()`);
-  assert.ok(smallControls.actionsTop >= smallControls.strikeBottom, 'Clash controls stay below STRIKE at 320 × 568');
+  assert.ok(smallControls.actionsTop >= smallControls.strikeBottom, 'Clash controls stay below STRIKE at 315 × 546');
+  assert.ok(smallControls.objectivesTop >= smallControls.hudBottom,
+    `Objective Cards stay below the full HUD at iPhone browser width (${JSON.stringify(smallControls)})`);
   assert.ok(smallControls.actionsLeft >= 0 && smallControls.actionsRight <= smallControls.viewportWidth && smallControls.actionsTop < smallControls.viewportHeight,
     'Clash controls remain visible inside a small mobile viewport');
   assert.ok(smallControls.overflow <= 1, 'small Clash controls create no horizontal page overflow');
   const smallImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  const smallControlsScreenshot = join(outputDir, 'clash-controls-320x568.png');
+  const smallControlsScreenshot = join(outputDir, 'clash-controls-315x546.png');
   await writeFile(smallControlsScreenshot, Buffer.from(smallImage.result.data, 'base64'));
 
   await send('Emulation.setDeviceMetricsOverride', { width: 844, height: 390, deviceScaleFactor: 1, mobile: true, screenWidth: 844, screenHeight: 390 });
@@ -224,6 +236,17 @@ async function auditCriticalTasks() {
   })()`);
   assert.deepEqual(clash, { destination: 'compete', dialog: true, heading: 'CHRONO CLASH', inputs: 4, handicaps: 4 },
     'Clash is discoverable from Compete without creating a room');
+  const roomCode = await evaluate(`(() => {
+    const body = document.querySelector('.clash-overlay .clash-body'); const panel = document.createElement('section'); panel.className = 'clash-code-panel';
+    const label = document.createElement('span'); label.textContent = 'SAY OR TYPE THIS CODE'; const value = document.createElement('output'); value.className = 'clash-room-code'; value.textContent = 'ABCD EFGH';
+    const copy = document.createElement('button'); copy.className = 'btn-secondary clash-copy-code'; copy.textContent = 'COPY CODE'; panel.append(label, value, copy); body.querySelector('.clash-note').insertAdjacentElement('afterend', panel);
+    const p = panel.getBoundingClientRect(); const v = value.getBoundingClientRect(); return { panelLeft: p.left, panelRight: p.right, codeWidth: v.width, codeHeight: v.height, viewportWidth: innerWidth };
+  })()`);
+  assert.ok(roomCode.panelLeft >= 0 && roomCode.panelRight <= roomCode.viewportWidth && roomCode.codeWidth > 120 && roomCode.codeHeight > 18,
+    'voiceable room code is prominent and contained on a phone');
+  const roomCodeImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  const roomCodeScreenshot = join(outputDir, 'clash-room-code-390x844.png');
+  await writeFile(roomCodeScreenshot, Buffer.from(roomCodeImage.result.data, 'base64'));
 
   await navigateForTask('view-hall');
   const hall = await evaluate(`(async () => {
@@ -267,7 +290,7 @@ async function auditCriticalTasks() {
 
   return {
     tasks: ['start Normal Classic', 'find Clash', 'view Hall boards', 'open accessibility', 'locate install/update'],
-    objectiveScreenshot, smallControlsScreenshot, landscapeControlsScreenshot,
+    objectiveScreenshot, smallControlsScreenshot, landscapeControlsScreenshot, roomCodeScreenshot,
   };
 }
 
@@ -307,6 +330,7 @@ try {
   console.log(`  objective cards screenshot: ${taskAudit.objectiveScreenshot}`);
   console.log(`  small Clash controls screenshot: ${taskAudit.smallControlsScreenshot}`);
   console.log(`  landscape Clash controls screenshot: ${taskAudit.landscapeControlsScreenshot}`);
+  console.log(`  Clash room code screenshot: ${taskAudit.roomCodeScreenshot}`);
   console.log(`✓ menu task audit passed: ${taskAudit.tasks.join('; ')}`);
 } finally {
   try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}

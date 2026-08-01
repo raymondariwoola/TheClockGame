@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=22">
-<link rel="stylesheet" href="style.css?v=22" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=23">
+<link rel="stylesheet" href="style.css?v=23" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -318,10 +318,12 @@
       </div>
     </div>
 
-    <aside class="objective-hud" id="objectiveHud" aria-label="Optional objective cards" aria-live="polite"></aside>
-
     <div class="arena">
-      <div class="clock-stage">
+      <div class="clock-stack">
+        <aside class="objective-hud" id="objectiveHud" aria-label="Optional objective cards" aria-live="polite"></aside>
+        <div class="powerups" id="powerups"></div>
+
+        <div class="clock-stage">
         <div class="warp-rings">
           <div class="warp-ring"></div>
           <div class="warp-ring"></div>
@@ -390,9 +392,10 @@
           <!-- Particle path (DOM particles overlaid via fxCanvas) -->
         </svg>
 
-        <div class="strike-zone" id="strikeRingHint"></div>
-        <div class="judgment" id="judgment"></div>
-        <div class="lab-readout" id="labReadout" aria-live="polite"></div>
+          <div class="strike-zone" id="strikeRingHint"></div>
+          <div class="judgment" id="judgment"></div>
+          <div class="lab-readout" id="labReadout" aria-live="polite"></div>
+        </div>
       </div>
 
       <div class="clash-strike-stack">
@@ -401,8 +404,6 @@
           <span class="strike-sub">SPACE / CLICK</span>
         </button>
       </div>
-
-      <div class="powerups" id="powerups"></div>
 
       <!-- Precision Lab controls (Zen only) -->
       <aside class="lab-panel" id="labPanel" hidden aria-label="Precision Lab controls">
@@ -674,24 +675,24 @@
   </aside>
 
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=22"></script>
+  <script src="vendor/anime.min.js?v=23"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=22"></script>
-  <script src="js/storage.js?v=22"></script>
-  <script src="js/run-context.js?v=22"></script>
-  <script src="js/cheat-state.js?v=22"></script>
-  <script src="js/ghost-client.js?v=22"></script>
-  <script src="js/multiplayer.js?v=22"></script>
-  <script src="js/share-cards.js?v=22"></script>
-  <script src="js/objectives.js?v=22"></script>
-  <script src="local-reset-config.js?v=22"></script>
-  <script src="leaderboard-config.js?v=22"></script>
-  <script src="js/pwa.js?v=22"></script>
-  <script src="js/gameplay-gestures.js?v=22"></script>
-  <script src="game.js?v=22"></script>
-  <script src="leaderboard.js?v=22"></script>
-  <script src="js/ghost-ui.js?v=22"></script>
-  <script src="js/multiplayer-ui.js?v=22"></script>
-  <script src="share.js?v=22"></script>
+  <script src="engine.js?v=23"></script>
+  <script src="js/storage.js?v=23"></script>
+  <script src="js/run-context.js?v=23"></script>
+  <script src="js/cheat-state.js?v=23"></script>
+  <script src="js/ghost-client.js?v=23"></script>
+  <script src="js/multiplayer.js?v=23"></script>
+  <script src="js/share-cards.js?v=23"></script>
+  <script src="js/objectives.js?v=23"></script>
+  <script src="local-reset-config.js?v=23"></script>
+  <script src="leaderboard-config.js?v=23"></script>
+  <script src="js/pwa.js?v=23"></script>
+  <script src="js/gameplay-gestures.js?v=23"></script>
+  <script src="game.js?v=23"></script>
+  <script src="leaderboard.js?v=23"></script>
+  <script src="js/ghost-ui.js?v=23"></script>
+  <script src="js/multiplayer-ui.js?v=23"></script>
+  <script src="share.js?v=23"></script>
 </body>
 </html>

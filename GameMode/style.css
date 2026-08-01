@@ -837,10 +837,16 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
   gap: 30px;
   position: relative;
 }
+.clock-stack {
+  display: flex; flex: 1 1 auto; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; width: min(100%, 560px); min-width: 0; min-height: 0;
+}
 
 .clock-stage {
   position: relative;
   width: min(58vh, 560px);
+  max-width: 100%;
   aspect-ratio: 1;
   display: flex; align-items: center; justify-content: center;
 }
@@ -1430,6 +1436,7 @@ body.overdrive .warp-ring { border-color: rgba(255,43,181,0.3); }
 .pwa-connection-toast[hidden] { display: none; }
 .pwa-connection-toast.online { color: var(--neon-green); border-color: rgba(45,255,170,0.5); }
 .pwa-connection-toast.offline { color: var(--neon-red); border-color: rgba(255,80,110,0.5); }
+.gameplay-active .pwa-connection-toast { display: none; }
 
 @media (max-width: 500px) {
   .pwa-install-card { width: min(92vw, 440px); padding: 24px 18px; }
@@ -2821,6 +2828,10 @@ body.starpower .strike-btn { border-color: var(--neon-yellow); box-shadow: 0 0 4
 .clash-room > div { display: grid; grid-template-columns: 80px minmax(0,1fr); align-items: center; gap: 10px; min-height: 44px; padding: 7px 12px; background: rgba(2,5,16,0.76); text-align: left; }
 .clash-room span { color: var(--ink-dim); font: 700 10px/1.2 'Orbitron', sans-serif; letter-spacing: 1.5px; }
 .clash-room strong { min-width: 0; overflow-wrap: anywhere; color: #fff; font-size: 16px; text-align: right; }
+.clash-code-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px 10px; padding: 11px 12px; border: 1px solid rgba(0,240,255,.5); border-radius: 13px; background: linear-gradient(135deg, rgba(0,240,255,.09), rgba(139,92,255,.12)); }
+.clash-code-panel > span { grid-column: 1 / -1; color: var(--neon-cyan); font: 800 8px/1.2 'Orbitron', sans-serif; letter-spacing: 2px; text-align: left; }
+.clash-room-code { color: #fff; font: 900 clamp(20px, 7vw, 30px)/1 'Orbitron', sans-serif; letter-spacing: 5px; text-align: left; text-shadow: 0 0 16px rgba(0,240,255,.55); white-space: nowrap; }
+.clash-copy-code { min-height: 44px; padding: 8px 10px; border: 1px solid rgba(0,240,255,.4); border-radius: 9px; background: rgba(0,240,255,.1); color: #fff; font: 800 8px/1 'Orbitron', sans-serif; letter-spacing: 1px; }
 .clash-status { min-height: 20px; color: var(--neon-cyan); font-size: 14px; line-height: 1.35; text-align: center; }
 .clash-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 .clash-actions button, .clash-body > button { min-height: 46px; touch-action: manipulation; }
@@ -2977,7 +2988,8 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
 .clash-rematch-story span { color: var(--muted); font: 700 10px 'Rajdhani', sans-serif; letter-spacing: .5px; }
 
 /* Deterministic optional Objective Cards and visual-only mastery frames. */
-.objective-hud { position: fixed; z-index: 32; top: max(82px, calc(env(safe-area-inset-top) + 72px)); left: max(10px, env(safe-area-inset-left)); width: min(220px, calc(100vw - 20px)); display: grid; gap: 5px; pointer-events: none; }
+.objective-hud { position: static; z-index: 2; width: min(100%, 390px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; pointer-events: none; }
+.objective-hud[hidden] { display: none; }
 .objective-card { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 10px; border: 1px solid rgba(139,92,255,.42); border-radius: 12px; background: rgba(6,10,26,.94); color: #fff; }
 .objective-card.compact { padding: 6px 8px; }
 .objective-card.completed { border-color: rgba(45,255,170,.68); background: rgba(10,42,37,.94); }
@@ -2995,12 +3007,50 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
 .clash-objective-result strong { color: #c8a8ff; font: 800 9px 'Orbitron', sans-serif; }
 .clash-objective-result span { color: var(--muted); font: 700 10px 'Rajdhani', sans-serif; }
 @media (max-width: 600px) {
-  .objective-hud { top: max(72px, calc(env(safe-area-inset-top) + 62px)); right: 8px; left: 8px; width: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .objective-hud { width: 100%; }
   .objective-card.compact .objective-icon { display: none; }
   .objective-card.compact { padding: 5px 7px; }
   .objective-copy small { font-size: 8px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  .objective-hud { top: 54px; left: 116px; right: auto; width: 260px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .objective-hud { width: min(100%, 280px); }
   .objective-card.compact { padding: 4px 6px; }
+}
+
+/* Phone gameplay uses explicit rows; nothing floats over the score HUD. */
+@media (max-width: 500px) {
+  #screen-game.active { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .hud {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'left right' 'center center';
+    align-items: center; gap: 4px 8px; padding: 0; flex: 0 0 auto;
+  }
+  .hud-left { grid-area: left; justify-content: flex-start; gap: 14px; }
+  .hud-right { grid-area: right; justify-content: flex-end; gap: 6px; }
+  .hud-center { grid-area: center; display: grid; justify-items: center; width: 100%; min-width: 0; }
+  .hud-label { font-size: 7px; letter-spacing: 1.5px; }
+  .hud-value { font-size: 20px; }
+  .combo-bar { width: 56px; margin-top: 3px; }
+  .lives { gap: 3px; }
+  .life { font-size: 16px; }
+  .hud-btn { width: 44px; height: 44px; font-size: 18px; }
+  .round-label, .hud-center .round-label { font-size: 13px; line-height: 1.15; letter-spacing: 3px; }
+  .clash-hud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 4px; width: 100%; max-width: 100%; margin-top: 2px; }
+  .clash-hud[hidden] { display: none; }
+  .clash-chip { min-height: 26px; max-width: none; padding: 3px 6px; font-size: 7px; }
+  .arena { justify-content: space-between; gap: 8px; min-height: 0; }
+  .clock-stack { gap: 5px; width: min(100%, 390px); }
+  .clock-stage { width: min(80vw, 38dvh, 380px); }
+  .powerups { position: static; display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: flex-start; gap: 4px; width: 100%; max-width: 390px; overflow-x: auto; }
+  .powerups:empty { display: none; }
+  .powerup { flex: 0 0 auto; padding: 4px 7px; font-size: 8px; letter-spacing: 1px; }
+  .powerup .pw-bar { width: 36px; }
+}
+
+@media (max-width: 340px) {
+  .hud-left { gap: 9px; }
+  .hud-right { gap: 4px; }
+  .hud-btn { width: 42px; height: 42px; }
+  .clash-code-panel { grid-template-columns: 1fr; }
+  .clash-copy-code { width: 100%; }
 }

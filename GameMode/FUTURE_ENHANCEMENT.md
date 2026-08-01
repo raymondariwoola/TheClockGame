@@ -1,6 +1,6 @@
 # Chronos Strike future enhancements
 
-> **Status:** living roadmap — PWA/menu cleanup and the five selected family enhancements are complete locally through Objective Cards. The reaction-delivery/mobile-control follow-up is complete in shell revision 22; Worker/static publication and physical-device acceptance remain with the owner.
+> **Status:** living roadmap — PWA/menu cleanup and the five selected family enhancements are complete through Objective Cards. The voiceable-room-code/mobile-HUD correction is complete locally in shell revision 23; static publication and physical-device acceptance remain with the owner.
 >
 > **Scope:** `GameMode/` only.
 >
