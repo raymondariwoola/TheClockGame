@@ -563,6 +563,49 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
   .daily-quick-actions button { min-height: 38px; }
 }
 
+/* Compete keeps full protocol-owned controls but gives each system a clear
+   purpose and visual boundary. */
+#menuHubCompete { max-width: 680px; margin: 0 auto; }
+#menuHubCompete .daily-card { max-width: none; }
+.compete-feature {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgba(0,240,255,0.055), rgba(139,92,255,0.045));
+  text-align: left;
+}
+.compete-feature-copy { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.compete-feature-icon { flex: 0 0 auto; font-size: 25px; filter: drop-shadow(0 0 12px rgba(0,240,255,0.35)); }
+.compete-feature h3 {
+  margin: 0 0 3px;
+  color: #fff;
+  font: 800 13px/1.1 'Orbitron', sans-serif;
+  letter-spacing: 2px;
+}
+.compete-feature p { margin: 0; color: var(--ink-dim); font-size: 13px; line-height: 1.25; }
+.compete-feature .menu-board-btn { width: 100%; min-height: 48px; justify-content: center; padding: 11px 16px; }
+.compete-feature .rival-row { width: 100%; margin: 0; }
+.compete-clash { border-color: rgba(255,43,181,0.28); }
+.compete-ghost { border-color: rgba(139,92,255,0.32); }
+.compete-hall { border-color: rgba(255,224,102,0.28); }
+
+@media (max-width: 500px) {
+  #menuHubCompete { gap: 12px; }
+  #menuHubCompete .daily-card { padding: 13px; }
+  #menuHubCompete .daily-name { font-size: 18px; }
+  #menuHubCompete .daily-stats { gap: 9px; flex-wrap: wrap; }
+  .compete-feature { padding: 12px; gap: 9px; }
+  .compete-feature h3 { font-size: 11px; letter-spacing: 1.4px; }
+  .compete-feature p { font-size: 11px; }
+  .compete-feature .rival-row { flex-direction: column; }
+  .compete-feature .rival-row input,
+  .compete-feature .rival-row button { min-height: 44px; width: 100%; }
+}
+
 /* =====================================================================
    GAME SCREEN
    ===================================================================== */

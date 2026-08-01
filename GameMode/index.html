@@ -125,24 +125,42 @@
             </div>
             <p class="daily-note">Same seed for everyone · one fair challenge per day</p>
 
+          </div>
+
+          <article class="compete-feature compete-clash" aria-labelledby="competeClashTitle">
+            <div class="compete-feature-copy">
+              <span class="compete-feature-icon" aria-hidden="true">⚔️</span>
+              <div><h3 id="competeClashTitle">CHRONO CLASH</h3><p>Two players race the same live ten-round clock.</p></div>
+            </div>
+            <button class="menu-board-btn clash" id="clashOpenBtn" type="button">
+              <span class="mb-text">CREATE OR JOIN LIVE CLASH</span>
+              <span class="mb-arrow">→</span>
+            </button>
+          </article>
+
+          <article class="compete-feature compete-ghost" aria-labelledby="competeGhostTitle">
+            <div class="compete-feature-copy">
+              <span class="compete-feature-icon" aria-hidden="true">👻</span>
+              <div><h3 id="competeGhostTitle">GHOST / RIVAL RACE</h3><p>Paste a legacy Rival Code here. New cloud Ghost challenges are created from a completed run.</p></div>
+            </div>
             <div class="rival-row">
+              <label class="sr-only" for="rivalInput">Rival Code</label>
               <input id="rivalInput" type="text" placeholder="Paste a Rival Code to race…" autocomplete="off" spellcheck="false">
               <button id="rivalRaceBtn" type="button">RACE</button>
             </div>
-            <div class="rival-error" id="rivalError" hidden></div>
-          </div>
+            <div class="rival-error" id="rivalError" role="alert" hidden></div>
+          </article>
 
-          <button class="menu-board-btn clash" id="clashOpenBtn" type="button">
-            <span class="mb-icon">⚔️</span>
-            <span class="mb-text">PLAY TOGETHER — LIVE CHRONO CLASH</span>
-            <span class="mb-arrow">→</span>
-          </button>
-
-          <button class="menu-board-btn" id="menuBoardBtn" type="button">
-            <span class="mb-icon">🏆</span>
-            <span class="mb-text">HALL OF TIME — TOP 20 BOARDS</span>
-            <span class="mb-arrow">→</span>
-          </button>
+          <article class="compete-feature compete-hall" aria-labelledby="competeHallTitle">
+            <div class="compete-feature-copy">
+              <span class="compete-feature-icon" aria-hidden="true">🏆</span>
+              <div><h3 id="competeHallTitle">HALL OF TIME</h3><p>Browse every Classic, Endless, Daily, Normal, and Hardcore board.</p></div>
+            </div>
+            <button class="menu-board-btn" id="menuBoardBtn" type="button">
+              <span class="mb-text">OPEN TOP 20 BOARDS</span>
+              <span class="mb-arrow">→</span>
+            </button>
+          </article>
         </section>
 
         <section class="menu-hub" id="menuHubProgress" data-menu-destination="progress" aria-labelledby="menuHubProgressTitle" hidden inert>

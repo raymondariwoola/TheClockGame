@@ -258,7 +258,12 @@
           buttons[next].focus();
         });
       });
-      select(root.dataset.activeDestination || 'play');
+      let initial = root.dataset.activeDestination || 'play';
+      try {
+        const params = new URL(location.href).searchParams;
+        if (params.has('ghost') || params.has('duel')) initial = 'compete';
+      } catch {}
+      select(initial);
     }
 
     return { destinations: [...destinations], normalized, select, active: () => normalized(root?.dataset.activeDestination), wire };

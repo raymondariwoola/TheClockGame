@@ -15,7 +15,7 @@
 | UI-0 | Characterization and interaction contract | Complete |
 | UI-1 | Menu shell and four-destination navigation | Complete |
 | UI-2 | Compact Play destination | Complete |
-| UI-3 | Compete destination and deep-link routing | Not started |
+| UI-3 | Compete destination and deep-link routing | Complete |
 | UI-4 | Progress and Settings destinations | Not started |
 | UI-5 | Responsive visual/PWA polish | Not started |
 | UI-6 | Rollout closure and final handoff | Not started |
@@ -119,6 +119,30 @@ Completed before commit on 1 August 2026:
 - all 1,769 engine assertions and the full client/Worker validation passed;
 - 320 × 568 and 390 × 844 device-emulated audits confirmed no horizontal overflow, four visible destinations, and the complete Start action above fixed navigation;
 - settled-state screenshots were visually inspected at both sizes;
+- `git diff --check` passed.
+
+## UI-3 — Compete destination
+
+### Implemented
+
+- Kept the complete Daily Rift card as the first Compete system.
+- Added contextual feature cards for Chrono Clash, Ghost/Rival races, and Hall of Time while retaining their original control IDs and modules.
+- Moved legacy Rival Code entry out of Daily into its own labelled Ghost/Rival panel.
+- Added a programmatic Rival Code label and announced error region.
+- Kept cloud Ghost creation on completed-run results, where a replay exists; Compete explains this instead of creating a duplicate/incomplete flow.
+- Added URL-to-destination presentation routing: `ghost` and `duel` query parameters select Compete behind the existing protocol-owned overlay.
+- Kept all Classic, Endless, Daily, Normal, and Hardcore boards available through the unchanged Hall client.
+
+### UI-3 validation
+
+Completed before commit on 1 August 2026:
+
+- the Compete contract test confirms that Daily, Clash, Ghost/Rival, and Hall controls live in the correct destination;
+- static deep-link tests confirm that the shell changes presentation while Ghost and Clash clients remain URL/capability authorities;
+- existing Ghost, multiplayer, leaderboard navigation, result-publishing, and share-card suites passed;
+- all 1,769 engine assertions and full client/Worker validation passed;
+- viewport audits confirmed exclusive destination state, no horizontal overflow, and fixed navigation at 320 × 568 and 390 × 844;
+- the 390 × 844 Compete screenshot was visually inspected, including the scroll boundary above the fixed navigation;
 - `git diff --check` passed.
 
 ## Resume rule
