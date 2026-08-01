@@ -1164,6 +1164,11 @@
       }
     }
 
+    const handicapRound = ChronosEngine.clashHandicap(0, State.clashRun?.handicap);
+    if (State.clashRun && handicapRound.zoneScale !== 1) {
+      State.zones.forEach((zone) => { if (zone.type !== 'decoy') zone.size *= handicapRound.zoneScale; });
+    }
+
     const sabotage = State.clashRun?.sabotages?.find((value) => !value.applied && value.round === State.round);
     if (sabotage) {
       sabotage.applied = true;
@@ -1779,6 +1784,8 @@
     // Classic always has 3 lives (hardcore adds pressure via speed + taunts,
     // not fewer lives); endless is a single-life survival run.
     State.maxLives = mode === 'endless' ? 1 : (mode === 'zen' ? 0 : 3);
+    const handicapStart = ChronosEngine.clashHandicap(State.maxLives, State.clashRun?.handicap);
+    if (State.clashRun) State.maxLives = handicapStart.lives;
     State.lives = mode === 'zen' ? 999 : State.maxLives;
     State.survivalMult = 1;
     State.jolt = 1;
@@ -1803,7 +1810,8 @@
     document.body.classList.remove('overdrive');
     State.started = true;
     State.godTainted = God.isActive(); // a run started under GOD mode is never ranked
-    elScore.textContent = '0';
+    if (State.clashRun) State.score = handicapStart.score;
+    elScore.textContent = String(State.score);
     elCombo.textContent = '×1';
     elComboBar.style.width = '0%';
     elComboBlock.classList.remove('active');
@@ -3688,6 +3696,7 @@
         roundLimit: Math.max(1, Math.min(10, Number(config.roundLimit) || 10)),
         matchNumber: Number(config.matchNumber) || 1, suddenDeath: Number(config.suddenDeath) || 0,
         sabotages: Array.isArray(config.sabotages) ? config.sabotages.map((value) => ({ ...value, applied: false })) : [],
+        handicap: ['headstart', 'extra_life', 'wider'].includes(config.handicap) ? config.handicap : 'none',
       };
       startMode('classic');
       return true;

@@ -440,6 +440,16 @@ const simulateRun = E.simulateRun;
   ok(JSON.stringify(unknown) === JSON.stringify(base), 'unknown sabotage is a no-op');
 })();
 
+// ---------- voluntary Clash handicap presets ----------
+(() => {
+  const standard = E.clashHandicap(3, 'none');
+  eq(standard.score, 0, 'standard handicap adds no score'); eq(standard.lives, 3, 'standard handicap adds no life'); eq(standard.zoneScale, 1, 'standard handicap keeps target size');
+  eq(E.clashHandicap(3, 'headstart').score, 500, 'head-start preset adds exactly 500 points');
+  eq(E.clashHandicap(3, 'extra_life').lives, 4, 'extra-life preset adds exactly one life');
+  eq(E.clashHandicap(0, 'extra_life').lives, 0, 'extra-life preset does not alter a no-life mode');
+  approx(E.clashHandicap(3, 'wider').zoneScale, 1.25, 0.0001, 'wider preset scales real targets by 25%');
+})();
+
 // ---------- report ----------
 console.log(`\nChronos Strike engine tests: ${passed} passed, ${failed} failed`);
 if (failed) {

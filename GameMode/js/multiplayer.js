@@ -21,6 +21,13 @@
     narrow: Object.freeze({ emoji: '🎯', label: 'Tight Window', description: 'Narrow the next target.' }),
     haste: Object.freeze({ emoji: '⚡', label: 'Time Rush', description: 'Speed up the next round.' }),
   });
+  const HANDICAPS = Object.freeze({
+    none: Object.freeze({ label: 'Standard', description: 'No assistance.' }),
+    headstart: Object.freeze({ label: '+500 Head Start', description: 'Begin with 500 points.' }),
+    extra_life: Object.freeze({ label: '+1 Life', description: 'Begin with four lives.' }),
+    wider: Object.freeze({ label: 'Wider Targets', description: 'Real targets are 25% wider.' }),
+  });
+  function normalizeHandicap(value) { return Object.prototype.hasOwnProperty.call(HANDICAPS, value) ? value : 'none'; }
 
   class MultiplayerError extends Error {
     constructor(code, status = 0) { super(code || 'network_error'); this.name = 'MultiplayerError'; this.code = code || 'network_error'; this.status = status; }
@@ -93,15 +100,15 @@
       if (!response.ok || !data || data.ok === false) throw new MultiplayerError(data?.error || 'network_error', response.status);
       return data;
     }
-    async create({ name, difficulty }) {
+    async create({ name, difficulty, handicap = 'none' }) {
       const player = cleanName(name); if (!player) throw new MultiplayerError('bad_name');
-      const data = await this.request('/v1/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, difficulty }) });
+      const data = await this.request('/v1/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, difficulty, handicap: normalizeHandicap(handicap) }) });
       const session = this.saveSession({ code: data.code, seat: 'host', token: data.hostToken, nextSeq: 0 });
       this.code = session.code; this.room = data.room; return { room: data.room, session };
     }
-    async join({ code, name }) {
+    async join({ code, name, handicap = 'none' }) {
       const normalized = normalizeCode(code); const player = cleanName(name); if (!normalized) throw new MultiplayerError('bad_code'); if (!player) throw new MultiplayerError('bad_name');
-      const data = await this.request(`/v1/matches/${normalized}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player }) });
+      const data = await this.request(`/v1/matches/${normalized}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, handicap: normalizeHandicap(handicap) }) });
       const session = this.saveSession({ code: normalized, seat: 'guest', token: data.playerToken, nextSeq: 0 });
       this.code = normalized; this.room = data.room; return { room: data.room, session };
     }
@@ -160,5 +167,5 @@
     scheduleHeartbeat() { this.stopHeartbeat(); if (!this.heartbeatMs || this.manualClose) return; this.heartbeatTimer = setTimeout(() => { this.heartbeatTimer = null; try { this.send('heartbeat'); } catch {} this.scheduleHeartbeat(); }, this.heartbeatMs); this.heartbeatTimer?.unref?.(); }
     stopHeartbeat() { if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer); this.heartbeatTimer = null; }
   }
-  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, rematchStory, normalizeCode, cleanName, codeFromUrl, buildUrl };
+  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, HANDICAPS, rematchStory, normalizeCode, normalizeHandicap, cleanName, codeFromUrl, buildUrl };
 });

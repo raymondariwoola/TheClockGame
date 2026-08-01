@@ -19,6 +19,8 @@ const clash = cards.clashInviteModel({ code: 'ABCD-EFGH', difficulty: 'normal', 
 assert.equal(clash.hero, 'ABCD-EFGH');
 assert.equal(clash.rows[1][1], '10 ROUNDS · NORMAL');
 assert.equal(cards.shareUrl('https://worker.test/api/', 'clash', 'ABCD-EFGH'), 'https://worker.test/api/s/clash/ABCD-EFGH');
+const assistedClash = cards.clashInviteModel({ code: 'ABCD-EFGH', difficulty: 'normal', roundLimit: 10, seats: { host: { name: 'Host', handicap: 'headstart' }, guest: { name: 'Guest', handicap: 'none' } } });
+assert.equal(assistedClash.rows[2][1], 'VOLUNTARY HANDICAPS ON');
 
 const result = cards.ghostResultModel({ ...ghost, hideHostScore: false, guest: { name: 'Guest', result: { score: 100000 } }, result: { winner: 'guest' } });
 assert.equal(result.title, 'GUEST WINS');

@@ -6,6 +6,7 @@
   const cards = root.ChronosShareCards;
   const reactions = root.ChronosMultiplayerClient.REACTIONS || {};
   const sabotages = root.ChronosMultiplayerClient.SABOTAGES || {};
+  const handicaps = root.ChronosMultiplayerClient.HANDICAPS || { none: { label: 'Standard', description: 'No assistance.' } };
   const REACTION_MUTE_KEY = 'cs_clash_reactions_muted';
   const inviteCards = new Map();
   let modal = null; let active = null; let lastSeed = null; let progressFloor = 0;
@@ -26,6 +27,11 @@
     host.append(eye, h, p);
   }
   function input(placeholder, value = '') { const field = document.createElement('input'); field.className = 'clash-input'; field.placeholder = placeholder; field.maxLength = 24; field.value = value; return field; }
+  function handicapSelect() {
+    const field = document.createElement('select'); field.className = 'clash-input clash-handicap-select'; field.setAttribute('aria-label', 'Your voluntary skill handicap');
+    for (const [id, item] of Object.entries(handicaps)) { const option = document.createElement('option'); option.value = id; option.textContent = `${item.label} · ${item.description}`; field.appendChild(option); }
+    return field;
+  }
   function actions(...buttons) { const row = document.createElement('div'); row.className = 'clash-actions'; row.append(...buttons); return row; }
   function status() { const value = document.createElement('div'); value.className = 'clash-status'; value.setAttribute('role', 'status'); return value; }
   function close() { modal?.remove(); modal = null; }
@@ -105,7 +111,8 @@
     const seatRows = [['HOST', room.seats.host], ['GUEST', room.seats.guest]];
     for (const [label, seat] of seatRows) {
       const row = document.createElement('div'); const key = document.createElement('span'); key.textContent = label;
-      const value = document.createElement('strong'); value.textContent = seat ? `${seat.name}${seat.ready ? ' · READY' : ''}` : 'Waiting…'; row.append(key, value); box.appendChild(row);
+      const value = document.createElement('strong'); const handicap = handicaps[seat?.handicap] || handicaps.none;
+      value.textContent = seat ? `${seat.name} · ${handicap.label}${seat.ready ? ' · ACCEPTED' : ''}` : 'Waiting…'; row.append(key, value); box.appendChild(row);
     }
     const meta = document.createElement('div'); const key = document.createElement('span'); key.textContent = 'FORMAT';
     const value = document.createElement('strong'); value.textContent = `${room.roundLimit || 10} ROUNDS · ${room.difficulty.toUpperCase()}`; meta.append(key, value); box.appendChild(meta);
@@ -137,32 +144,34 @@
     heading(host, 'TWO PLAYERS · LIVE', 'CHRONO CLASH', 'Race the same ten rounds. Only resolved progress crosses the network.');
     const name = input('Your name', playerName()); const code = input('Room code'); code.autocapitalize = 'characters';
     const difficulty = document.createElement('select'); difficulty.className = 'clash-input'; difficulty.innerHTML = '<option value="normal">Normal</option><option value="hardcore">Hardcore · 2×</option>';
+    const handicap = handicapSelect();
     const state = status(); const create = button('CREATE CLASH', true); const join = button('JOIN CODE'); const cancel = button('CLOSE');
-    host.append(name, difficulty, code, state, actions(create, join, cancel)); cancel.addEventListener('click', close);
+    host.append(name, difficulty, handicap, code, state, actions(create, join, cancel)); cancel.addEventListener('click', close);
     create.addEventListener('click', async () => {
       if (!name.value.trim()) { state.textContent = 'Enter your name first.'; return; }
       create.disabled = true; create.textContent = 'CREATING…';
       try {
-        const created = await client.create({ name: name.value, difficulty: difficulty.value });
+        const created = await client.create({ name: name.value, difficulty: difficulty.value, handicap: handicap.value });
         history.replaceState(null, '', directShareUrl(created.session.code));
         await client.connect(); showLobby(created.room);
       }
       catch (error) { create.disabled = false; create.textContent = 'RETRY'; state.textContent = safeMessage(error.code); }
     });
-    join.addEventListener('click', () => joinCode(code.value, name.value));
+    join.addEventListener('click', () => joinCode(code.value, name.value, handicap.value));
   }
 
-  async function joinCode(code, initialName = playerName()) {
+  async function joinCode(code, initialName = playerName(), initialHandicap = 'none') {
     const normalized = root.ChronosMultiplayerClient.normalizeCode(code);
     if (!normalized) return showError('INVALID ROOM CODE', 'Use the full eight-character code.');
     const view = overlay(); const host = view.querySelector('.clash-body');
     heading(host, 'LIVE INVITE', 'JOIN CHRONO CLASH', 'Claim the second seat, then both players press Ready.');
-    const name = input('Your name', initialName); const state = status(); const join = button('JOIN CLASH', true); const cancel = button('CLOSE');
-    host.append(name, state, actions(join, cancel)); cancel.addEventListener('click', close);
+    const name = input('Your name', initialName); const handicap = handicapSelect(); handicap.value = root.ChronosMultiplayerClient.normalizeHandicap(initialHandicap);
+    const state = status(); const join = button('JOIN CLASH', true); const cancel = button('CLOSE');
+    host.append(name, handicap, state, actions(join, cancel)); cancel.addEventListener('click', close);
     join.addEventListener('click', async () => {
       if (!name.value.trim()) { state.textContent = 'Enter your name first.'; return; }
       join.disabled = true; join.textContent = 'JOINING…';
-      try { const joined = await client.join({ code: normalized, name: name.value }); await client.connect(); showLobby(joined.room); }
+      try { const joined = await client.join({ code: normalized, name: name.value, handicap: handicap.value }); await client.connect(); showLobby(joined.room); }
       catch (error) { join.disabled = false; join.textContent = 'RETRY'; state.textContent = safeMessage(error.code); }
     });
   }
@@ -173,8 +182,8 @@
     roomRows(host, room); const connection = status(); connection.textContent = client.connection === 'connected' ? '● Live connection ready' : 'Connecting…';
     const ready = button('READY', true); const copy = button('PREPARING CARD…'); const share = button('PREPARING CARD…'); const leave = button('LEAVE');
     const own = room.you || client.session(room.code)?.seat; const ownSeat = room.seats?.[own];
-    ready.disabled = !room.seats.guest || ownSeat?.ready || room.state !== 'waiting'; ready.textContent = ownSeat?.ready ? 'READY ✓' : 'READY';
-    ready.addEventListener('click', () => { try { client.ready(); ready.disabled = true; ready.textContent = 'READY ✓'; } catch (error) { connection.textContent = safeMessage(error.code); } });
+    ready.disabled = !room.seats.guest || ownSeat?.ready || room.state !== 'waiting'; ready.textContent = ownSeat?.ready ? 'HANDICAPS ACCEPTED ✓' : 'ACCEPT HANDICAPS & READY';
+    ready.addEventListener('click', () => { try { client.ready(); ready.disabled = true; ready.textContent = 'HANDICAPS ACCEPTED ✓'; } catch (error) { connection.textContent = safeMessage(error.code); } });
     copy.disabled = true; share.disabled = true;
     const cardState = prepareInvite(room).then((artifacts) => {
       copy.disabled = false; share.disabled = false; copy.textContent = 'COPY INVITE'; share.textContent = 'SHARE CARD'; return artifacts;
@@ -204,6 +213,7 @@
       code: room.code, seat, seed: room.seed, difficulty: room.difficulty, roundLimit: room.roundLimit,
       matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
       sabotages: (room.sabotages || []).filter((value) => value.target === seat),
+      handicap: room.seats?.[seat]?.handicap || 'none',
     });
   }
 

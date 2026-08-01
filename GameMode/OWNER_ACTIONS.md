@@ -4,9 +4,9 @@ Last verified: **1 August 2026**
 
 ## Current pending release: mobile-first GameMode UI and family enhancements
 
-UI-0 through UI-6 are complete and published. The next local release sequence adds family-session enhancements. Preset Reactions, Time Shards / Secret Sabotage, and Compact Rematch Stories are complete: lightweight social presence, bounded playful interference, and memorable result/rematch summaries.
+UI-0 through UI-6 are complete and published. Four selected family-session enhancements are now complete locally: Preset Reactions, Time Shards / Secret Sabotage, Compact Rematch Stories, and voluntary Skill Handicap Presets.
 
-The current local enhancement sequence advances the static PWA shell from revision 16 to revision 19 and updates the existing Match Durable Object code. Once the full selected sequence is complete, publication will require both the ordinary Git push and one existing Worker deployment. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
+The current local enhancement sequence advances the static PWA shell from revision 16 to revision 20 and updates the existing Match Durable Object code. Once the full selected sequence is complete, publication will require both the ordinary Git push and one existing Worker deployment. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
 
 ### Your publication steps
 

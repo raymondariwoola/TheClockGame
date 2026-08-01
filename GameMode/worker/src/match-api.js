@@ -1,6 +1,6 @@
 import {
   MATCH_SOCKET_PROTOCOL, cleanMatchName, formatMatchCode, normalizeMatchCode,
-  ticketFromProtocols, validMatchCode,
+  normalizeMatchHandicap, ticketFromProtocols, validMatchCode,
 } from '../../shared/match-protocol.mjs';
 import { allowRequest } from './rate-limit.js';
 import { sha256hex } from './security.js';
@@ -71,7 +71,7 @@ export async function handleMatchRequest(request, env, cors) {
     const hostToken = randomHex(); const hostTokenHash = await sha256hex(hostToken);
     for (let attempt = 0; attempt < 6; attempt++) {
       const code = randomCode();
-      const response = await internal(room(env, code), '/init', { code, name, difficulty, hostTokenHash });
+      const response = await internal(room(env, code), '/init', { code, name, difficulty, handicap: normalizeMatchHandicap(parsed.value.handicap), hostTokenHash });
       if (response.status === 409) continue;
       return relay(response, cors, response.ok ? { code, hostToken } : null);
     }
@@ -96,7 +96,7 @@ export async function handleMatchRequest(request, env, cors) {
     const parsed = await body(request); if (parsed.error) return json({ ok: false, error: parsed.error }, parsed.status, cors);
     const name = cleanMatchName(parsed.value.name); if (!name) return json({ ok: false, error: 'bad_name' }, 400, cors);
     const playerToken = randomHex();
-    const response = await internal(stub, '/join', { name, tokenHash: await sha256hex(playerToken) });
+    const response = await internal(stub, '/join', { name, handicap: normalizeMatchHandicap(parsed.value.handicap), tokenHash: await sha256hex(playerToken) });
     return relay(response, cors, response.ok ? { playerToken } : null);
   }
   if (action === 'ticket') {

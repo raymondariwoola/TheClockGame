@@ -26,6 +26,12 @@ export const MATCH_SABOTAGES = Object.freeze({
   narrow: Object.freeze({ emoji: '🎯', label: 'Tight Window', description: 'Narrow the next target.' }),
   haste: Object.freeze({ emoji: '⚡', label: 'Time Rush', description: 'Speed up the next round.' }),
 });
+export const MATCH_HANDICAPS = Object.freeze({
+  none: Object.freeze({ label: 'Standard', description: 'No assistance.' }),
+  headstart: Object.freeze({ label: '+500 Head Start', description: 'Begin with 500 points.' }),
+  extra_life: Object.freeze({ label: '+1 Life', description: 'Begin with four lives.' }),
+  wider: Object.freeze({ label: 'Wider Targets', description: 'Real targets are 25% wider.' }),
+});
 export const MATCH_LIMITS = Object.freeze({
   maxName: 24, maxMessageBytes: 4096, maxSequence: 1_000_000, codeLength: 8,
   rounds: 10, suddenDeathRounds: 1, maxSuddenDeath: 3, reactionCooldownMs: 1200,
@@ -55,6 +61,7 @@ export function validMatchCode(value) { return CODE_RE.test(normalizeMatchCode(v
 export function cleanMatchName(value) {
   return String(value || '').replace(/[<>&"'`\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, MATCH_LIMITS.maxName);
 }
+export function normalizeMatchHandicap(value) { return Object.prototype.hasOwnProperty.call(MATCH_HANDICAPS, value) ? value : 'none'; }
 export function validateMatchEnvelope(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.v !== MATCH_PROTOCOL_VERSION ||
       !MATCH_CLIENT_TYPES.includes(value.type) || !Number.isSafeInteger(value.seq) || value.seq < 0 ||

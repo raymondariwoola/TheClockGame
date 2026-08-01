@@ -509,11 +509,20 @@
     return value;
   }
 
+  function clashHandicap(baseLives, handicap) {
+    const lives = Math.max(0, Number(baseLives) || 0);
+    return {
+      score: handicap === 'headstart' ? 500 : 0,
+      lives: handicap === 'extra_life' && lives > 0 ? lives + 1 : lives,
+      zoneScale: handicap === 'wider' ? 1.25 : 1,
+    };
+  }
+
   return {
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, resolveStrikeKind, scoreFor, computeHitScore, SCORE_RULES, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
-    simulateRun, riftPreview, applySabotageRound, strikeError, passedCenter, indexReplay,
+    simulateRun, riftPreview, applySabotageRound, clashHandicap, strikeError, passedCenter, indexReplay,
     encodeRival, decodeRival, RIVAL_LIMITS, ACHIEVEMENTS, evaluateAchievements,
     COSMETICS, resolveCosmetics, cosmeticsFor,
   };

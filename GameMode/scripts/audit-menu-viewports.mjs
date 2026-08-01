@@ -168,9 +168,10 @@ async function auditCriticalTasks() {
       dialog: !!dialog,
       heading: dialog?.querySelector('h2')?.textContent || '',
       inputs: dialog?.querySelectorAll('input, select').length || 0,
+      handicaps: dialog?.querySelectorAll('.clash-handicap-select option').length || 0,
     };
   })()`);
-  assert.deepEqual(clash, { destination: 'compete', dialog: true, heading: 'CHRONO CLASH', inputs: 3 },
+  assert.deepEqual(clash, { destination: 'compete', dialog: true, heading: 'CHRONO CLASH', inputs: 4, handicaps: 4 },
     'Clash is discoverable from Compete without creating a room');
 
   await navigateForTask('view-hall');

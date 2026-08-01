@@ -1,5 +1,6 @@
 import {
   MATCH_LIMITS, MATCH_PROTOCOL_VERSION, MATCH_REACTIONS, MATCH_SABOTAGES, MATCH_SOCKET_PROTOCOL, MATCH_STATES,
+  normalizeMatchHandicap,
   ticketFromProtocols, validateMatchEnvelope,
 } from '../../shared/match-protocol.mjs';
 import { sha256hex } from './security.js';
@@ -18,24 +19,25 @@ const MESSAGE_LIMIT = 80;
 function now(env) { const value = Number(env?.__TEST_NOW); return Number.isFinite(value) ? value : Date.now(); }
 function json(value, status = 200) { return Response.json(value, { status }); }
 function progress() { return { score: 0, round: 0, perfect: 0, perfectStreak: 0, combo: 1, acc: 0, attempts: 0 }; }
-function seat(id, name, tokenHash, at) {
+function seat(id, name, tokenHash, at, handicap = 'none') {
   return { id, name, tokenHash, ready: false, connected: false, disconnectedAt: null, lastSeenAt: at,
     lastSeq: -1, progress: progress(), finished: false, forfeited: false, rematch: false,
-    shards: 0, shardsEarned: 0, sabotagesUsed: 0, shardStreakReady: true };
+    shards: 0, shardsEarned: 0, sabotagesUsed: 0, shardStreakReady: true, handicap: normalizeMatchHandicap(handicap) };
 }
 function createRoom(value, at) {
   return {
     v: MATCH_PROTOCOL_VERSION, code: value.code, state: MATCH_STATES.WAITING, difficulty: value.difficulty,
     rulesetVersion: 1, matchNumber: 1, suddenDeath: 0, roundLimit: MATCH_LIMITS.rounds,
     seed: null, startAt: null, createdAt: at, updatedAt: at, expiresAt: at + MATCH_TIMES.waiting,
-    seats: { host: seat('host', value.name, value.hostTokenHash, at), guest: null }, sabotages: [],
+    seats: { host: seat('host', value.name, value.hostTokenHash, at, value.handicap), guest: null }, sabotages: [],
     story: { leader: null, leadChanges: 0, closestGap: null }, result: null,
   };
 }
 function publicSeat(value) {
   return value ? { id: value.id, name: value.name, ready: value.ready, connected: value.connected,
     progress: { ...value.progress }, finished: value.finished, forfeited: value.forfeited, rematch: value.rematch,
-    shards: value.shards || 0, shardsEarned: value.shardsEarned || 0, sabotagesUsed: value.sabotagesUsed || 0 } : null;
+    shards: value.shards || 0, shardsEarned: value.shardsEarned || 0, sabotagesUsed: value.sabotagesUsed || 0,
+    handicap: normalizeMatchHandicap(value.handicap) } : null;
 }
 export function publicMatch(room, you = null) {
   return {
@@ -179,7 +181,7 @@ export class MatchRoom {
     if (request.method === 'POST' && url.pathname === '/join') {
       if (room.state !== MATCH_STATES.WAITING) return json({ ok: false, error: 'room_started' }, 409);
       if (room.seats.guest) return json({ ok: false, error: 'room_full' }, 409);
-      const value = await request.json(); room.seats.guest = seat('guest', value.name, value.tokenHash, at); room.updatedAt = at;
+      const value = await request.json(); room.seats.guest = seat('guest', value.name, value.tokenHash, at, value.handicap); room.updatedAt = at;
       await this.save(room); await this.broadcast('presence', { room: publicMatch(room) });
       return json({ ok: true, room: publicMatch(room, 'guest') });
     }

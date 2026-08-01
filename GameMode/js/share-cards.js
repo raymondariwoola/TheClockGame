@@ -71,6 +71,7 @@
   }
 
   function clashInviteModel(room) {
+    const handicaps = [room?.seats?.host?.handicap, room?.seats?.guest?.handicap].filter((value) => value && value !== 'none');
     return {
       kind: 'clash-invite', accent: COLORS.cyan,
       eyebrow: 'LIVE TWO-PLAYER CHALLENGE', title: 'CHRONO CLASH',
@@ -80,7 +81,7 @@
       rows: [
         ['CHALLENGER', upper(room?.seats?.host?.name, 'ANONYMOUS')],
         ['FORMAT', `${number(room?.roundLimit) || 10} ROUNDS · ${difficulty(room?.difficulty)}`],
-        ['STATUS', room?.seats?.guest ? 'RIVAL CONNECTED' : 'WAITING FOR A RIVAL'],
+        ['PARTY RULES', handicaps.length ? 'VOLUNTARY HANDICAPS ON' : 'STANDARD · EVEN START'],
       ],
       cta: 'ENTER THE CLASH',
     };

@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { MultiplayerClient, REACTIONS, SABOTAGES, buildUrl, codeFromUrl, rematchStory } = require('../js/multiplayer.js');
+const { MultiplayerClient, HANDICAPS, REACTIONS, SABOTAGES, buildUrl, codeFromUrl, rematchStory } = require('../js/multiplayer.js');
 class Store { constructor() { this.map = new Map(); } getItem(k) { return this.map.get(k) || null; } setItem(k, v) { this.map.set(k, v); } removeItem(k) { this.map.delete(k); } }
 class Socket {
   static values = []; constructor(url, protocols) { this.url = url; this.protocols = protocols; this.readyState = 0; this.listeners = new Map(); this.sent = []; Socket.values.push(this); }
@@ -21,7 +21,8 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
     throw new Error('unexpected');
   };
   const client = new MultiplayerClient({ baseUrl: 'https://worker.test', fetchImpl, WebSocketImpl: Socket, sessionStore: new Store(), heartbeatMs: 0 });
-  await client.create({ name: 'Host', difficulty: 'normal' });
+  await client.create({ name: 'Host', difficulty: 'normal', handicap: 'wider' });
+  assert.equal(JSON.parse(requests[0].options.body).handicap, 'wider');
   await client.uploadShareCard(new Blob(['png'], { type: 'image/png' }), client.code);
   const connecting = client.connect();
   for (let i = 0; i < 10 && !Socket.values.length; i++) await new Promise((resolve) => setTimeout(resolve, 0));
@@ -36,6 +37,7 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
   assert.deepEqual(socket.sent[3].payload, { effect: 'reverse' });
   assert.equal(REACTIONS.gg.label, 'Good game!');
   assert.equal(SABOTAGES.narrow.label, 'Tight Window');
+  assert.equal(HANDICAPS.extra_life.label, '+1 Life');
   assert.throws(() => client.reaction('custom text'), /invalid_reaction/);
   assert.throws(() => client.sabotage('custom'), /invalid_sabotage/);
   assert.deepEqual(rematchStory({ matchNumber: 2, result: { winner: 'host', reason: 'score', story: { margin: 28, leadChanges: 3 } } }, 'guest'),

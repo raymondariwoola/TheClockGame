@@ -170,3 +170,20 @@ test('match room retains compact lead-change counters without a progress timelin
   assert.deepEqual(stored.story, { leader: 'host', leadChanges: 2, closestGap: 100 });
   assert.equal('history' in stored.story, false); assert.equal('timeline' in stored.story, false);
 });
+
+test('voluntary handicap presets are frozen per seat and survive rematch acceptance', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 5_500_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', handicap: 'headstart', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', handicap: 'wider', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  let stored = await ctx.storage.get('room');
+  assert.equal(stored.seats.host.handicap, 'headstart'); assert.equal(stored.seats.guest.handicap, 'wider');
+  assert.equal(stored.seats.host.ready, true); assert.equal(stored.seats.guest.ready, true);
+  env.__TEST_NOW = stored.startAt + 1;
+  await room.webSocketMessage(host, envelope('finish', 1, result(1000))); await room.webSocketMessage(guest, envelope('finish', 1, result(900)));
+  await room.webSocketMessage(host, envelope('rematch_vote', 2)); await room.webSocketMessage(guest, envelope('rematch_vote', 2));
+  stored = await ctx.storage.get('room');
+  assert.equal(stored.seats.host.handicap, 'headstart'); assert.equal(stored.seats.guest.handicap, 'wider');
+});

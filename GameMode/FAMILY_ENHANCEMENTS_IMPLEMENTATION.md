@@ -13,7 +13,7 @@
 | FE-6A | Preset reactions | Complete |
 | FE-6B | Time Shards / Secret Sabotage | Complete |
 | FE-6C | Compact rematch stories | Complete |
-| FE-6D | Skill handicap presets | Not started |
+| FE-6D | Skill handicap presets | Complete |
 | FE-6E | Objective Cards | Not started |
 
 ## FE-6A — Preset reactions
@@ -58,6 +58,29 @@
 - Durable Object tests prove the three-Perfect award, shard deduction, two-use bounds, future-round assignment, opponent telegraph, and invalid/no-shard rejection.
 - Static integration tests prove the effects are Clash-only, future-round-only, announced, and disconnected from scoring.
 - Existing private-cheat tests remain unchanged and pass; cheats are neither disabled nor remotely labelled by this mechanic.
+- Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
+
+## FE-6D — Skill handicap presets
+
+### Implementation
+
+- Added four per-player voluntary presets: Standard, +500 Head Start, +1 Life, and 25% Wider Targets.
+- Each player chooses their own preset before entering the lobby. The Match API allowlists it, the Durable Object freezes it on that seat, and reconnect/rematch retain it.
+- Both player rows display names and handicap labels before play. The existing Ready action is now explicit `ACCEPT HANDICAPS & READY` consent.
+- Applied the preset only through server-frozen `State.clashRun`: head start initializes the private-match score, extra life changes only that player's life count, and wider targets scale only real zones.
+- Kept the presets asymmetric by design so a newer player can receive help without changing the experienced player's clock.
+- Continued to bypass ordinary leaderboard run issuance and publication for every live Clash, assisted or not.
+- Labelled invite share cards `VOLUNTARY HANDICAPS ON` whenever either seat uses assistance.
+- Kept private cheats available and unchanged. Handicap labels describe the mutually chosen party rules; they do not inspect or expose cheat state.
+- Advanced the coherent PWA shell to revision 20.
+
+### Validation
+
+- Pure engine tests lock the exact 500-point, one-life, and 1.25 target-width values and prove Standard is a no-op.
+- Protocol/client tests lock the allowlist, normalization, and create payload.
+- Durable Object tests prove host and guest selections are seat-specific, public to both participants, accepted by Ready, and retained through rematch.
+- Static integration tests prove the server-frozen boundary and existing no-leaderboard Clash path.
+- Share-card tests prove assisted rooms are labelled without exposing private capabilities.
 - Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
 
 ## FE-6C — Compact rematch stories
