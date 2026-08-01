@@ -28,7 +28,8 @@ function createRoom(value, at) {
     v: MATCH_PROTOCOL_VERSION, code: value.code, state: MATCH_STATES.WAITING, difficulty: value.difficulty,
     rulesetVersion: 1, matchNumber: 1, suddenDeath: 0, roundLimit: MATCH_LIMITS.rounds,
     seed: null, startAt: null, createdAt: at, updatedAt: at, expiresAt: at + MATCH_TIMES.waiting,
-    seats: { host: seat('host', value.name, value.hostTokenHash, at), guest: null }, sabotages: [], result: null,
+    seats: { host: seat('host', value.name, value.hostTokenHash, at), guest: null }, sabotages: [],
+    story: { leader: null, leadChanges: 0, closestGap: null }, result: null,
   };
 }
 function publicSeat(value) {
@@ -44,6 +45,7 @@ export function publicMatch(room, you = null) {
     updatedAt: room.updatedAt, expiresAt: room.expiresAt, you,
     seats: { host: publicSeat(room.seats.host), guest: publicSeat(room.seats.guest) },
     sabotages: Array.isArray(room.sabotages) ? room.sabotages.map((value) => ({ ...value })) : [],
+    story: room.story ? { ...room.story } : { leader: null, leadChanges: 0, closestGap: null },
     result: room.result ? { ...room.result } : null,
   };
 }
@@ -80,7 +82,10 @@ function countdown(room, at, { rematch = false, suddenDeath = false } = {}) {
   room.roundLimit = suddenDeath ? MATCH_LIMITS.suddenDeathRounds : MATCH_LIMITS.rounds;
   room.seed = `clash|${room.rulesetVersion}|${room.code}|${room.matchNumber}|${room.suddenDeath}|${random[0].toString(36)}${random[1].toString(36)}`;
   room.startAt = at + MATCH_TIMES.countdown; room.updatedAt = at;
-  room.expiresAt = room.startAt + MATCH_TIMES.active; room.sabotages = []; room.result = null;
+  const continuingLeadChanges = suddenDeath ? Math.max(0, Number(room.story?.leadChanges) || 0) : 0;
+  const continuingClosestGap = suddenDeath && Number.isFinite(room.story?.closestGap) ? room.story.closestGap : null;
+  room.expiresAt = room.startAt + MATCH_TIMES.active; room.sabotages = [];
+  room.story = { leader: null, leadChanges: continuingLeadChanges, closestGap: continuingClosestGap }; room.result = null;
   return room;
 }
 function awardShard(player, next) {
@@ -92,10 +97,30 @@ function awardShard(player, next) {
   if (!player.shardStreakReady || next.perfectStreak < 3 || player.shardsEarned >= MATCH_LIMITS.maxShards) return false;
   player.shardStreakReady = false; player.shards++; player.shardsEarned++; return true;
 }
+function trackStory(room) {
+  if (!room.story) room.story = { leader: null, leadChanges: 0, closestGap: null };
+  const hostScore = Number(room.seats.host?.progress?.score) || 0; const guestScore = Number(room.seats.guest?.progress?.score) || 0;
+  const gap = Math.abs(hostScore - guestScore);
+  if (gap > 0) {
+    const leader = hostScore > guestScore ? 'host' : 'guest';
+    if (room.story.leader && room.story.leader !== leader) room.story.leadChanges++;
+    room.story.leader = leader;
+    room.story.closestGap = room.story.closestGap == null ? gap : Math.min(room.story.closestGap, gap);
+  }
+}
+function resultStory(room, result) {
+  const hostScore = Number(room.seats.host?.progress?.score) || 0; const guestScore = Number(room.seats.guest?.progress?.score) || 0;
+  return {
+    margin: Math.abs(hostScore - guestScore), leadChanges: Math.max(0, Number(room.story?.leadChanges) || 0),
+    closestGap: Number.isFinite(room.story?.closestGap) ? room.story.closestGap : null,
+    suddenDeath: Math.max(0, Number(room.suddenDeath) || 0), reason: result.reason, winner: result.winner,
+  };
+}
 function forfeit(room, loser, at, reason) {
   const seatValue = room.seats[loser]; if (seatValue) { seatValue.forfeited = true; seatValue.finished = true; }
   room.state = MATCH_STATES.FORFEIT; room.updatedAt = at; room.expiresAt = at + MATCH_TIMES.finished;
-  room.result = { winner: loser === 'host' ? 'guest' : 'host', reason, loser, finishedAt: at };
+  const outcome = { winner: loser === 'host' ? 'guest' : 'host', reason, loser, finishedAt: at };
+  room.result = { ...outcome, story: resultStory(room, outcome) };
   return room;
 }
 function deadline(room) {
@@ -114,7 +139,10 @@ function reconcile(room, at) {
     const disconnected = ['host', 'guest'].filter((id) => room.seats[id]?.disconnectedAt != null && at >= room.seats[id].disconnectedAt + MATCH_TIMES.disconnect);
     if (disconnected.length) {
       if (disconnected.length === 1) forfeit(room, disconnected[0], at, 'disconnect');
-      else { room.state = MATCH_STATES.FORFEIT; room.result = { winner: null, reason: 'both_disconnected', finishedAt: at }; room.expiresAt = at + MATCH_TIMES.finished; }
+      else {
+        room.state = MATCH_STATES.FORFEIT; const outcome = { winner: null, reason: 'both_disconnected', finishedAt: at };
+        room.result = { ...outcome, story: resultStory(room, outcome) }; room.expiresAt = at + MATCH_TIMES.finished;
+      }
       changed = true;
     }
   }
@@ -207,7 +235,7 @@ export class MatchRoom {
         if (room.state !== MATCH_STATES.PLAYING) return this.error(ws, 'not_playing');
         const finished = message.type === 'finish'; const next = sanitizeProgress(message.payload, player.progress, finished);
         if (!next) return this.error(ws, 'invalid_progress');
-        const shardAwarded = !finished && awardShard(player, next); player.progress = next; room.updatedAt = at;
+        const shardAwarded = !finished && awardShard(player, next); player.progress = next; trackStory(room); room.updatedAt = at;
         if (!finished) {
           await this.save(room); await this.others(player.id, 'opponent_progress', { seat: player.id, progress: next });
           if (shardAwarded) await this.broadcast('shard_state', { room: publicMatch(room) });
@@ -219,7 +247,7 @@ export class MatchRoom {
         if (!result.winner && room.suddenDeath < MATCH_LIMITS.maxSuddenDeath) {
           room = countdown(room, at, { suddenDeath: true }); await this.save(room); await this.broadcastCountdown(room, at); return;
         }
-        room.state = MATCH_STATES.FINISHED; room.result = { ...result, finishedAt: at }; room.expiresAt = at + MATCH_TIMES.finished;
+        room.state = MATCH_STATES.FINISHED; room.result = { ...result, finishedAt: at, story: resultStory(room, result) }; room.expiresAt = at + MATCH_TIMES.finished;
         await this.save(room); await this.broadcast('result', { room: publicMatch(room) }); return;
       }
       if (message.type === 'heartbeat') { await this.save(room); ws.send(JSON.stringify(this.message('presence', { serverTime: at }))); return; }

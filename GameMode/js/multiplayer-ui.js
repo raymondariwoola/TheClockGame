@@ -249,6 +249,9 @@
     heading(host, room.suddenDeath ? `SUDDEN DEATH ${room.suddenDeath}` : `MATCH ${room.matchNumber}`, title, room.result?.reason === 'disconnect' ? 'The other timeline disconnected.' : 'Final ordinary scores—no labels, no callouts.');
     roomRows(host, room); const scores = document.createElement('div'); scores.className = 'clash-final';
     scores.textContent = `${room.seats.host.name}: ${room.seats.host.progress.score.toLocaleString()} · ${room.seats.guest?.name || 'Guest'}: ${(room.seats.guest?.progress.score || 0).toLocaleString()}`;
+    const storyModel = root.ChronosMultiplayerClient.rematchStory(room, seatId); const story = document.createElement('div'); story.className = 'clash-rematch-story';
+    const storyTitle = document.createElement('strong'); storyTitle.textContent = storyModel.headline; const storyDetails = document.createElement('span'); storyDetails.textContent = storyModel.details.join(' · ');
+    story.append(storyTitle, storyDetails);
     const rematch = button('REMATCH', true); const share = button('PREPARING CARD…'); const done = button('DONE'); share.disabled = true;
     rematch.disabled = !seatId; rematch.addEventListener('click', () => { try { client.rematch(); rematch.disabled = true; rematch.textContent = 'WAITING…'; } catch {} });
     const cardState = status(); cardState.textContent = 'Rendering result card…';
@@ -259,7 +262,7 @@
       try { const result = await cards.share({ blob, title: 'Chrono Clash Result', text, url, filename: `chronos-clash-result-${room.code}.png` }); if (result.action !== 'cancelled') cardState.textContent = 'Result shared.'; }
       catch { cardState.textContent = 'Share failed. Please try again.'; }
     });
-    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, reactionControls(), cardState, actions(rematch, share, done));
+    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, story, reactionControls(), cardState, actions(rematch, share, done));
   }
   function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', close); host.appendChild(done); }
   function forfeit() { if (!active) return; try { client.forfeit(); } catch {} active = null; hideHud(); }

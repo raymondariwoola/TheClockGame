@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { MultiplayerClient, REACTIONS, SABOTAGES, buildUrl, codeFromUrl } = require('../js/multiplayer.js');
+const { MultiplayerClient, REACTIONS, SABOTAGES, buildUrl, codeFromUrl, rematchStory } = require('../js/multiplayer.js');
 class Store { constructor() { this.map = new Map(); } getItem(k) { return this.map.get(k) || null; } setItem(k, v) { this.map.set(k, v); } removeItem(k) { this.map.delete(k); } }
 class Socket {
   static values = []; constructor(url, protocols) { this.url = url; this.protocols = protocols; this.readyState = 0; this.listeners = new Map(); this.sent = []; Socket.values.push(this); }
@@ -38,6 +38,9 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
   assert.equal(SABOTAGES.narrow.label, 'Tight Window');
   assert.throws(() => client.reaction('custom text'), /invalid_reaction/);
   assert.throws(() => client.sabotage('custom'), /invalid_sabotage/);
+  assert.deepEqual(rematchStory({ matchNumber: 2, result: { winner: 'host', reason: 'score', story: { margin: 28, leadChanges: 3 } } }, 'guest'),
+    { headline: 'LOST BY 28', details: ['3 LEAD CHANGES'] });
+  assert.equal(rematchStory({ suddenDeath: 1, result: { winner: 'guest', story: { suddenDeath: 1 } } }, 'guest').headline, 'SUDDEN-DEATH WIN');
   assert.equal(buildUrl('https://game.test/', client.code).includes('token'), false);
   client.disconnect();
   console.log('✓ multiplayer client tests passed');

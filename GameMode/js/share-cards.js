@@ -91,6 +91,10 @@
     const guest = room?.seats?.guest;
     const winner = room?.result?.winner;
     const winnerSeat = winner === 'host' ? host : winner === 'guest' ? guest : null;
+    const story = room?.result?.story || {};
+    const storyText = Number(story.suddenDeath || room?.suddenDeath) > 0 ? 'SUDDEN-DEATH FINISH'
+      : Number(story.margin) > 0 ? `WIN BY ${score(story.margin)}` : `WIN ON ${upper(room?.result?.reason, 'TIEBREAK')}`;
+    const changes = Math.max(0, number(story.leadChanges));
     return {
       kind: 'clash-result', accent: winnerSeat ? COLORS.yellow : COLORS.violet,
       eyebrow: room?.suddenDeath ? `SUDDEN DEATH ${number(room.suddenDeath)}` : `CHRONO CLASH · MATCH ${number(room?.matchNumber) || 1}`,
@@ -102,9 +106,9 @@
       rows: [
         [upper(host?.name, 'HOST'), score(host?.progress?.score)],
         [upper(guest?.name, 'GUEST'), score(guest?.progress?.score)],
-        ['FORMAT', `${number(room?.roundLimit) || 10} ROUNDS · ${difficulty(room?.difficulty)}`],
+        ['STORY', `${storyText}${changes ? ` · ${changes} LEAD ${changes === 1 ? 'CHANGE' : 'CHANGES'}` : ''}`],
       ],
-      cta: 'START YOUR OWN CLASH',
+      cta: 'RUN IT BACK',
     };
   }
 

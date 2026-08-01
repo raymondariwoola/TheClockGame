@@ -38,6 +38,23 @@
     const normalized = normalizeCode(code); if (!normalized) throw new MultiplayerError('bad_code');
     const url = new URL(String(value)); url.search = ''; url.hash = ''; url.searchParams.set('duel', normalized); return url.toString();
   }
+  function rematchStory(room, viewer = null) {
+    const result = room?.result || {}; const story = result.story || {};
+    const winner = result.winner; const viewed = viewer === 'host' || viewer === 'guest'; const won = viewed && winner === viewer;
+    const lost = viewed && winner && winner !== viewer; const margin = Math.max(0, Number(story.margin) || 0);
+    let headline = 'TIMELINE DRAW';
+    if (winner && Number(story.suddenDeath || room?.suddenDeath) > 0) headline = viewed ? `SUDDEN-DEATH ${won ? 'WIN' : 'LOSS'}` : 'SUDDEN-DEATH FINISH';
+    else if (winner && ['forfeit', 'disconnect'].includes(result.reason)) headline = viewed ? `${won ? 'WIN' : 'LOSS'} BY ${result.reason.toUpperCase()}` : `${result.reason.toUpperCase()} FINISH`;
+    else if (winner && margin > 0) headline = viewed ? `${won ? 'WON' : 'LOST'} BY ${margin.toLocaleString()}` : `WIN BY ${margin.toLocaleString()}`;
+    else if (winner) headline = viewed ? `${won ? 'WON' : 'LOST'} ON ${String(result.reason || 'TIEBREAK').toUpperCase()}` : `WIN ON ${String(result.reason || 'TIEBREAK').toUpperCase()}`;
+    if (!winner && lost) headline = 'TIMELINE DRAW';
+    const details = [];
+    const changes = Math.max(0, Number(story.leadChanges) || 0);
+    if (changes) details.push(`${changes} LEAD ${changes === 1 ? 'CHANGE' : 'CHANGES'}`);
+    if (Number.isFinite(story.closestGap)) details.push(`CLOSEST GAP · ${Math.max(0, story.closestGap).toLocaleString()}`);
+    if (!details.length) details.push(`MATCH ${Math.max(1, Number(room?.matchNumber) || 1)}`);
+    return { headline, details: details.slice(0, 2) };
+  }
   function socketUrl(base, code) { const url = new URL(`${base}/v1/matches/${encodeURIComponent(code)}/socket`); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'; return url.toString(); }
 
   class MultiplayerClient {
@@ -143,5 +160,5 @@
     scheduleHeartbeat() { this.stopHeartbeat(); if (!this.heartbeatMs || this.manualClose) return; this.heartbeatTimer = setTimeout(() => { this.heartbeatTimer = null; try { this.send('heartbeat'); } catch {} this.scheduleHeartbeat(); }, this.heartbeatMs); this.heartbeatTimer?.unref?.(); }
     stopHeartbeat() { if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer); this.heartbeatTimer = null; }
   }
-  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, normalizeCode, cleanName, codeFromUrl, buildUrl };
+  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, rematchStory, normalizeCode, cleanName, codeFromUrl, buildUrl };
 });

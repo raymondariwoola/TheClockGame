@@ -67,6 +67,8 @@ test('match room runs a tie through sudden death and accepts cheat-altered ordin
   assert.equal(stored.state, 'finished');
   assert.equal(stored.result.winner, 'guest');
   assert.equal(stored.result.reason, 'score');
+  assert.equal(stored.result.story.suddenDeath, 1);
+  assert.equal(stored.result.story.margin, 100);
 
   const publicState = await (await room.fetch(request('/state'))).json();
   assert.equal(JSON.stringify(publicState).includes('tokenHash'), false);
@@ -150,4 +152,21 @@ test('legacy Clash progress without perfectStreak remains valid during a rolling
   await room.webSocketMessage(host, envelope('progress', 1, { score: 100, round: 1, perfect: 1, combo: 1, acc: 100, attempts: 1 }));
   assert.equal(host.sent.some((message) => message.type === 'error' && message.payload.code === 'invalid_progress'), false);
   assert.equal((await ctx.storage.get('room')).seats.host.progress.perfectStreak, 0);
+});
+
+test('match room retains compact lead-change counters without a progress timeline', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 5_000_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  let stored = await ctx.storage.get('room'); env.__TEST_NOW = stored.startAt + 1;
+  const progress = (score, round, attempts) => ({ score, round, perfect: 0, perfectStreak: 0, combo: 1, acc: 50, attempts });
+  await room.webSocketMessage(host, envelope('progress', 1, progress(100, 1, 1)));
+  await room.webSocketMessage(guest, envelope('progress', 1, progress(200, 1, 1)));
+  await room.webSocketMessage(host, envelope('progress', 2, progress(300, 2, 2)));
+  stored = await ctx.storage.get('room');
+  assert.deepEqual(stored.story, { leader: 'host', leadChanges: 2, closestGap: 100 });
+  assert.equal('history' in stored.story, false); assert.equal('timeline' in stored.story, false);
 });

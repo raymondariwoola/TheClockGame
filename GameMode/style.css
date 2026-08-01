@@ -2968,3 +2968,7 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
 .clash-sabotage-choices { display: flex; gap: 5px; padding: 5px; border: 1px solid rgba(255,224,102,.35); border-radius: 14px; background: rgba(7,9,25,.96); }
 .clash-sabotage-choices button { min-width: 44px; min-height: 44px; border: 1px solid rgba(255,64,170,.5); border-radius: 11px; background: rgba(35,12,43,.96); color: #fff; font-size: 19px; }
 @media (max-width: 390px) { .clash-sabotage-dock { bottom: max(132px, calc(env(safe-area-inset-bottom) + 118px)); } }
+
+.clash-rematch-story { display: grid; gap: 4px; padding: 12px; border: 1px solid rgba(255,224,102,.45); border-radius: 12px; background: linear-gradient(135deg, rgba(255,224,102,.09), rgba(139,92,255,.09)); text-align: center; }
+.clash-rematch-story strong { color: #ffe066; font: 800 13px 'Orbitron', sans-serif; letter-spacing: 1px; }
+.clash-rematch-story span { color: var(--muted); font: 700 10px 'Rajdhani', sans-serif; letter-spacing: .5px; }

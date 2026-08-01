@@ -24,5 +24,14 @@ const result = cards.ghostResultModel({ ...ghost, hideHostScore: false, guest: {
 assert.equal(result.title, 'GUEST WINS');
 assert.equal(result.hero, '100,000');
 
+const clashResult = cards.clashResultModel({
+  code: 'ABCD-EFGH', difficulty: 'normal', roundLimit: 10, matchNumber: 2,
+  seats: { host: { name: 'Host', progress: { score: 1000 } }, guest: { name: 'Guest', progress: { score: 972 } } },
+  result: { winner: 'host', reason: 'score', story: { margin: 28, leadChanges: 3, suddenDeath: 0 } },
+});
+assert.equal(clashResult.rows[2][0], 'STORY');
+assert.equal(clashResult.rows[2][1], 'WIN BY 28 · 3 LEAD CHANGES');
+assert.equal(clashResult.cta, 'RUN IT BACK');
+
 assert.throws(() => cards.shareUrl('https://worker.test', 'bad', '1234'), /bad_share_kind/);
 console.log('✓ share card model tests passed');

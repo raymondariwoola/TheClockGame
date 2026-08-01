@@ -12,7 +12,7 @@
 |---|---|---|
 | FE-6A | Preset reactions | Complete |
 | FE-6B | Time Shards / Secret Sabotage | Complete |
-| FE-6C | Compact rematch stories | Not started |
+| FE-6C | Compact rematch stories | Complete |
 | FE-6D | Skill handicap presets | Not started |
 | FE-6E | Objective Cards | Not started |
 
@@ -58,6 +58,27 @@
 - Durable Object tests prove the three-Perfect award, shard deduction, two-use bounds, future-round assignment, opponent telegraph, and invalid/no-shard rejection.
 - Static integration tests prove the effects are Clash-only, future-round-only, announced, and disconnected from scoring.
 - Existing private-cheat tests remain unchanged and pass; cheats are neither disabled nor remotely labelled by this mechanic.
+- Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
+
+## FE-6C — Compact rematch stories
+
+### Implementation
+
+- Added three bounded server counters to each live match: current leader, lead-change count, and closest non-zero score gap.
+- Retained no per-round score timeline, event log, analytics stream, or new storage object. The counters expire with the existing Match room.
+- Froze margin, lead changes, closest gap, winner, reason, and sudden-death count into the final result summary.
+- Preserved lead-change context when a draw enters sudden death and reset it for a true rematch.
+- Added a perspective-aware client formatter producing concise outcomes such as `WON BY 28`, `LOST BY 28`, `SUDDEN-DEATH WIN`, or `LOSS BY DISCONNECT`.
+- Placed the story directly above the existing Rematch action and included a neutral compact version on the Clash result share card with a `RUN IT BACK` call to action.
+- Kept the result deterministic for reconnecting clients because its compact summary comes from the room result rather than transient local animation state.
+- Advanced the coherent PWA shell to revision 19.
+
+### Validation
+
+- Durable Object tests prove two score-lead crossings become exactly two retained lead changes and that no history/timeline field exists.
+- Client tests cover win/loss perspective, margins, sudden death, disconnects, and draws.
+- Share-card tests lock the neutral story row and rematch call to action.
+- Static UI tests prove the story is paired with Rematch and the final result freezes the bounded summary.
 - Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
 
 ## Resume rule
