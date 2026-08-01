@@ -1977,6 +1977,10 @@
     $('menuRound').textContent = loadInt(LS.bestRound);
     const achCount = document.getElementById('menuAchCount');
     if (achCount) achCount.textContent = `${Achievements.unlockedCount()} / ${Achievements.total()}`;
+    const achSummary = document.getElementById('menuAchSummary');
+    if (achSummary) achSummary.textContent = Achievements.summary();
+    const cosSummary = document.getElementById('menuCosSummary');
+    if (cosSummary) cosSummary.textContent = Cosmetics.summary();
     Identity.render();
     Daily.render();
   }
@@ -3299,7 +3303,13 @@
     }
     function closeGallery() { const ov = document.getElementById('achievementsOverlay'); if (ov) ov.hidden = true; }
 
-    return { recordRun, openGallery, closeGallery, unlockedCount, total };
+    function summary() {
+      const unlocked = loadUnlocked();
+      const next = ChronosEngine.ACHIEVEMENTS.find((achievement) => !unlocked[achievement.id]);
+      return next ? `Next: ${next.icon} ${next.name} — ${next.desc}` : 'Every achievement unlocked — timeline mastered.';
+    }
+
+    return { recordRun, openGallery, closeGallery, unlockedCount, total, summary };
   })();
 
   // ============================================================
@@ -3338,6 +3348,8 @@
       if (!r.unlocked[cat] || r.unlocked[cat].indexOf(id) < 0) return;   // locked → ignore
       const e = loadEquipped(); e[cat] = id; saveEquipped(e);
       apply(); render(); AudioFx.powerup();
+      const menu = document.getElementById('menuCosSummary');
+      if (menu) menu.textContent = summary();
     }
 
     function achName(id) {
@@ -3394,7 +3406,21 @@
     function open() { render(); const ov = document.getElementById('cosmeticsOverlay'); if (ov) ov.hidden = false; }
     function close() { const ov = document.getElementById('cosmeticsOverlay'); if (ov) ov.hidden = true; }
 
-    return { apply, open, close, render, equip };
+    function summary() {
+      const C = ChronosEngine.COSMETICS;
+      const r = resolved();
+      let unlockedTotal = 0, total = 0;
+      const equipped = [];
+      for (const cat in C) {
+        total += C[cat].items.length;
+        unlockedTotal += r.unlocked[cat].length;
+        const item = C[cat].items.find((candidate) => candidate.id === r.equipped[cat]);
+        if (item) equipped.push(item.name);
+      }
+      return `${unlockedTotal} / ${total} unlocked · Equipped: ${equipped.join(' · ')}`;
+    }
+
+    return { apply, open, close, render, equip, summary };
   })();
 
   // ============================================================
@@ -3417,10 +3443,14 @@
 
     function render() {
       const el = document.getElementById('playerIdentityName');
+      const settingsEl = document.getElementById('settingsIdentityName');
       const chip = document.getElementById('playerIdentity');
+      const settingsButton = document.getElementById('settingsIdentityBtn');
       const name = displayName();
       if (el) el.textContent = name || 'set your name';
+      if (settingsEl) settingsEl.textContent = name || 'Set your name';
       if (chip) chip.classList.toggle('unset', !name);
+      if (settingsButton) settingsButton.classList.toggle('unset', !name);
     }
 
     function open() {
@@ -3440,8 +3470,10 @@
     function wire() {
       const form = document.getElementById('identityForm');
       const chip = document.getElementById('playerIdentity');
+      const settingsButton = document.getElementById('settingsIdentityBtn');
       const skip = document.getElementById('idSkip');
       if (chip) chip.addEventListener('click', open);
+      if (settingsButton) settingsButton.addEventListener('click', open);
       if (skip) skip.addEventListener('click', close);
       if (form) form.addEventListener('submit', (e) => {
         e.preventDefault();

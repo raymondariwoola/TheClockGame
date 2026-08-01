@@ -114,12 +114,12 @@ async function auditViewport(width, height) {
     assert.equal(state.active, name, `${name} becomes active`);
     assert.deepEqual(state.visible, [name], `${name} is the only exposed panel`);
     assert.deepEqual(state.current, [name], `${name} is the only current navigation item`);
-    if (width === 390 && name === 'compete') {
+    if (width === 390 && name !== 'play') {
       await wait(220);
-      const competeImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-      const competeOutput = join(outputDir, `menu-${width}x${height}-compete.png`);
-      await writeFile(competeOutput, Buffer.from(competeImage.result.data, 'base64'));
-      snapshot.competeScreenshot = competeOutput;
+      const destinationImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      const destinationOutput = join(outputDir, `menu-${width}x${height}-${name}.png`);
+      await writeFile(destinationOutput, Buffer.from(destinationImage.result.data, 'base64'));
+      snapshot[`${name}Screenshot`] = destinationOutput;
     }
   }
 
@@ -155,7 +155,9 @@ try {
   console.log('✓ menu viewport audit passed');
   for (const result of results) {
     console.log(`  ${result.viewport.width}x${result.viewport.height}: four destinations, no horizontal overflow, screenshot ${result.screenshot}`);
-    if (result.competeScreenshot) console.log(`  Compete screenshot: ${result.competeScreenshot}`);
+    for (const name of ['compete', 'progress', 'settings']) {
+      if (result[`${name}Screenshot`]) console.log(`  ${name} screenshot: ${result[`${name}Screenshot`]}`);
+    }
   }
 } finally {
   try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}

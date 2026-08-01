@@ -184,17 +184,27 @@
             </div>
           </div>
 
-          <button class="menu-board-btn ach" id="menuAchBtn" type="button">
-            <span class="mb-icon">🏅</span>
-            <span class="mb-text">ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
-            <span class="mb-arrow">→</span>
-          </button>
+          <article class="progress-feature" aria-labelledby="progressAchievementsTitle">
+            <div class="progress-feature-copy">
+              <span aria-hidden="true">🏅</span>
+              <div><h3 id="progressAchievementsTitle">ACHIEVEMENTS</h3><p id="menuAchSummary">Your next goal is waiting.</p></div>
+            </div>
+            <button class="menu-board-btn ach" id="menuAchBtn" type="button">
+              <span class="mb-text">VIEW ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
+              <span class="mb-arrow">→</span>
+            </button>
+          </article>
 
-          <button class="menu-board-btn cos" id="menuCosBtn" type="button">
-            <span class="mb-icon">🎨</span>
-            <span class="mb-text">CUSTOMIZE — UNLOCK WITH ACHIEVEMENTS</span>
-            <span class="mb-arrow">→</span>
-          </button>
+          <article class="progress-feature" aria-labelledby="progressCosmeticsTitle">
+            <div class="progress-feature-copy">
+              <span aria-hidden="true">🎨</span>
+              <div><h3 id="progressCosmeticsTitle">COSMETICS</h3><p id="menuCosSummary">Equip visual rewards earned through achievements.</p></div>
+            </div>
+            <button class="menu-board-btn cos" id="menuCosBtn" type="button">
+              <span class="mb-text">OPEN CUSTOMIZATION</span>
+              <span class="mb-arrow">→</span>
+            </button>
+          </article>
         </section>
 
         <section class="menu-hub" id="menuHubSettings" data-menu-destination="settings" aria-labelledby="menuHubSettingsTitle" hidden inert>
@@ -203,29 +213,43 @@
             <h2 id="menuHubSettingsTitle" tabindex="-1">SETTINGS</h2>
           </div>
 
-          <button class="menu-board-btn a11y" id="menuA11yBtn" type="button">
-            <span class="mb-icon">♿</span>
-            <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
-            <span class="mb-arrow">→</span>
-          </button>
+          <section class="settings-group" aria-labelledby="settingsProfileTitle">
+            <div class="settings-group-heading"><span aria-hidden="true">👤</span><div><h3 id="settingsProfileTitle">PROFILE</h3><p>Your local name appears on cards and boards.</p></div></div>
+            <button class="settings-action" id="settingsIdentityBtn" type="button">
+              <span>PLAYING AS</span><strong id="settingsIdentityName">Set your name</strong><span aria-hidden="true">✎</span>
+            </button>
+          </section>
 
-          <button class="menu-board-btn pwa-install" id="pwaInstallBtn" type="button" hidden>
-            <span class="mb-icon">↧</span>
-            <span class="mb-text">INSTALL CHRONOS STRIKE</span>
-            <span class="mb-arrow">→</span>
-          </button>
+          <section class="settings-group" aria-labelledby="settingsComfortTitle">
+            <div class="settings-group-heading"><span aria-hidden="true">♿</span><div><h3 id="settingsComfortTitle">COMFORT &amp; DISPLAY</h3><p>Motion, flash, contrast, HUD, handedness, and visual assists.</p></div></div>
+            <button class="menu-board-btn a11y" id="menuA11yBtn" type="button">
+              <span class="mb-text">OPEN ACCESSIBILITY SETTINGS</span>
+              <span class="mb-arrow">→</span>
+            </button>
+          </section>
 
-          <button class="menu-board-btn pwa-connection" id="pwaConnectionBtn" type="button" hidden>
-            <span class="mb-icon" id="pwaConnectionIcon">○</span>
-            <span class="mb-text" id="pwaConnectionLabel">CHECKING CONNECTION</span>
-            <span class="mb-arrow">DETAILS</span>
-          </button>
+          <section class="settings-group" aria-labelledby="settingsAppTitle">
+            <div class="settings-group-heading"><span aria-hidden="true">↧</span><div><h3 id="settingsAppTitle">APP &amp; CONNECTION</h3><p>Install, update, offline readiness, and cloud diagnostics.</p></div></div>
+            <button class="menu-board-btn pwa-install" id="pwaInstallBtn" type="button" hidden>
+              <span class="mb-icon">↧</span>
+              <span class="mb-text">INSTALL CHRONOS STRIKE</span>
+              <span class="mb-arrow">→</span>
+            </button>
 
-          <div class="menu-controls">
-            <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
-          </div>
+            <button class="menu-board-btn pwa-connection" id="pwaConnectionBtn" type="button" hidden>
+              <span class="mb-icon" id="pwaConnectionIcon">○</span>
+              <span class="mb-text" id="pwaConnectionLabel">CHECKING CONNECTION</span>
+              <span class="mb-arrow">DETAILS</span>
+            </button>
+          </section>
 
-          <a href="../index.html" class="back-home">← Back to Clock Quest</a>
+          <section class="settings-group" aria-labelledby="settingsAboutTitle">
+            <div class="settings-group-heading"><span aria-hidden="true">⌨</span><div><h3 id="settingsAboutTitle">CONTROLS &amp; ABOUT</h3><p>Keyboard help and the route back to the main Clock Quest.</p></div></div>
+            <div class="menu-controls">
+              <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
+            </div>
+            <a href="../index.html" class="back-home">← Back to Clock Quest</a>
+          </section>
         </section>
       </main>
 

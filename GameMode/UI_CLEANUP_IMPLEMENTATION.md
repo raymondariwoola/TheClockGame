@@ -16,7 +16,7 @@
 | UI-1 | Menu shell and four-destination navigation | Complete |
 | UI-2 | Compact Play destination | Complete |
 | UI-3 | Compete destination and deep-link routing | Complete |
-| UI-4 | Progress and Settings destinations | Not started |
+| UI-4 | Progress and Settings destinations | Complete |
 | UI-5 | Responsive visual/PWA polish | Not started |
 | UI-6 | Rollout closure and final handoff | Not started |
 
@@ -143,6 +143,30 @@ Completed before commit on 1 August 2026:
 - all 1,769 engine assertions and full client/Worker validation passed;
 - viewport audits confirmed exclusive destination state, no horizontal overflow, and fixed navigation at 320 × 568 and 390 × 844;
 - the 390 × 844 Compete screenshot was visually inspected, including the scroll boundary above the fixed navigation;
+- `git diff --check` passed.
+
+## UI-4 — Progress and Settings destinations
+
+### Implemented
+
+- Kept best score, best combo, and round reached together at the top of Progress.
+- Added achievement and cosmetic summary cards that derive from the existing achievement roster and cosmetic resolver.
+- Showed the next locked achievement, current unlock count, and equipped cosmetic names without introducing new persistence.
+- Grouped Settings into Profile, Comfort & Display, App & Connection, and Controls & About.
+- Added a Settings profile action that opens the same identity overlay as the header control and mirrors the same stored name.
+- Retained the original accessibility, PWA install, connection, keyboard-help, and Clock Quest actions and their IDs.
+- Kept conditional PWA buttons conditional; the App group explains offline/cloud behavior even when no installation action is currently offered.
+
+### UI-4 validation
+
+Completed before commit on 1 August 2026:
+
+- the Progress/Settings contract test confirms every control is in its intended destination and retains its original module;
+- achievement and cosmetic summaries are proven to read the existing roster/resolver rather than duplicate storage;
+- identity, accessibility, cosmetic, PWA install/connectivity, stat reset, and cheat persistence tests passed;
+- all 1,769 engine assertions and full client/Worker validation passed;
+- device-emulated audits passed at 320 × 568 and 390 × 844 with no overflow or navigation obstruction;
+- separate 390 × 844 Progress and Settings screenshots were visually inspected, including conditional installation/connectivity controls and scrollable About content;
 - `git diff --check` passed.
 
 ## Resume rule
