@@ -1,12 +1,12 @@
 # Chronos Strike future enhancements
 
-> **Status:** decision document only — no item in this document is approved for implementation yet.
+> **Status:** living roadmap — PWA polish is complete locally; the menu/UI cleanup is selected as the next design and implementation prerequisite, but its code work has not started.
 >
 > **Scope:** `GameMode/` only.
 >
 > **Budget:** zero monetary cost; existing GitHub Pages and Cloudflare free-tier services only.
 >
-> **Prepared:** 31 July 2026.
+> **Prepared:** 31 July 2026. **Updated:** 1 August 2026.
 
 ## 1. Purpose
 
@@ -99,6 +99,8 @@ Official references:
 ## 4. Recommended shortlist
 
 If only a handful of items are selected, these provide the best combination of fun, usefulness, mobile fit, reuse of existing systems, and cost safety.
+
+The menu/UI cleanup in section 13 is now a prerequisite to this feature shortlist, not another competing gameplay feature. It establishes where each later enhancement belongs before more controls are added.
 
 | Rank | Enhancement | Value | Effort | Cloud | Recommendation |
 |---:|---|:---:|:---:|:---:|---|
@@ -529,7 +531,336 @@ The following may sound impressive but are poor choices for this game now.
 
 ---
 
-## 13. Suggested implementation programme
+## 13. UI cleanup and navigation redesign
+
+> **Decision:** complete this work before adding another major gameplay enhancement.
+>
+> **Current state:** design and rollout plan only. No menu implementation is included in this document update.
+>
+> **Scope:** the `GameMode/` menu and its navigation surfaces. The clock gameplay, scoring, powers, cheats, multiplayer protocols, Worker API, leaderboards, ghosts, sharing, and result flows are protected behavior and are not being redesigned in this phase.
+
+### 13.1 Why the current menu needs structural work
+
+The menu has grown by appending each successful feature to one vertical page. Every individual feature is useful, but the combined page no longer communicates priority. A new or returning player has to scan branding, identity, statistics, a large Daily Rift card, difficulty, three mode cards, Clash, leaderboard, achievements, cosmetics, accessibility, installation, connectivity, help, and the Clock Quest link before they understand the whole surface.
+
+The 1 August 2026 local audit found:
+
+| Viewport | Menu height | Approximate screens | Visible actions | Horizontal overflow |
+|---|---:|---:|---:|---|
+| 390 × 844 | 2,467 px | 2.9 | 15 | None |
+| 320 × 568 | 2,617 px | 4.6 | 15 | None |
+
+The first 390 × 844 viewport is dominated by the logo, identity, personal statistics, and Daily Rift. The ordinary mode choices and several high-value destinations are below the fold. The problem is therefore not broken responsiveness or horizontal clipping. It is **information architecture**: too many unrelated actions share the same level and the primary task—starting a game—does not dominate the screen.
+
+### 13.2 Design outcome
+
+The redesigned menu should feel like a small game application rather than a settings catalogue:
+
+1. A player can select a mode, select Normal or Hardcore, and start within the first phone viewport.
+2. Returning players can start the last selected local mode with one prominent tap.
+3. Competition, progress, and configuration remain permanently discoverable through labelled top-level navigation.
+4. No existing feature disappears, becomes dependent on cloud availability, or receives a second implementation.
+5. The phone layout is the design authority; tablet and desktop layouts adapt the same hierarchy rather than expose a different product.
+6. New features must be assigned to an existing destination instead of adding another full-width row to the menu root.
+
+This is a reorganization and presentation layer, not a visual-effects reskin. Colour, typography, animation, and decorative polish follow only after the interaction hierarchy is proven.
+
+### 13.3 Proposed top-level architecture
+
+Use four stable, labelled destinations on the menu screen:
+
+| Destination | Purpose | Existing content moved here | Primary action |
+|---|---|---|---|
+| **Play** | Start a local run immediately | Classic, Endless, Zen / Precision Lab, Normal / Hardcore, compact Daily Rift preview | Start selected mode |
+| **Compete** | Play with or against other people | Daily Rift detail, Chrono Clash, Ghost / Rival challenge, Hall of Time | Resume or create the most relevant competition |
+| **Progress** | Review accomplishments and personalize rewards | Personal best / combo / round, achievements, cosmetics | View next achievement or equip a reward |
+| **Settings** | Identity, comfort, app, and support controls | Player identity, accessibility/display, install/update state, connection diagnostics, keyboard help, back to Clock Quest | Save/apply the selected preference |
+
+On phones, these destinations use a fixed bottom navigation bar with an icon **and** a short text label. On wider screens, the same four destinations can become a compact side rail or centred tab row. The labels and grouping must not change by viewport.
+
+The bottom bar performs navigation only. Starting a run, creating a Clash, joining a ghost, or opening a leaderboard remains an action inside a destination. This distinction prevents the navigation bar from becoming another crowded action strip.
+
+Apple's current guidance recommends a stable tab bar for top-level sections, fewer tabs that remain visible, concise labels, and deliberate prioritization of toolbar actions. WCAG 2.2 requires a minimum 24 × 24 CSS-pixel target at Level AA; this design will retain a more comfortable **44 × 44 CSS-pixel minimum design target** for primary mobile controls.
+
+Primary references:
+
+- [Apple Human Interface Guidelines: Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars)
+- [Apple Human Interface Guidelines: Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)
+- [Apple Human Interface Guidelines: Sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars)
+- [Apple Human Interface Guidelines: Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
+- [WCAG 2.2 — Target Size (Minimum)](https://www.w3.org/TR/WCAG22/#target-size-minimum)
+- [WCAG 2.2 — Focus Order](https://www.w3.org/TR/WCAG22/#focus-order)
+
+### 13.4 Mobile-first Play destination
+
+The Play destination should contain only what a player needs for an ordinary run, plus one compact route into today's event:
+
+```text
+┌──────────────────────────────────┐
+│ CHRONOS STRIKE       ● online  RA│
+├──────────────────────────────────┤
+│ PLAY                             │
+│ [ Classic ] [ Endless ] [ Zen ] │
+│                                  │
+│ Difficulty  [ Normal | Hardcore ]│
+│                                  │
+│        START CLASSIC             │
+│                                  │
+│ Today's Rift · New challenge   > │
+├──────────────────────────────────┤
+│ Play  Compete  Progress Settings │
+└──────────────────────────────────┘
+```
+
+Detailed behavior:
+
+- The header uses a compact wordmark after entry instead of reserving a large block for the full logo.
+- The existing player identity becomes a small profile control in the header; editing it opens the existing identity flow from Settings.
+- Classic, Endless, and Zen use one compact selector. The selected option provides a one- or two-line description below the selector, avoiding three permanently expanded cards.
+- Normal / Hardcore remains a labelled two-option segmented control. The existing selection and hint text remain the state authority.
+- A single high-emphasis Start button reflects the selection, for example **Start Classic** or **Start Endless — Hardcore**.
+- The most recently selected local mode and difficulty can remain selected using the existing persistence behavior. This must never auto-start a run.
+- Daily Rift becomes one concise preview row on Play: status, availability, and a chevron/action. Its full description and social actions live in Compete.
+- No statistics, rivalry input, utility rows, or secondary collection controls appear before the Start action.
+
+The large Daily Rift card is not deleted. It moves to Compete, where its challenge, sharing, rival, and ranking context is easier to understand. This also stops an online event from visually outranking offline local play.
+
+### 13.5 Feature-to-destination map
+
+Every current root-menu element has a defined home. Nothing is silently dropped.
+
+| Current element | New location and presentation |
+|---|---|
+| Large logo and tagline | Compact Play header; full brand treatment remains available on first visit/loading and share surfaces |
+| Player identity | Header profile control; full edit panel in Settings |
+| Best score, combo, and round | Progress summary card |
+| Daily Rift card | Compact Play preview; complete Daily panel in Compete |
+| Legacy Rival Code input | Compete → Ghost / Rival panel, revealed only when that panel is opened |
+| Difficulty selector and explanation | Play, directly above Start; concise selected-mode help |
+| Three expanded mode cards | Compact three-option selector plus one changing description |
+| Chrono Clash row | Compete hero card with create/join/resume states |
+| Hall of Time | Compete; all existing Classic, Endless, Daily, Normal, and Hardcore boards remain switchable without first publishing a score |
+| Achievements | Progress, with completion count and nearest goals |
+| Cosmetics | Progress, with equipped preview and collection count |
+| Accessibility / display | Settings; always reachable outside active gameplay and from the existing in-game controls where currently supported |
+| Install app | Settings → App; header badge/banner only when installation needs attention |
+| Connection status | Compact header status plus Settings diagnostics; an explanatory banner appears only for a meaningful offline/degraded transition |
+| Keyboard instructions | Settings → Controls / Help; shown contextually on keyboard-capable devices |
+| Back to Clock Quest | Settings → About / More, retained as a clear external navigation action |
+
+Future features already proposed in this document also have homes:
+
+- Quick Strike and Pure Skill: Play.
+- Best-of-three / best-of-five Clash and live reactions: Compete.
+- Weekly Rift, Ghost Gauntlet, Family Cup, and private events: Compete.
+- Practice from mistakes: result screen first, then Play → Practice when available.
+- Mastery, Chronicle, and additional cosmetics: Progress.
+- Operations tools remain owner-only and do not enter the player menu.
+
+### 13.6 Compete, Progress, and Settings behavior
+
+**Compete** may scroll because it contains multiple distinct social systems, but it should start with active or resumable activity rather than an equal list of buttons. Recommended order:
+
+1. active Clash / Ghost invitation or reconnection card, when one exists;
+2. today's Daily Rift;
+3. Chrono Clash create/join;
+4. Ghost / Rival challenge create/join;
+5. Hall of Time.
+
+Inactive systems use compact cards with a short description and one primary action. Opening a card reveals its secondary controls in place or in the existing modal. A room or challenge deep link must land directly in the relevant existing join flow, with Compete selected behind it.
+
+**Progress** begins with a compact personal summary and then two collection cards: Achievements and Cosmetics. It should show useful summaries—completion count, next target, and equipped style—without rendering every achievement or cosmetic on the root. Detailed existing panels remain the place for browsing and selection.
+
+**Settings** groups controls rather than mixing them with play:
+
+- Profile: identity and locally stored player name.
+- Comfort and accessibility: motion, flash, contrast, sound/display options, and control guidance.
+- App: installability, update readiness, cache/offline explanation, and connection diagnostics.
+- About: keyboard help, version/ruleset information, and Back to Clock Quest.
+
+Critical offline/update/connection messages may still surface as compact banners anywhere in the menu when player action is actually required. Normal status should not consume a full permanent row.
+
+### 13.7 Responsive behavior
+
+The information architecture is constant; only its placement adapts.
+
+| Width/context | Navigation | Content layout |
+|---|---|---|
+| 320–599 px phone portrait | Fixed bottom bar, safe-area padded | One column; Start and current selection above fold |
+| Short phone / landscape | Compact bottom bar or left rail based on available height | Reduced header; scroll only the active destination, never the whole app shell |
+| 600–899 px tablet | Bottom bar or compact side rail | One wide column or two related cards per row |
+| 900 px+ desktop | Left rail or top tab row | Centred two-column content where relationships benefit; no stretched full-width buttons |
+| Installed PWA | Same hierarchy | Respect display-mode and safe-area insets; no browser-specific missing controls |
+
+The gameplay surface retains the deliberate Phase 28 zoom lock. Menu, help, settings, leaderboard, results, and other information-heavy surfaces keep browser zoom and text scaling available.
+
+### 13.8 Protected behavior and implementation boundaries
+
+The safest implementation is a menu-shell refactor around existing behavior, not a rewrite of `game.js`.
+
+The following are frozen during the initial UI phases:
+
+- scoring, combo, multiplier, modifier, boss, power, timer, and random-seed rules;
+- Classic, Endless, Zen, Normal, and Hardcore run construction;
+- cheat availability, persistence, values, and in-game toggling;
+- Daily seed and result behavior;
+- Ghost, Rival Code, Clash, WebSocket, reconnection, rematch, and forfeit protocols;
+- leaderboard categories, publishing, ruleset partitioning, and board switching;
+- result, sharing, challenge-card, and social-preview behavior;
+- Worker routes, Durable Object schemas, bindings, secrets, and retention;
+- local-storage keys and the versioned one-time stat reset mechanism;
+- service-worker update safety, especially the rule that an active run is never reloaded.
+
+Implementation rules:
+
+1. Preserve existing element IDs and handler entry points in the first structural phase wherever practical.
+2. Keep one source of truth for selected mode, difficulty, identity, cloud status, and active invitations. The new views render that state; they do not maintain parallel copies.
+3. Move or wrap controls before changing their behavior. Do not simultaneously redesign a flow and relocate it.
+4. Namespace new styles under a menu-shell boundary so gameplay and result CSS cannot be changed accidentally.
+5. Keep the previous menu available behind a temporary local/static rollback switch until all behavior gates pass. The switch must not be a remotely billed service or a player-facing setting.
+6. Hidden destination content must be removed from keyboard and assistive-technology navigation, not merely moved off-screen.
+7. Continue to use the existing modals for complex focused tasks until a later phase explicitly proves a replacement is better.
+8. Do not bump leaderboard/ruleset identity because of menu-only presentation changes.
+
+### 13.9 Accessibility and mobile interaction requirements
+
+- Maintain at least a 44 × 44 CSS-pixel design target for primary buttons, tabs, close controls, and segmented options.
+- Provide icon plus visible text for every top-level destination; do not rely on icon recognition.
+- Apply `aria-current` or an equivalent selected-state announcement to the active destination.
+- Keep heading order, focus order, and screen-reader reading order aligned with what is visible.
+- When changing destinations, place focus predictably at the destination heading without causing the page to jump during pointer use.
+- Preserve visible focus indicators and keyboard access on desktop.
+- Avoid swipe-only navigation. Taps, keyboard activation, and browser history/deep-link recovery remain sufficient.
+- Keep reduced-motion and reduced-flash preferences effective during menu transitions.
+- Use colour and text/icon state together for online, offline, selected, locked, and completed states.
+- Test 200% text scaling and long player names without covering Start or the bottom navigation.
+- Keep bottom navigation above `env(safe-area-inset-bottom)` and ensure scroll content has enough trailing padding not to hide its last action.
+- Prevent double-tap zoom only on the gameplay surface; informational destinations must remain zoomable.
+
+### 13.10 Phased implementation approach
+
+Each phase is committed only after its automated and manual gates pass. Documentation and screenshots are updated in the same phase commit. No phase is pushed or synchronized by Codex.
+
+#### Phase UI-0 — Characterization and interaction contract
+
+- Capture baseline screenshots at 320 × 568, 390 × 844, phone landscape, tablet, and desktop.
+- Inventory every menu element, DOM ID, event handler, deep-link entry, local-storage dependency, modal, and conditional state.
+- Add characterization tests for mode/difficulty selection, run start, Daily, Clash, Ghost/Rival, leaderboard, progress panels, settings, PWA status, and Clock Quest navigation.
+- Record keyboard order and screen-reader names before moving elements.
+- Define the temporary rollback switch and deletion criterion.
+
+**Gate:** the inventory accounts for every row in section 13.5, and tests fail if a protected action is disconnected. This phase may add tests and documentation but makes no player-facing layout change.
+
+#### Phase UI-1 — Menu shell and navigation foundation
+
+- Add the compact header, four destinations, mobile bottom navigation, and responsive desktop container.
+- Move existing blocks into destination containers without redesigning their internal controls.
+- Preserve element IDs, modal ownership, URL parsing, and event entry points.
+- Keep the previous menu selectable with the temporary rollback switch.
+- Ensure inactive destinations are inert and absent from the accessibility tree.
+
+**Gate:** every existing action produces the same transition or modal as the baseline; no duplicate IDs; no horizontal overflow from 320 px upward; browser Back and deep links recover correctly.
+
+#### Phase UI-2 — Play destination compression
+
+- Replace the three expanded mode cards with the compact mode selector and one contextual description.
+- Place Normal / Hardcore and the prominent Start button in the first viewport.
+- Add the compact Daily Rift preview.
+- Retain current selection persistence and existing run-construction functions.
+
+**Gate:** each mode × difficulty combination starts with the same run context as the baseline; Daily uses the same seed; Start is fully visible at 390 × 844 and reachable without more than one short scroll at 320 × 568; offline local play is unchanged.
+
+#### Phase UI-3 — Compete destination
+
+- Relocate and compact Daily Rift, Chrono Clash, Ghost/Rival, and Hall of Time.
+- Prioritize active/reconnectable sessions and collapse inactive secondary forms.
+- Route invitation/deep links to the correct panel without exposing secret capabilities in display URLs.
+- Retain the complete leaderboard mode and difficulty navigation at all times.
+
+**Gate:** two-browser create/join/reconnect/rematch tests pass; hidden-target and sharing behavior is unchanged; all boards can be opened without first publishing; Worker-offline states remain graceful.
+
+#### Phase UI-4 — Progress and Settings destinations
+
+- Move statistics, achievements, and cosmetics to Progress with compact summaries.
+- Move identity, accessibility, app/install/update/connectivity, help, and Clock Quest actions to grouped Settings sections.
+- Show status banners only when attention is needed.
+- Preserve all existing storage and one-time migration semantics.
+
+**Gate:** identity, cheat preferences, accessibility, cosmetics, achievements, install UI, update readiness, offline state, and one-time stat reset survive reloads exactly as before; 200% text and keyboard-only navigation pass.
+
+#### Phase UI-5 — Visual and responsive polish
+
+- Refine spacing, hierarchy, compact cards, selected states, transitions, empty states, and wide-screen composition.
+- Validate dark/light browser chrome, safe areas, notches, installed PWA display, landscape, low-height phones, and slow/offline transitions.
+- Use restrained motion and existing Chronos visual language; do not introduce large asset downloads.
+- Bump the service-worker shell revision only when the new shell is release-ready.
+
+**Gate:** automated suite, mobile viewport suite, Lighthouse/PWA smoke checks, and physical Android/iOS checks pass; no active run is interrupted by an update; screenshots and owner notes reflect the shipped UI.
+
+#### Phase UI-6 — Rollout closure
+
+- Run a short family usability check focused on starting a normal game, finding Clash, viewing a board, changing accessibility, and installing/updating.
+- Fix only demonstrated navigation problems; avoid adding root actions as shortcuts.
+- Remove the legacy menu and rollback switch after the agreed observation period.
+- Mark this roadmap and the implementation/status documents complete.
+
+**Gate:** representative players can complete the five tasks without coaching, no protected-behavior regression remains, and rollback instructions have been exercised before legacy removal.
+
+### 13.11 Verification matrix
+
+| Area | Required checks |
+|---|---|
+| Local play | All 3 modes × 2 difficulties; restart; quit; background/resume; offline start |
+| Daily | Available/completed states, deterministic seed, challenge/share, offline fallback |
+| Multiplayer | Clash create/join/ready/countdown/play/reconnect/forfeit/rematch on two phones/browsers |
+| Ghosts | Create, hidden/visible target, open deep link, complete, expired/invalid challenge |
+| Leaderboards | Open without submission; Classic/Endless/Daily and Normal/Hardcore switching; publish return flow |
+| Results/sharing | Score card, challenge card, native share/save fallback, return from publishing |
+| Private cheats | Persistent master state and individual toggles in every mode; no remote labelling or rejection changes |
+| Persistence | Identity, mode, difficulty, achievements, cosmetics, accessibility, cheats, PWA state, one-time stat-reset version |
+| Accessibility | Keyboard, focus visibility/order, screen-reader names/states, 200% text, reduced motion/flash, colour-independent status |
+| Mobile | 320/360/390/430 widths, short-height phone, portrait/landscape, safe areas, one-thumb reach, browser and installed PWA |
+| Resilience | Offline boot, cloud loss during menu use, cached old revision upgrade, update during active run, corrupted optional local state |
+| Static quality | Existing test suite, syntax/type checks where available, no duplicate IDs, link checks, `git diff --check` |
+
+### 13.12 Release acceptance criteria
+
+The cleanup is complete only when all of these are true:
+
+1. At 390 × 844, mode, difficulty, and the complete Start control are visible in the initial Play viewport.
+2. At 320 × 568, Start requires no more than one short intentional scroll and is never obscured by the bottom bar or browser chrome.
+3. The four labelled destinations remain stable across phone, tablet, desktop, and installed PWA layouts.
+4. No horizontal overflow exists from 320 px through desktop widths.
+5. Every current menu action is either visible in its mapped destination or conditionally surfaced under the same conditions as before.
+6. All leaderboard categories are accessible without first playing or publishing a matching run.
+7. Active invitations, reconnections, update readiness, and meaningful offline state are noticeable without permanently occupying root-menu space.
+8. Informational screens remain zoomable while the active gameplay surface remains fixed.
+9. No protected gameplay/network/storage behavior changes, and the full verification matrix passes before each phase commit.
+10. The final design adds no paid service, remote configuration dependency, new account, analytics collection, or additional Worker traffic during normal menu navigation.
+
+### 13.13 Risks and mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Players think a moved feature was removed | Four visible labels, complete feature map, contextual summaries, and usability checks with existing players |
+| New navigation duplicates state and drifts | One existing state authority; views call existing handlers; characterization tests around every entry point |
+| Fixed bottom bar covers content or browser UI | Safe-area padding, trailing scroll space, short-height/landscape tests, physical-device validation |
+| Hidden panels remain focusable | `hidden`/`inert` and accessibility-tree checks, not off-screen CSS alone |
+| Deep links open the wrong destination | Central URL-to-destination routing with invitation and result regression fixtures |
+| Large refactor breaks gameplay indirectly | Menu-only style namespace, frozen engine/protocol boundary, phases that move before redesigning |
+| PWA update logic no longer recognizes a safe menu state | Retain the existing menu screen as the shell authority and add update-during-each-destination tests |
+| Four destinations later become another crowded hierarchy | New-feature placement rule; no fifth destination or root shortcut without a documented navigation review |
+| Visual polish reduces performance | CSS-first visuals, existing assets, no animation required for understanding, reduced-motion path, low-end phone check |
+
+### 13.14 Recommendation
+
+Proceed with UI-0 through UI-2 before Best-of-three / Best-of-five Clash. Those phases solve the immediate mobile problem and establish the stable shell into which the later Clash-series controls can fit. Then implement UI-3 as the Compete home and use it as the presentation boundary for the Clash-series enhancement. Complete Progress, Settings, and visual polish before starting another large feature family.
+
+This order minimizes risk: first lock current behavior with tests, then establish navigation, then compress only the Play surface. Gameplay remains untouched until the new menu has proved it can start every existing run correctly.
+
+---
+
+## 14. Suggested implementation programme
 
 This is a recommendation for sequencing, not permission to begin.
 
@@ -599,7 +930,7 @@ Recommended bundle:
 
 ---
 
-## 14. Recommended combinations by desired outcome
+## 15. Recommended combinations by desired outcome
 
 ### “Make it more fun immediately”
 
@@ -628,6 +959,7 @@ Recommended bundle:
 
 ### “Make mobile feel finished”
 
+- four-destination, play-first menu architecture
 - update-ready banner
 - install guidance
 - one-thumb layout
@@ -657,12 +989,13 @@ Recommended bundle:
 
 ---
 
-## 15. Selection worksheet
+## 16. Selection worksheet
 
 Copy this table into a new implementation issue/plan and mark the desired items. Selecting an item does not mean every related idea must be built.
 
 | Select | Enhancement | Main reason | Suggested phase |
 |:---:|---|---|---|
+| [x] | Mobile menu and UI information architecture | **Selected as the next prerequisite; implementation not started** | UI-0 to UI-6 |
 | [ ] | Practice from mistakes | Skill improvement | FE-1 |
 | [ ] | Results coach / rival comparison | Meaningful results and rematches | FE-1 |
 | [ ] | QR invites / deep-link recovery | Easier mobile joining | FE-1 |
@@ -699,9 +1032,9 @@ For each selected enhancement, decide:
 
 ---
 
-## 16. Final recommendation
+## 17. Gameplay enhancement recommendation
 
-The best next investment is **not** a large new backend or public social network. It is this sequence:
+After the UI cleanup in section 13, the best gameplay investment is **not** a large new backend or public social network. It is this sequence:
 
 1. **Practice from mistakes + results coaching** so every run teaches or motivates a rematch.
 2. **Quick Strike** so starting a game on mobile feels effortless.
