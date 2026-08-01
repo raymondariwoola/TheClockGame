@@ -9,7 +9,7 @@
   const handicaps = root.ChronosMultiplayerClient.HANDICAPS || { none: { label: 'Standard', description: 'No assistance.' } };
   const REACTION_MUTE_KEY = 'cs_clash_reactions_muted';
   const inviteCards = new Map();
-  let modal = null; let active = null; let lastSeed = null; let progressFloor = 0;
+  let modal = null; let active = null; let lastSeed = null; let progressFloor = 0; let localObjectives = null;
 
   function playerName() {
     try { const value = JSON.parse(localStorage.getItem('cs_player_name') || 'null'); return value?.first ? `${value.first} ${value.last || ''}`.trim() : ''; }
@@ -78,6 +78,14 @@
   function reactionDock() {
     let value = document.getElementById('clashReactionDock');
     if (!value) { value = reactionControls(true); value.id = 'clashReactionDock'; value.hidden = true; document.body.appendChild(value); }
+    return value;
+  }
+  function objectiveResult(snapshot = localObjectives) {
+    if (!snapshot?.cards?.length) return null;
+    const value = document.createElement('div'); value.className = `clash-objective-result objective-theme-${snapshot.profile?.theme || 'standard'}`;
+    const title = document.createElement('strong'); const done = snapshot.cards.filter((card) => card.completed).length;
+    title.textContent = `🃏 OBJECTIVES · ${done}/${snapshot.cards.length} · ${snapshot.profile?.rank || 'Objective Scout'}`; value.appendChild(title);
+    for (const card of snapshot.cards) { const row = document.createElement('span'); row.textContent = `${card.completed ? '✓' : '○'} ${card.title}`; value.appendChild(row); }
     return value;
   }
   function sabotageDock() {
@@ -208,7 +216,7 @@
     if (!room?.seed || lastSeed === room.seed) return; lastSeed = room.seed;
     const seat = room.you || client.session(room.code)?.seat; if (!seat) return;
     const own = room.seats[seat]; progressFloor = own?.progress?.attempts || 0;
-    active = { code: room.code, seat, matchNumber: room.matchNumber, suddenDeath: room.suddenDeath, seed: room.seed };
+    active = { code: room.code, seat, matchNumber: room.matchNumber, suddenDeath: room.suddenDeath, seed: room.seed }; localObjectives = null;
     close(); reactionDock().hidden = false; updateHud(room); root.ChronosGame?.startClash({
       code: room.code, seat, seed: room.seed, difficulty: room.difficulty, roundLimit: room.roundLimit,
       matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
@@ -248,10 +256,11 @@
   }
   function onGameEnd(stats) {
     if (!active || !stats?.clash || stats.clashMeta?.code !== active.code) return;
+    localObjectives = stats.objectives || null;
     const value = { score: stats.score, round: stats.round, perfect: stats.perfect, perfectStreak: 0, combo: stats.combo, acc: stats.acc, attempts: Math.max(progressFloor, stats.round) };
     progressFloor = value.attempts; try { client.finish(value); } catch (error) { return showError('RESULT NOT SENT', safeMessage(error.code)); }
     const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'LIVE CLASH', 'WAITING FOR RIVAL', 'Your result is locked in. The room stays private.');
-    const state = status(); state.textContent = client.connection === 'connected' ? '● Connected' : 'Reconnecting…'; host.appendChild(state);
+    const state = status(); state.textContent = client.connection === 'connected' ? '● Connected' : 'Reconnecting…'; const objectives = objectiveResult(); if (objectives) host.appendChild(objectives); host.appendChild(state);
   }
   function showResult(room) {
     const view = overlay(); const host = view.querySelector('.clash-body'); const seatId = client.session(room.code)?.seat; const won = room.result?.winner === seatId;
@@ -272,7 +281,8 @@
       try { const result = await cards.share({ blob, title: 'Chrono Clash Result', text, url, filename: `chronos-clash-result-${room.code}.png` }); if (result.action !== 'cancelled') cardState.textContent = 'Result shared.'; }
       catch { cardState.textContent = 'Share failed. Please try again.'; }
     });
-    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, story, reactionControls(), cardState, actions(rematch, share, done));
+    done.addEventListener('click', () => { active = null; localObjectives = null; hideHud(); close(); });
+    const objectives = objectiveResult(); host.append(scores, story); if (objectives) host.appendChild(objectives); host.append(reactionControls(), cardState, actions(rematch, share, done));
   }
   function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', close); host.appendChild(done); }
   function forfeit() { if (!active) return; try { client.forfeit(); } catch {} active = null; hideHud(); }

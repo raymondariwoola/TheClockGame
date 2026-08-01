@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=20">
-<link rel="stylesheet" href="style.css?v=20" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=21">
+<link rel="stylesheet" href="style.css?v=21" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -205,6 +205,13 @@
               <span class="mb-arrow">→</span>
             </button>
           </article>
+
+          <article class="progress-feature objective-progress" aria-labelledby="progressObjectivesTitle">
+            <div class="progress-feature-copy">
+              <span aria-hidden="true">🃏</span>
+              <div><h3 id="progressObjectivesTitle">OBJECTIVE MASTERY</h3><p id="menuObjectiveSummary">Optional run goals are waiting.</p></div>
+            </div>
+          </article>
         </section>
 
         <section class="menu-hub" id="menuHubSettings" data-menu-destination="settings" aria-labelledby="menuHubSettingsTitle" hidden inert>
@@ -310,6 +317,8 @@
         <button class="hud-btn" id="pauseBtn" aria-label="Pause">⏸</button>
       </div>
     </div>
+
+    <aside class="objective-hud" id="objectiveHud" aria-label="Optional objective cards" aria-live="polite"></aside>
 
     <div class="arena">
       <div class="clock-stage">
@@ -458,6 +467,7 @@
         </div>
       </div>
       <div class="new-best" id="newBest" hidden>⚡ NEW BEST ⚡</div>
+      <section class="objective-results" id="objectiveResults" aria-label="Objective card results" hidden></section>
       <div class="lb-check" id="lbCheck" hidden></div>
       <div class="over-actions">
         <button class="btn-primary" id="retryBtn">RETRY</button>
@@ -662,23 +672,24 @@
   </aside>
 
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=20"></script>
+  <script src="vendor/anime.min.js?v=21"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=20"></script>
-  <script src="js/storage.js?v=20"></script>
-  <script src="js/run-context.js?v=20"></script>
-  <script src="js/cheat-state.js?v=20"></script>
-  <script src="js/ghost-client.js?v=20"></script>
-  <script src="js/multiplayer.js?v=20"></script>
-  <script src="js/share-cards.js?v=20"></script>
-  <script src="local-reset-config.js?v=20"></script>
-  <script src="leaderboard-config.js?v=20"></script>
-  <script src="js/pwa.js?v=20"></script>
-  <script src="js/gameplay-gestures.js?v=20"></script>
-  <script src="game.js?v=20"></script>
-  <script src="leaderboard.js?v=20"></script>
-  <script src="js/ghost-ui.js?v=20"></script>
-  <script src="js/multiplayer-ui.js?v=20"></script>
-  <script src="share.js?v=20"></script>
+  <script src="engine.js?v=21"></script>
+  <script src="js/storage.js?v=21"></script>
+  <script src="js/run-context.js?v=21"></script>
+  <script src="js/cheat-state.js?v=21"></script>
+  <script src="js/ghost-client.js?v=21"></script>
+  <script src="js/multiplayer.js?v=21"></script>
+  <script src="js/share-cards.js?v=21"></script>
+  <script src="js/objectives.js?v=21"></script>
+  <script src="local-reset-config.js?v=21"></script>
+  <script src="leaderboard-config.js?v=21"></script>
+  <script src="js/pwa.js?v=21"></script>
+  <script src="js/gameplay-gestures.js?v=21"></script>
+  <script src="game.js?v=21"></script>
+  <script src="leaderboard.js?v=21"></script>
+  <script src="js/ghost-ui.js?v=21"></script>
+  <script src="js/multiplayer-ui.js?v=21"></script>
+  <script src="share.js?v=21"></script>
 </body>
 </html>

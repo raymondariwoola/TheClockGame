@@ -153,10 +153,18 @@ async function auditCriticalTasks() {
   const started = await evaluate(`(() => ({
     gameVisible: document.querySelector('#screen-game').classList.contains('active'),
     run: window.ChronosGame.getRunInfo(),
+    objectives: document.querySelectorAll('#objectiveHud .objective-card').length,
+    objectiveBounds: (() => { const r = document.querySelector('#objectiveHud').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; })(),
   }))()`);
   assert.equal(started.gameVisible, true, 'a player can start a game from Play');
   assert.equal(started.run.mode, 'classic', 'the task starts Classic');
   assert.equal(started.run.hardcore, false, 'the task starts Normal difficulty');
+  assert.equal(started.objectives, 2, 'a run starts with exactly two optional Objective Cards');
+  assert.ok(started.objectiveBounds.left >= 0 && started.objectiveBounds.right <= 390 && started.objectiveBounds.top >= 0 && started.objectiveBounds.bottom <= 844,
+    'Objective Cards stay inside the mobile gameplay viewport');
+  const objectiveImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  const objectiveScreenshot = join(outputDir, 'objective-cards-390x844.png');
+  await writeFile(objectiveScreenshot, Buffer.from(objectiveImage.result.data, 'base64'));
 
   await navigateForTask('find-clash');
   const clash = await evaluate(`(() => {
@@ -214,7 +222,10 @@ async function auditCriticalTasks() {
   assert.equal(settings.updateControl, true, 'the safe update action remains wired');
   assert.equal(settings.updateSafety, true, 'an open modal prevents a service-worker reload');
 
-  return ['start Normal Classic', 'find Clash', 'view Hall boards', 'open accessibility', 'locate install/update'];
+  return {
+    tasks: ['start Normal Classic', 'find Clash', 'view Hall boards', 'open accessibility', 'locate install/update'],
+    objectiveScreenshot,
+  };
 }
 
 try {
@@ -242,7 +253,7 @@ try {
   });
   const results = [];
   for (const viewport of [[320, 568], [390, 844], [844, 390], [1280, 800]]) results.push(await auditViewport(...viewport));
-  const tasks = await auditCriticalTasks();
+  const taskAudit = await auditCriticalTasks();
   console.log('✓ menu viewport audit passed');
   for (const result of results) {
     console.log(`  ${result.viewport.width}x${result.viewport.height}: four destinations, no horizontal overflow, screenshot ${result.screenshot}`);
@@ -250,7 +261,8 @@ try {
       if (result[`${name}Screenshot`]) console.log(`  ${name} screenshot: ${result[`${name}Screenshot`]}`);
     }
   }
-  console.log(`✓ menu task audit passed: ${tasks.join('; ')}`);
+  console.log(`  objective cards screenshot: ${taskAudit.objectiveScreenshot}`);
+  console.log(`✓ menu task audit passed: ${taskAudit.tasks.join('; ')}`);
 } finally {
   try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}
   try { socket?.close(); } catch {}

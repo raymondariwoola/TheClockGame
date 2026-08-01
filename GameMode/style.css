@@ -2972,3 +2972,32 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
 .clash-rematch-story { display: grid; gap: 4px; padding: 12px; border: 1px solid rgba(255,224,102,.45); border-radius: 12px; background: linear-gradient(135deg, rgba(255,224,102,.09), rgba(139,92,255,.09)); text-align: center; }
 .clash-rematch-story strong { color: #ffe066; font: 800 13px 'Orbitron', sans-serif; letter-spacing: 1px; }
 .clash-rematch-story span { color: var(--muted); font: 700 10px 'Rajdhani', sans-serif; letter-spacing: .5px; }
+
+/* Deterministic optional Objective Cards and visual-only mastery frames. */
+.objective-hud { position: fixed; z-index: 32; top: max(82px, calc(env(safe-area-inset-top) + 72px)); left: max(10px, env(safe-area-inset-left)); width: min(220px, calc(100vw - 20px)); display: grid; gap: 5px; pointer-events: none; }
+.objective-card { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 10px; border: 1px solid rgba(139,92,255,.42); border-radius: 12px; background: rgba(6,10,26,.94); color: #fff; }
+.objective-card.compact { padding: 6px 8px; }
+.objective-card.completed { border-color: rgba(45,255,170,.68); background: rgba(10,42,37,.94); }
+.objective-icon { flex: 0 0 25px; color: #c8a8ff; font-size: 18px; text-align: center; }
+.objective-card.completed .objective-icon { color: #2dffaa; }
+.objective-copy { display: grid; min-width: 0; gap: 2px; }
+.objective-copy strong { overflow: hidden; color: inherit; font: 800 8px 'Orbitron', sans-serif; letter-spacing: .6px; text-overflow: ellipsis; white-space: nowrap; }
+.objective-copy small { overflow: hidden; color: var(--muted); font: 700 9px/1.1 'Rajdhani', sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.objective-theme-bronze .objective-card { border-color: rgba(209,137,73,.65); box-shadow: inset 0 0 15px rgba(209,137,73,.08); }
+.objective-theme-cyan .objective-card { border-color: rgba(0,240,255,.7); box-shadow: inset 0 0 18px rgba(0,240,255,.09); }
+.objective-theme-gold .objective-card { border-color: rgba(255,224,102,.82); box-shadow: inset 0 0 20px rgba(255,224,102,.1); }
+.objective-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.objective-results h3 { grid-column: 1 / -1; margin: 0; color: var(--purple-light); font: 800 10px 'Orbitron', sans-serif; letter-spacing: 1px; text-align: center; }
+.clash-objective-result { display: grid; gap: 4px; padding: 10px; border: 1px solid rgba(139,92,255,.4); border-radius: 12px; background: rgba(15,13,38,.82); }
+.clash-objective-result strong { color: #c8a8ff; font: 800 9px 'Orbitron', sans-serif; }
+.clash-objective-result span { color: var(--muted); font: 700 10px 'Rajdhani', sans-serif; }
+@media (max-width: 600px) {
+  .objective-hud { top: max(72px, calc(env(safe-area-inset-top) + 62px)); right: 8px; left: 8px; width: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .objective-card.compact .objective-icon { display: none; }
+  .objective-card.compact { padding: 5px 7px; }
+  .objective-copy small { font-size: 8px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .objective-hud { top: 54px; left: 116px; right: auto; width: 260px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .objective-card.compact { padding: 4px 6px; }
+}

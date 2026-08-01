@@ -812,6 +812,10 @@
     bossesClearedThisRun: 0,
     reversePerfectThisRun: false,
     overdriveReachedThisRun: false,
+    objectiveReversePerfects: 0,
+    objectiveCleanBosses: 0,
+    objectiveCleanRounds: 0,
+    objectiveRoundMissed: false,
   };
 
   // -------- Modifiers --------
@@ -1093,6 +1097,18 @@
 
   const CLASSIC_ROUNDS = CONFIG.classicRounds; // single source of truth (see CONFIG)
 
+  function objectiveMetrics() {
+    return {
+      perfectHits: State.perfectHits,
+      reversePerfects: State.objectiveReversePerfects,
+      cleanBosses: State.objectiveCleanBosses,
+      bestStreak: State.comboStreak,
+      cleanRounds: State.objectiveCleanRounds,
+      score: State.score,
+    };
+  }
+  function updateObjectiveCards() { return ObjectiveCards.update(objectiveMetrics()); }
+
   // -------- Difficulty curve (deterministic; logic in engine.js) --------
   // Classic/zen speed CAPS (beatable); Endless never caps — it keeps
   // accelerating until you crack, which is the whole point of survival.
@@ -1117,6 +1133,7 @@
     State.pulse = false;
     State.boss = null;
     State.roundElapsed = 0;
+    State.objectiveRoundMissed = false;
     State.bossRound = State.mode !== 'zen' && State.round > 1 && State.round % 5 === 0;
     elModifierTag.hidden = true;
     elModifierTag.classList.remove('boss');
@@ -1371,8 +1388,10 @@
     // consecutive perfects build an escalating flat bonus
     if (kind === 'perfect') State.perfectStreak++;
     else State.perfectStreak = 0;
-    // achievement: a perfect landed during a Reverse/Inverted round
-    if (kind === 'perfect' && State.modifier && State.modifier.id === 'invert') State.reversePerfectThisRun = true;
+    // achievement: a perfect landed during a Reverse/Inverted modifier round
+    if (kind === 'perfect' && State.modifier?.id === 'invert') State.reversePerfectThisRun = true;
+    // Objective Card: any counter-clockwise/reversed hand is a readable chance.
+    if (kind === 'perfect' && State.handDir === -1) State.objectiveReversePerfects++;
 
     const gained = ChronosEngine.computeHitScore({
       kind,
@@ -1424,6 +1443,7 @@
     renderZones(State.zones);
 
     State.hitsDone++;
+    updateObjectiveCards();
 
     // 5-streak reward — differs by mode:
     //   endless   → pump the survival multiplier (keeps it relentless, no easing off)
@@ -1446,7 +1466,12 @@
 
     if (State.hitsDone >= State.hitsRequired) {
       // round complete
-      if (State.bossRound) State.bossesClearedThisRun++;   // achievement tracking
+      if (!State.objectiveRoundMissed) State.objectiveCleanRounds++;
+      if (State.bossRound) {
+        State.bossesClearedThisRun++;   // achievement tracking
+        if (!State.objectiveRoundMissed) State.objectiveCleanBosses++;
+      }
+      updateObjectiveCards();
       stopSpin();
       setTimeout(nextRound, 500);
     }
@@ -1473,6 +1498,7 @@
   function handleMiss(x, y, label = 'MISS') {
     if (God.isActive()) return; // GOD mode: misses (and life loss) are impossible
     if (!State.spinning) return; // ignore any stray miss after the round/run has stopped
+    State.objectiveRoundMissed = true;
 
     // STAR POWER protects the life, not the combo or hit validation. A miss is
     // still a miss, which prevents rapid tapping from becoming free scoring.
@@ -1485,6 +1511,7 @@
       flashJudgment('BLOCKED', 'good');
       elStrikeHint.className = 'strike-zone flash-good';
       setTimeout(() => { elStrikeHint.className = 'strike-zone'; }, 260);
+      updateObjectiveCards();
       return;
     }
 
@@ -1503,6 +1530,7 @@
 
     if (Cheat.on('noMissPenalty')) {
       logGhost('miss');
+      updateObjectiveCards();
       return;
     }
 
@@ -1521,6 +1549,7 @@
     Taunts.onMiss();
 
     logGhost('miss');
+    updateObjectiveCards();
 
     if (starGuard) return; // life protection only; miss + combo reset already applied
 
@@ -1748,6 +1777,7 @@
     State.runId = 'r_' + State.seed;
     const identity = runIdentityString(mode);
     RNG.seed(identity);
+    ObjectiveCards.start(identity, mode);
     ActiveRun.abandon();
     ActiveRun.start({
       runId: State.runId,
@@ -1801,6 +1831,10 @@
     State.bossesClearedThisRun = 0;
     State.reversePerfectThisRun = false;
     State.overdriveReachedThisRun = false;
+    State.objectiveReversePerfects = 0;
+    State.objectiveCleanBosses = 0;
+    State.objectiveCleanRounds = 0;
+    State.objectiveRoundMissed = false;
     State.powers = {};
     State.zoneBoost = 1;
     document.body.classList.remove('starpower');
@@ -1882,6 +1916,7 @@
     $('overCombo').textContent = State.bestCombo;
     $('overRound').textContent = State.round;
     const acc = State.totalAttempts ? Math.round(State.totalHits / State.totalAttempts * 100) : 0;
+    const objectives = ObjectiveCards.finish(objectiveMetrics());
     const rankLetter = computeRank(State.score, acc, State.perfectHits);
     $('overAcc').textContent = acc + '%';
     $('overRank').textContent = rankLetter;
@@ -1923,6 +1958,7 @@
       riftName: State.dailyRun ? Daily.nameFor(State.dailyDate) : null,
       clash: !!State.clashRun,
       clashMeta: State.clashRun ? { code: State.clashRun.code, seat: State.clashRun.seat, matchNumber: State.clashRun.matchNumber, suddenDeath: State.clashRun.suddenDeath } : null,
+      objectives,
     };
 
     // Daily Rift: record the local best/attempts for today (never global yet).
@@ -2003,6 +2039,8 @@
     if (achSummary) achSummary.textContent = Achievements.summary();
     const cosSummary = document.getElementById('menuCosSummary');
     if (cosSummary) cosSummary.textContent = Cosmetics.summary();
+    const objectiveSummary = document.getElementById('menuObjectiveSummary');
+    if (objectiveSummary) objectiveSummary.textContent = ObjectiveCards.summary();
     Identity.render();
     Daily.render();
   }
@@ -3443,6 +3481,59 @@
     }
 
     return { apply, open, close, render, equip, summary };
+  })();
+
+  const ObjectiveCards = (() => {
+    let tracker = null;
+    let last = null;
+
+    function cardElement(card, compact = false) {
+      const value = document.createElement('div'); value.className = `objective-card${card.completed ? ' completed' : ''}${compact ? ' compact' : ''}`;
+      const icon = document.createElement('span'); icon.className = 'objective-icon'; icon.textContent = card.completed ? '✓' : card.icon;
+      const copy = document.createElement('span'); copy.className = 'objective-copy';
+      const title = document.createElement('strong'); title.textContent = card.title;
+      const detail = document.createElement('small'); detail.textContent = card.completed ? 'COMPLETE' : `${Math.min(card.target, card.progress)} / ${card.target} · ${card.description}`;
+      copy.append(title, detail); value.append(icon, copy); return value;
+    }
+    function renderHud(snapshot = tracker?.snapshot()) {
+      const host = document.getElementById('objectiveHud'); if (!host) return;
+      host.innerHTML = ''; host.hidden = !snapshot?.cards?.length;
+      if (!snapshot?.cards?.length) return;
+      host.className = `objective-hud objective-theme-${snapshot.profile.theme}`;
+      snapshot.cards.forEach((card) => host.appendChild(cardElement(card, true)));
+    }
+    function renderResults(snapshot = last) {
+      const host = document.getElementById('objectiveResults'); if (!host) return;
+      host.innerHTML = ''; host.hidden = !snapshot?.cards?.length;
+      if (!snapshot?.cards?.length) return;
+      host.className = `objective-results objective-theme-${snapshot.profile.theme}`;
+      const heading = document.createElement('h3'); heading.textContent = `OBJECTIVE CARDS · ${snapshot.profile.rank}`; host.appendChild(heading);
+      snapshot.cards.forEach((card) => host.appendChild(cardElement(card)));
+    }
+    function start(identity, mode) {
+      const rounds = State.clashRun?.roundLimit || (mode === 'classic' ? CLASSIC_ROUNDS : mode === 'endless' ? 40 : 20);
+      const simulated = ChronosEngine.simulateRun(identity, mode, State.hardcore, rounds);
+      const reverseOpportunities = simulated.filter((round) => round.dir === -1 || round.modId === 'invert').length;
+      const hasBoss = simulated.some((round) => round.boss);
+      const eligibleIds = window.ChronosObjectives?.DEFINITIONS.filter((item) =>
+        (item.id !== 'against-flow' || reverseOpportunities >= item.target) && (item.id !== 'clean-boss' || hasBoss)).map((item) => item.id);
+      tracker = window.ChronosObjectives?.createTracker({ identity, mode, store: localStorage, eligibleIds }) || null; last = null;
+      const results = document.getElementById('objectiveResults'); if (results) results.hidden = true;
+      renderHud();
+    }
+    function update(metrics) {
+      if (!tracker) return null;
+      const result = tracker.update(metrics); last = tracker.snapshot(); renderHud(last);
+      for (const id of result.newly) {
+        const card = last.cards.find((item) => item.id === id); if (!card) continue;
+        AudioFx.powerup(); announce(`Objective complete: ${card.title}. ${last.profile.rank}.`);
+      }
+      const menu = document.getElementById('menuObjectiveSummary'); if (menu) menu.textContent = summary();
+      return last;
+    }
+    function finish(metrics) { last = update(metrics) || last; renderResults(last); const hud = document.getElementById('objectiveHud'); if (hud) hud.hidden = true; return last; }
+    function summary() { return window.ChronosObjectives?.profileSummary(localStorage) || 'Optional run goals are waiting.'; }
+    return { start, update, finish, summary, renderResults, snapshot: () => last || tracker?.snapshot() || null };
   })();
 
   // ============================================================

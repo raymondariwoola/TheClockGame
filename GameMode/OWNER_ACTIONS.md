@@ -2,26 +2,34 @@
 
 Last verified: **1 August 2026**
 
-## Current pending release: mobile-first GameMode UI and family enhancements
+## Current pending release: five family-session enhancements
 
-UI-0 through UI-6 are complete and published. Four selected family-session enhancements are now complete locally: Preset Reactions, Time Shards / Secret Sabotage, Compact Rematch Stories, and voluntary Skill Handicap Presets.
+UI-0 through UI-6 are already published. The five selected family-session enhancements are now complete locally in the requested order: Preset Reactions, Time Shards / Secret Sabotage, Compact Rematch Stories, voluntary Skill Handicap Presets, and Objective Cards.
 
-The current local enhancement sequence advances the static PWA shell from revision 16 to revision 20 and updates the existing Match Durable Object code. Once the full selected sequence is complete, publication will require both the ordinary Git push and one existing Worker deployment. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
+The sequence advances the static PWA shell from revision 16 to revision 21 and updates the existing Match Durable Object code. Publication requires one deployment of the existing Worker followed by the ordinary Git push. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not deployed, pushed, or synchronized it.
 
 ### Your publication steps
 
-From PowerShell:
+Deploy the backward-compatible Worker first, then publish the client that uses its new Clash messages:
 
 ```powershell
-cd D:\GitHub\TheClockGame
+cd D:\GitHub\TheClockGame\GameMode
+npm run verify
+npm run audit:menu
+
+cd worker
+npx wrangler whoami
+npm run deploy
+
+cd ..\..
 git status --short --branch
 git log --oneline origin/main..main
 git push origin main
 ```
 
-The first two commands are read-only. Confirm that the branch contains the UI phase commits and has no unexpected uncommitted files before running the final command. Publish only when you are ready; no separate Worker command is needed.
+`npm run verify`, `npm run audit:menu`, `wrangler whoami`, `git status`, and `git log` are checks. `npm run deploy` updates the existing `chronos-leaderboard` Worker; `git push` publishes the static site through the existing GitHub Pages workflow. Before either publication command, confirm Wrangler names the intended Cloudflare account and the Git output contains only the five reviewed phase commits. Do not create a new Worker in the dashboard.
 
-After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 16 can install cleanly.
+After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 21 can install cleanly.
 
 ### Required physical acceptance
 
@@ -36,16 +44,20 @@ Use at least one ordinary Android phone and, if available, one iPhone:
 - Mobile layout: rotate once, scroll each destination to its final action, and confirm the navigation never covers that action permanently.
 - Zoom/accessibility: gameplay remains fixed against pinch/double-tap zoom, while Settings, Hall, and Results still allow browser zoom; spot-check 200% text scaling.
 - Family/friend check: without coaching, ask one person to start Normal Classic, find Clash, view the Hall, change accessibility, and find install/update guidance.
+- Objective Cards: start a local run and confirm exactly two cards fit without covering the clock; complete one if practical, finish the run, and confirm its result plus the Progress mastery summary survive a reload.
+- Clash setup: create a room on one phone, join on the other, select different voluntary handicaps, and confirm both labels are visible before each player accepts and readies.
+- Clash play: send preset reactions in both directions, mute incoming reactions on one phone, earn a shard with three consecutive Perfects, and confirm a sabotage is announced before it affects the rival's next round.
+- Clash result: confirm the compact margin/lead-change story appears beside Rematch and the local Objective Cards result remains visible while waiting.
 
 If all checks pass, no further production action is required.
 
 ### Forward-only rollback
 
-Do not redeploy shell revision 15 unchanged, and do not touch Cloudflare or leaderboard data for a menu issue. Revert only the smallest responsible UI phase, then advance every shell-version reference together from 16 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that new forward revision. This prevents an older service worker from keeping a mixed asset set.
+Do not redeploy an older shell revision unchanged, and do not touch Cloudflare or leaderboard data for a client issue. The Worker additions are backward-compatible and may safely remain deployed if the static release must be paused. Revert only the smallest responsible client phase, then advance every shell-version reference together from 21 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. Do not roll the Worker back while revision 21 clients are live.
 
 ## Current production remains live
 
-The existing production version remains live and healthy. The only pending publication is the static GameMode UI/PWA release described above; no Worker-side action is pending.
+The existing production version remains live. The five local feature phases described above are pending both the one-time Worker deployment and the static GameMode publication.
 
 | Component | Production location | Status |
 |---|---|---|

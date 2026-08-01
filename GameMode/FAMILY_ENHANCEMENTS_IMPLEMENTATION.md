@@ -14,7 +14,7 @@
 | FE-6B | Time Shards / Secret Sabotage | Complete |
 | FE-6C | Compact rematch stories | Complete |
 | FE-6D | Skill handicap presets | Complete |
-| FE-6E | Objective Cards | Not started |
+| FE-6E | Objective Cards | Complete |
 
 ## FE-6A — Preset reactions
 
@@ -104,6 +104,29 @@
 - Static UI tests prove the story is paired with Rematch and the final result freezes the bounded summary.
 - Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
 
+## FE-6E — Objective Cards
+
+### Implementation
+
+- Added exactly two optional cards to every run, including Classic, Endless, Zen, Daily, Ghost/Rival, and live Clash.
+- Draws are deterministic from the existing run identity and mode. They consume no gameplay RNG and never change the generated clock sequence.
+- Filtered the draw against the simulated run so a short or seeded run cannot ask for a boss or enough counter-clockwise opportunities that do not exist.
+- Added six bounded objectives covering Perfects, counter-clockwise Perfects, clean boss rounds, streaks, clean rounds, and score milestones.
+- Progress is driven only by existing resolved hit, miss, round, streak, and score state. It creates no new score multiplier, power, leaderboard category, Worker write, or opponent advantage.
+- A completed card increments a bounded local mastery profile under `cs_objective_mastery_v1`. Each card can complete only once per run, even when later progress updates repeat.
+- Added four visual-only mastery frames: Objective Scout, Pathfinder at 3 completions, Chronomancer at 10, and Objective Legend at 25.
+- Added compact safe-area-aware gameplay cards, a completed-run summary, a Clash waiting/result summary, and a Progress destination summary. All content is built as text nodes rather than injected HTML.
+- Kept the feature useful offline and at zero cloud cost. Objective history is local to that browser and is not put in URLs, share cards, leaderboard records, or Clash room storage.
+- Advanced the coherent PWA shell to revision 21.
+
+### Validation
+
+- Pure module tests prove deterministic unique draws, seeded-run eligibility filtering, one-time completion, persistence, bounded counters, and mastery thresholds.
+- Static integration tests prove game events update the tracker, no random or scoring authority is added, and all three UI surfaces exist.
+- The 390 × 844 browser audit proves every run starts with exactly two cards and the gameplay card stack remains inside the mobile viewport.
+- Existing engine, leaderboard, cheat, Ghost, multiplayer, sharing, gesture, PWA, Worker, syntax, no-Gist, and dry-deployment checks remain green.
+- `git diff --check` passes before the phase commit.
+
 ## Resume rule
 
-Start the next incomplete phase only after the current phase validation and commit are complete. Each later phase must update this file, `FUTURE_ENHANCEMENT.md`, the current PWA shell revision when client assets change, and `OWNER_ACTIONS.md` when deployment steps change.
+The owner-selected five-phase sequence is complete. Publish the existing Match Worker first and the static PWA second by following `OWNER_ACTIONS.md`; no new Cloudflare resource or secret is required.
