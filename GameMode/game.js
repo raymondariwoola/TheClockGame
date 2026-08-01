@@ -2192,6 +2192,7 @@
   elStrikeBtn.addEventListener('click', strike);
   elPauseBtn.addEventListener('click', () => togglePause());
   $('resumeBtn').addEventListener('click', () => togglePause(false));
+  $('pauseCheatBtn').addEventListener('click', () => Cheat.openPanel());
 
   // -------- Audio controls: mute music / SFX independently --------
   (() => {
@@ -2594,7 +2595,7 @@
       if (!Cheats.isUnlocked()) { promptCode(); return; }
       const ov = buildOverlay(`
         <div class="overlay-card god-card cheat-card cheat-menu-card">
-          <header class="cheat-menu-head"><div class="god-glyph cheat-glyph">❖</div><div><h2>PRIVATE MENU</h2><p>Local live controls</p></div></header>
+          <header class="cheat-menu-head"><div class="god-glyph cheat-glyph">❖</div><div><h2>PRIVATE MENU</h2><p>Changes apply to this paused run immediately</p></div></header>
           <div class="cheat-menu-scroll">
             <label class="cheat-master cheat-row">
               <span class="cheat-row-copy"><strong>Cheats Active</strong><small>Arm or disarm selections without clearing them.</small></span>

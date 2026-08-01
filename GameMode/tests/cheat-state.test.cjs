@@ -1,4 +1,15 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const game = fs.readFileSync(path.join(root, 'game.js'), 'utf8');
+
+assert.equal((html.match(/id="pauseCheatBtn"/g) || []).length, 1, 'pause screen exposes one private-menu action');
+assert.match(game, /\$\('pauseCheatBtn'\)\.addEventListener\('click', \(\) => Cheat\.openPanel\(\)\)/, 'pause action opens the existing gated cheat menu');
+assert.match(game, /function openPanel\(\)[\s\S]*?buildOverlay\([\s\S]*?`, true\)/, 'opening private controls pauses an active run');
+assert.match(game, /Cheats\.subscribe\(\(state, key\) => \{ syncIndicator\(\); syncLiveState\(key\); \}\)/, 'cheat changes synchronize live gameplay state');
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
