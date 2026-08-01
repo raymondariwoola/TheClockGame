@@ -4,6 +4,8 @@
   const apiBase = String(root.CHRONOS_LB_CONFIG?.apiBase || '').replace(/\/+$/, '');
   const client = new root.ChronosMultiplayerClient.MultiplayerClient({ baseUrl: apiBase });
   const cards = root.ChronosShareCards;
+  const reactions = root.ChronosMultiplayerClient.REACTIONS || {};
+  const REACTION_MUTE_KEY = 'cs_clash_reactions_muted';
   const inviteCards = new Map();
   let modal = null; let active = null; let lastSeed = null; let progressFloor = 0;
 
@@ -31,7 +33,42 @@
       room_not_found: 'This Clash expired or was cancelled.', room_started: 'This Clash already started.',
       multiplayer_disabled: 'Live Clash is temporarily disabled.', multiplayer_unconfigured: 'Live Clash is not configured yet.',
       origin_forbidden: 'This game address is not allowed by the Worker.', rate_limited: 'Too many attempts. Wait a moment and retry.',
+      reaction_rate_limited: 'Reactions need a short breather.', invalid_reaction: 'That reaction is unavailable.',
       socket_failed: 'The live connection failed. Please retry.' })[code] || 'The timeline slipped. Please retry.';
+  }
+  function reactionsMuted() { try { return localStorage.getItem(REACTION_MUTE_KEY) === '1'; } catch { return false; } }
+  function setReactionsMuted(value) { try { localStorage.setItem(REACTION_MUTE_KEY, value ? '1' : '0'); } catch {} }
+  function reactionToast(text) {
+    let value = document.getElementById('clashReactionToast');
+    if (!value) { value = document.createElement('div'); value.id = 'clashReactionToast'; value.className = 'clash-reaction-toast'; value.setAttribute('role', 'status'); value.setAttribute('aria-live', 'polite'); document.body.appendChild(value); }
+    value.textContent = text; value.classList.remove('show'); void value.offsetWidth; value.classList.add('show');
+    clearTimeout(reactionToast.timer); reactionToast.timer = setTimeout(() => value.classList.remove('show'), 1800);
+  }
+  function sendReaction(id, controls) {
+    const reaction = reactions[id]; if (!reaction) return;
+    try {
+      client.reaction(id); reactionToast(`You · ${reaction.emoji} ${reaction.label}`);
+      for (const control of controls.querySelectorAll('[data-clash-reaction]')) control.disabled = true;
+      setTimeout(() => { for (const control of controls.querySelectorAll('[data-clash-reaction]')) control.disabled = false; }, 1250);
+    } catch (error) { reactionToast(safeMessage(error.code)); }
+  }
+  function reactionControls(compact = false) {
+    const wrap = document.createElement('div'); wrap.className = `clash-reactions${compact ? ' compact' : ''}`;
+    const label = document.createElement('span'); label.className = 'clash-reaction-label'; label.textContent = compact ? 'REACT' : 'QUICK REACTIONS'; wrap.appendChild(label);
+    for (const [id, reaction] of Object.entries(reactions)) {
+      const control = document.createElement('button'); control.type = 'button'; control.className = 'clash-reaction-btn'; control.dataset.clashReaction = id;
+      control.setAttribute('aria-label', reaction.label); control.title = reaction.label; control.textContent = reaction.emoji;
+      control.addEventListener('click', () => sendReaction(id, wrap)); wrap.appendChild(control);
+    }
+    const mute = document.createElement('button'); mute.type = 'button'; mute.className = 'clash-reaction-mute';
+    const paint = () => { const muted = reactionsMuted(); mute.textContent = muted ? '🔕 MUTED' : '🔔 ON'; mute.setAttribute('aria-pressed', muted ? 'true' : 'false'); };
+    mute.addEventListener('click', () => { setReactionsMuted(!reactionsMuted()); paint(); }); paint(); wrap.appendChild(mute);
+    return wrap;
+  }
+  function reactionDock() {
+    let value = document.getElementById('clashReactionDock');
+    if (!value) { value = reactionControls(true); value.id = 'clashReactionDock'; value.hidden = true; document.body.appendChild(value); }
+    return value;
   }
   function roomRows(host, room) {
     const box = document.createElement('div'); box.className = 'clash-room';
@@ -123,7 +160,7 @@
       catch { connection.textContent = 'Share failed. Copy the invite instead.'; }
     });
     leave.addEventListener('click', () => { try { client.forfeit(); } catch {} client.disconnect(); client.clearSession(room.code); active = null; hideHud(); close(); });
-    host.append(connection, actions(ready, copy, share, leave));
+    host.append(reactionControls(), connection, actions(ready, copy, share, leave));
     if (room.state === 'countdown' || room.state === 'playing') startRoom(room);
     if (room.state === 'finished' || room.state === 'forfeit') showResult(room);
   }
@@ -133,7 +170,7 @@
     const seat = room.you || client.session(room.code)?.seat; if (!seat) return;
     const own = room.seats[seat]; progressFloor = own?.progress?.attempts || 0;
     active = { code: room.code, seat, matchNumber: room.matchNumber, suddenDeath: room.suddenDeath, seed: room.seed };
-    close(); updateHud(room); root.ChronosGame?.startClash({
+    close(); reactionDock().hidden = false; updateHud(room); root.ChronosGame?.startClash({
       code: room.code, seat, seed: room.seed, difficulty: room.difficulty, roundLimit: room.roundLimit,
       matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
     });
@@ -156,7 +193,7 @@
     const dot = document.createElement('span'); dot.className = `clash-dot ${opponent?.connected ? 'online' : ''}`; rival.prepend(dot);
     value.append(mine, rival); value.hidden = false;
   }
-  function hideHud() { const value = document.getElementById('clashHud'); if (value) value.hidden = true; }
+  function hideHud() { const value = document.getElementById('clashHud'); if (value) value.hidden = true; const dock = document.getElementById('clashReactionDock'); if (dock) dock.hidden = true; }
 
   function onProgress(value) {
     if (!active || value.attempts <= progressFloor) return;
@@ -187,7 +224,7 @@
       try { const result = await cards.share({ blob, title: 'Chrono Clash Result', text, url, filename: `chronos-clash-result-${room.code}.png` }); if (result.action !== 'cancelled') cardState.textContent = 'Result shared.'; }
       catch { cardState.textContent = 'Share failed. Please try again.'; }
     });
-    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, cardState, actions(rematch, share, done));
+    done.addEventListener('click', () => { active = null; hideHud(); close(); }); host.append(scores, reactionControls(), cardState, actions(rematch, share, done));
   }
   function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', close); host.appendChild(done); }
   function forfeit() { if (!active) return; try { client.forfeit(); } catch {} active = null; hideHud(); }
@@ -198,6 +235,11 @@
   client.on('countdown', (payload) => { client.room = payload.room; startRoom(payload.room); });
   client.on('opponent_progress', ({ progress }) => updateHud(client.room, progress));
   client.on('opponent_finished', ({ progress }) => updateHud(client.room, progress));
+  client.on('reaction', ({ seat, id }) => {
+    if (reactionsMuted() || !reactions[id]) return;
+    const name = client.room?.seats?.[seat]?.name || 'Rival'; const reaction = reactions[id]; reactionToast(`${name} · ${reaction.emoji} ${reaction.label}`);
+  });
+  client.on('error', ({ code }) => { if (code === 'reaction_rate_limited' || code === 'invalid_reaction') reactionToast(safeMessage(code)); });
   client.on('result', ({ room }) => { client.room = room; active = null; hideHud(); showResult(room); });
   client.on('expired', () => { active = null; hideHud(); showError('ROOM EXPIRED', 'Create a fresh Clash to play again.'); });
   client.on('connection', ({ connection }) => { document.body.classList.toggle('clash-reconnecting', connection === 'reconnecting'); });

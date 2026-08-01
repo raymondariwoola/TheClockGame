@@ -9,6 +9,13 @@
   const TICKET_PREFIX = 'chronos-ticket.';
   const PREFIX = 'cs_match_';
   const RECONNECT = [500, 1000, 2000, 4000, 8000, 10000];
+  const REACTIONS = Object.freeze({
+    nice: Object.freeze({ emoji: '👏', label: 'Nice!' }),
+    close: Object.freeze({ emoji: '😮', label: 'Too close!' }),
+    wow: Object.freeze({ emoji: '🤯', label: 'Wow!' }),
+    again: Object.freeze({ emoji: '🔁', label: 'Again!' }),
+    gg: Object.freeze({ emoji: '🤝', label: 'Good game!' }),
+  });
 
   class MultiplayerError extends Error {
     constructor(code, status = 0) { super(code || 'network_error'); this.name = 'MultiplayerError'; this.code = code || 'network_error'; this.status = status; }
@@ -114,6 +121,11 @@
     progress(value) { return this.send('progress', value); }
     finish(value) { return this.send('finish', value); }
     rematch() { return this.send('rematch_vote'); }
+    reaction(id) {
+      const value = String(id || '');
+      if (!Object.prototype.hasOwnProperty.call(REACTIONS, value)) throw new MultiplayerError('invalid_reaction');
+      return this.send('reaction', { id: value });
+    }
     forfeit() { return this.send('forfeit'); }
     disconnect() { this.manualClose = true; this.generation++; this.cancelReconnect(); this.stopHeartbeat(); const socket = this.socket; this.socket = null; try { if (socket && socket.readyState < 2) socket.close(1000, 'client closed'); } catch {} this.setConnection('idle'); }
     scheduleReconnect() { if (this.manualClose || !this.code || !this.session(this.code) || this.reconnectTimer) return; const delay = RECONNECT[Math.min(this.reconnectAttempt++, RECONNECT.length - 1)]; this.setConnection('reconnecting', { delay }); this.reconnectTimer = setTimeout(() => { this.reconnectTimer = null; this.connect().catch(() => this.scheduleReconnect()); }, delay); }
@@ -121,5 +133,5 @@
     scheduleHeartbeat() { this.stopHeartbeat(); if (!this.heartbeatMs || this.manualClose) return; this.heartbeatTimer = setTimeout(() => { this.heartbeatTimer = null; try { this.send('heartbeat'); } catch {} this.scheduleHeartbeat(); }, this.heartbeatMs); this.heartbeatTimer?.unref?.(); }
     stopHeartbeat() { if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer); this.heartbeatTimer = null; }
   }
-  return { MultiplayerClient, MultiplayerError, normalizeCode, cleanName, codeFromUrl, buildUrl };
+  return { MultiplayerClient, MultiplayerError, REACTIONS, normalizeCode, cleanName, codeFromUrl, buildUrl };
 });

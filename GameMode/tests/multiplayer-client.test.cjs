@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { MultiplayerClient, buildUrl, codeFromUrl } = require('../js/multiplayer.js');
+const { MultiplayerClient, REACTIONS, buildUrl, codeFromUrl } = require('../js/multiplayer.js');
 class Store { constructor() { this.map = new Map(); } getItem(k) { return this.map.get(k) || null; } setItem(k, v) { this.map.set(k, v); } removeItem(k) { this.map.delete(k); } }
 class Socket {
   static values = []; constructor(url, protocols) { this.url = url; this.protocols = protocols; this.readyState = 0; this.listeners = new Map(); this.sent = []; Socket.values.push(this); }
@@ -30,8 +30,11 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
   assert.equal(socket.url.includes('ticket'), false); assert.equal(socket.protocols[1], `chronos-ticket.${'b'.repeat(48)}`);
   assert.equal(requests[1].options.method, 'PUT');
   assert.equal(requests[2].options.headers.Authorization, `Bearer ${'a'.repeat(48)}`);
-  socket.emit('open'); await connecting; client.ready(); client.progress({ score: 1 });
-  assert.deepEqual(socket.sent.map((value) => value.seq), [0, 1]);
+  socket.emit('open'); await connecting; client.ready(); client.progress({ score: 1 }); client.reaction('nice');
+  assert.deepEqual(socket.sent.map((value) => value.seq), [0, 1, 2]);
+  assert.deepEqual(socket.sent[2].payload, { id: 'nice' });
+  assert.equal(REACTIONS.gg.label, 'Good game!');
+  assert.throws(() => client.reaction('custom text'), /invalid_reaction/);
   assert.equal(buildUrl('https://game.test/', client.code).includes('token'), false);
   client.disconnect();
   console.log('✓ multiplayer client tests passed');

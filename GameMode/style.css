@@ -2945,3 +2945,19 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
   .menu-start-btn { min-height: 48px; }
   .pwa-connection-toast { display: none; }
 }
+
+/* Clash preset reactions: ephemeral, fixed, and one-thumb friendly. */
+.clash-reactions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; padding: 9px; border: 1px solid rgba(0,240,255,.24); border-radius: 14px; background: rgba(2,10,25,.78); }
+.clash-reaction-label { flex-basis: 100%; color: var(--cyan); font: 700 8px 'Orbitron', sans-serif; letter-spacing: 2px; text-align: center; }
+.clash-reaction-btn,
+.clash-reaction-mute { min-width: 44px; min-height: 44px; border: 1px solid rgba(137,92,255,.45); border-radius: 12px; background: rgba(17,21,48,.95); color: #fff; font-size: 20px; cursor: pointer; }
+.clash-reaction-btn:disabled { opacity: .4; }
+.clash-reaction-mute { padding: 0 9px; color: var(--muted); font: 700 7px 'Orbitron', sans-serif; letter-spacing: 1px; }
+.clash-reactions.compact { position: fixed; z-index: 83; right: max(8px, env(safe-area-inset-right)); bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)); max-width: 224px; padding: 6px; gap: 4px; }
+.clash-reactions.compact .clash-reaction-label { flex-basis: auto; }
+.clash-reactions.compact .clash-reaction-btn,
+.clash-reactions.compact .clash-reaction-mute { min-width: 38px; min-height: 38px; }
+.clash-reaction-toast { position: fixed; z-index: 120; left: 50%; top: max(82px, calc(env(safe-area-inset-top) + 58px)); max-width: calc(100vw - 28px); transform: translate(-50%, -10px); padding: 10px 15px; border: 1px solid var(--purple); border-radius: 999px; background: rgba(7,9,25,.96); color: #fff; font: 700 10px 'Orbitron', sans-serif; opacity: 0; pointer-events: none; transition: opacity .16s ease, transform .16s ease; }
+.clash-reaction-toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .clash-reaction-toast { transition: none; } }
+@media (max-width: 390px) { .clash-reactions.compact { left: 8px; right: 8px; max-width: none; } }

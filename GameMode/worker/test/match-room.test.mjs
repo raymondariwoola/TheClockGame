@@ -86,3 +86,26 @@ test('match room creates a fresh ten-round seed after both rematch votes', async
   stored = await ctx.storage.get('room');
   assert.equal(stored.matchNumber, 2); assert.equal(stored.roundLimit, 10); assert.notEqual(stored.seed, firstSeed);
 });
+
+test('preset reactions are allowlisted, ephemeral, opponent-only, and throttled', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 3_000_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+
+  await room.webSocketMessage(host, envelope('reaction', 0, { id: 'nice' }));
+  assert.deepEqual(guest.sent.at(-1), { v: MATCH_PROTOCOL_VERSION, type: 'reaction', payload: { seat: 'host', id: 'nice' } });
+  assert.equal(host.sent.length, 0);
+  let stored = await ctx.storage.get('room');
+  assert.equal(JSON.stringify(stored).includes('reaction'), false, 'reactions are not stored in room history');
+
+  await room.webSocketMessage(host, envelope('reaction', 1, { id: 'custom text' }));
+  assert.equal(host.sent.at(-1).payload.code, 'invalid_reaction');
+  await room.webSocketMessage(host, envelope('reaction', 2, { id: 'gg' }));
+  assert.equal(host.sent.at(-1).payload.code, 'reaction_rate_limited');
+
+  env.__TEST_NOW += 1200;
+  await room.webSocketMessage(host, envelope('reaction', 3, { id: 'gg' }));
+  assert.equal(guest.sent.at(-1).payload.id, 'gg');
+});

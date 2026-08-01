@@ -1,5 +1,5 @@
 import {
-  MATCH_LIMITS, MATCH_PROTOCOL_VERSION, MATCH_SOCKET_PROTOCOL, MATCH_STATES,
+  MATCH_LIMITS, MATCH_PROTOCOL_VERSION, MATCH_REACTIONS, MATCH_SOCKET_PROTOCOL, MATCH_STATES,
   ticketFromProtocols, validateMatchEnvelope,
 } from '../../shared/match-protocol.mjs';
 import { sha256hex } from './security.js';
@@ -204,6 +204,14 @@ export class MatchRoom {
         await this.save(room); await this.broadcast('result', { room: publicMatch(room) }); return;
       }
       if (message.type === 'heartbeat') { await this.save(room); ws.send(JSON.stringify(this.message('presence', { serverTime: at }))); return; }
+      if (message.type === 'reaction') {
+        const id = String(message.payload.id || '');
+        if (!Object.prototype.hasOwnProperty.call(MATCH_REACTIONS, id)) return this.error(ws, 'invalid_reaction');
+        if (Number.isFinite(info.reactionAt) && at - info.reactionAt < MATCH_LIMITS.reactionCooldownMs) return this.error(ws, 'reaction_rate_limited');
+        info.reactionAt = at; ws.serializeAttachment(info);
+        await this.others(player.id, 'reaction', { seat: player.id, id });
+        return;
+      }
       if (message.type === 'rematch_vote') {
         if (![MATCH_STATES.FINISHED, MATCH_STATES.FORFEIT].includes(room.state)) return this.error(ws, 'rematch_unavailable');
         player.rematch = true;

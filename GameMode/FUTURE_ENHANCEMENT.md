@@ -1,6 +1,6 @@
 # Chronos Strike future enhancements
 
-> **Status:** living roadmap — PWA polish and menu/UI cleanup UI-0 through UI-6 are complete locally; owner publication and physical-device acceptance remain.
+> **Status:** living roadmap — PWA/menu cleanup is complete; the selected family enhancement sequence is active, with Preset Reactions complete locally.
 >
 > **Scope:** `GameMode/` only.
 >
@@ -1009,7 +1009,7 @@ Copy this table into a new implementation issue/plan and mark the desired items.
 | [ ] | Best-of-three / five Clash | Better live sessions | FE-3 |
 | [ ] | Pass-the-phone Relay | Same-room group fun | FE-3 |
 | [ ] | Local tournament bracket | Family event structure | FE-3 |
-| [ ] | Preset reactions | Lightweight social warmth | FE-3 |
+| [x] | Preset reactions | **Complete locally; fixed, ephemeral, throttled Clash reactions with local mute** | FE-6A |
 | [ ] | Weekly Family Rift | Asynchronous recurring event | FE-4 |
 | [ ] | Ghost Gauntlet | Private group competition | FE-4 |
 | [ ] | Mechanic mastery / Chronicle | Long-term local goals | FE-5 |
