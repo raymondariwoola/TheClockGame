@@ -200,6 +200,70 @@
     over: $('screen-over'),
     board: $('screen-board'),
   };
+
+  // The menu shell owns navigation presentation only. Gameplay, difficulty,
+  // identity, competition, progress, and PWA modules remain the sole owners of
+  // their existing state and handlers.
+  const MenuShell = (() => {
+    const destinations = ['play', 'compete', 'progress', 'settings'];
+    const root = document.querySelector('.menu-shell');
+
+    function normalized(value) {
+      const name = String(value || '').toLowerCase();
+      return destinations.includes(name) ? name : 'play';
+    }
+
+    function select(value, options = {}) {
+      if (!root) return 'play';
+      const name = normalized(value);
+      const panels = $$('[data-menu-destination]', root);
+      const buttons = $$('[data-menu-nav]', root);
+      panels.forEach((panel) => {
+        const active = panel.dataset.menuDestination === name;
+        panel.hidden = !active;
+        panel.inert = !active;
+        panel.classList.toggle('active', active);
+      });
+      buttons.forEach((button) => {
+        const active = button.dataset.menuNav === name;
+        button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      });
+      root.dataset.activeDestination = name;
+      if (options.focusHeading) {
+        const heading = $(`menuHub${name[0].toUpperCase()}${name.slice(1)}Title`);
+        requestAnimationFrame(() => heading?.focus({ preventScroll: true }));
+      }
+      if (typeof CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('chronos:menudestination', { detail: { destination: name } }));
+      }
+      return name;
+    }
+
+    function wire() {
+      if (!root) return;
+      const buttons = $$('[data-menu-nav]', root);
+      buttons.forEach((button, index) => {
+        button.addEventListener('click', (event) => select(button.dataset.menuNav, { focusHeading: event.detail === 0 }));
+        button.addEventListener('keydown', (event) => {
+          let next = null;
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % buttons.length;
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length;
+          if (event.key === 'Home') next = 0;
+          if (event.key === 'End') next = buttons.length - 1;
+          if (next == null) return;
+          event.preventDefault();
+          select(buttons[next].dataset.menuNav);
+          buttons[next].focus();
+        });
+      });
+      select(root.dataset.activeDestination || 'play');
+    }
+
+    return { destinations: [...destinations], normalized, select, active: () => normalized(root?.dataset.activeDestination), wire };
+  })();
+  window.ChronosMenu = MenuShell;
   const elBgFx = $('bgFx');
   const elFxCanvas = $('fxCanvas');
   const elScore = $('scoreVal');
@@ -3547,6 +3611,7 @@
   };
 
   // Initial menu render
+  MenuShell.wire();
   applyMenuCopy();
   Cosmetics.apply();        // equip saved cosmetics (safe here: all consts initialised)
   Identity.wire();          // safe here: all module consts are initialised by now

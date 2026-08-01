@@ -13,7 +13,7 @@
 | Phase | Scope | Status |
 |---|---|---|
 | UI-0 | Characterization and interaction contract | Complete |
-| UI-1 | Menu shell and four-destination navigation | Not started |
+| UI-1 | Menu shell and four-destination navigation | Complete |
 | UI-2 | Compact Play destination | Not started |
 | UI-3 | Compete destination and deep-link routing | Not started |
 | UI-4 | Progress and Settings destinations | Not started |
@@ -73,6 +73,28 @@ Completed before commit on 1 August 2026:
 - all 1,769 deterministic engine assertions passed;
 - the complete client and Worker test suites passed;
 - syntax, no-Gist-runtime, and Worker deployment dry-run checks passed;
+- `git diff --check` passed.
+
+## UI-1 — Menu shell and navigation foundation
+
+### Implemented
+
+- Added stable Play, Compete, Progress, and Settings destination panels.
+- Added a fixed, safe-area-aware navigation bar with icon-and-text labels and 52 px targets.
+- Moved the existing menu blocks into their planned destinations without replacing IDs, modules, or event handlers.
+- Added a presentation-only `ChronosMenu` controller that exposes exactly one panel, updates `aria-current`, and supports arrow, Home, and End keys.
+- Made inactive panels both `hidden` and `inert` so they are absent from visual, keyboard, and assistive-technology navigation.
+- Added a reusable real-device-metrics Chrome audit for 320 × 568 and 390 × 844.
+
+### UI-1 validation
+
+Completed before commit on 1 August 2026:
+
+- menu contract, menu shell, and game load tests passed;
+- all 1,769 engine assertions and the complete client/Worker suite passed;
+- syntax, no-Gist-runtime, and Worker deployment dry-run checks passed;
+- device-emulated 320 × 568 and 390 × 844 audits confirmed four visible destinations, minimum 44 px targets, correct exclusive panel state, correct `aria-current`, and no horizontal overflow;
+- screenshots were visually inspected at both audited sizes;
 - `git diff --check` passed.
 
 ## Resume rule

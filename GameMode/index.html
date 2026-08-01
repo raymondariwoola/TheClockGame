@@ -26,139 +26,186 @@
 
   <!-- INTRO / MENU -->
   <section id="screen-menu" class="screen active">
-    <div class="menu-inner">
-      <div class="logo-wrap">
-        <div class="logo-ring r1"></div>
-        <div class="logo-ring r2"></div>
-        <div class="logo-ring r3"></div>
-        <h1 class="logo-title">
-          <span class="title-glitch" data-text="CHRONOS">CHRONOS</span>
-          <span class="title-sub">S T R I K E</span>
-        </h1>
-      </div>
-      <p class="menu-tagline">Stop the clock. Bend the hand of time. Survive the chaos.</p>
+    <div class="menu-inner menu-shell" data-menu-version="2" data-active-destination="play">
+      <header class="menu-app-header">
+        <div class="logo-wrap">
+          <div class="logo-ring r1"></div>
+          <div class="logo-ring r2"></div>
+          <div class="logo-ring r3"></div>
+          <h1 class="logo-title">
+            <span class="title-glitch" data-text="CHRONOS">CHRONOS</span>
+            <span class="title-sub">S T R I K E</span>
+          </h1>
+        </div>
+        <p class="menu-tagline">Stop the clock. Bend the hand of time. Survive the chaos.</p>
 
-      <button class="player-identity" id="playerIdentity" type="button" aria-label="Set your player name">
-        <span class="pi-icon">👤</span>
-        <span class="pi-text">Playing as <span id="playerIdentityName">…</span></span>
-        <span class="pi-edit">✎</span>
-      </button>
-
-      <div class="menu-stats">
-        <div class="stat-card">
-          <div class="stat-label">Best Score</div>
-          <div class="stat-value" id="menuBest">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Best Combo</div>
-          <div class="stat-value" id="menuCombo">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Round Reached</div>
-          <div class="stat-value" id="menuRound">0</div>
-        </div>
-      </div>
-
-      <div class="daily-card" id="dailyCard" hidden>
-        <div class="daily-head">
-          <span class="daily-badge">🗓️ DAILY TIME RIFT</span>
-          <span class="daily-done" id="dailyDone" hidden>✓ CLEARED</span>
-          <span class="daily-countdown" id="dailyCountdown">—</span>
-        </div>
-        <div class="daily-name" id="dailyName">—</div>
-        <div class="daily-preview" id="dailyPreview">—</div>
-        <div class="daily-stats">
-          <span id="dailyBest">Best today: —</span>
-          <span id="dailyAttempts">Attempts: 0</span>
-          <span id="dailyGhost" hidden></span>
-        </div>
-        <div class="daily-cta">
-          <button class="daily-play" id="dailyPlayBtn" type="button">▶ PLAY TODAY'S RIFT</button>
-          <button class="daily-challenge" id="dailyChallengeBtn" type="button" hidden>🏁 Challenge a friend</button>
-        </div>
-        <p class="daily-note">Same seed for everyone · one fair challenge per day</p>
-
-        <div class="rival-row">
-          <input id="rivalInput" type="text" placeholder="Paste a Rival Code to race…" autocomplete="off" spellcheck="false">
-          <button id="rivalRaceBtn" type="button">RACE</button>
-        </div>
-        <div class="rival-error" id="rivalError" hidden></div>
-      </div>
-
-      <div class="difficulty-row">
-        <span class="diff-title">DIFFICULTY</span>
-        <div class="difficulty-toggle" role="group" aria-label="Difficulty">
-          <button class="diff-opt selected" data-diff="easy" type="button">😌 NORMAL</button>
-          <button class="diff-opt" data-diff="hardcore" type="button">💀 HARDCORE <span class="diff-mult">2×</span></button>
-        </div>
-        <p class="diff-hint">Hardcore is faster, meaner, and relentlessly taunts you — but pays <strong>double points</strong>. (Zen ignores this.)</p>
-      </div>
-
-      <div class="menu-modes">
-        <button class="mode-card" data-mode="classic">
-          <span class="mode-emoji">⚡</span>
-          <span class="mode-title">Classic</span>
-          <span class="mode-desc">40 rounds, 3 lives, escalating mayhem</span>
+        <button class="player-identity" id="playerIdentity" type="button" aria-label="Set your player name">
+          <span class="pi-icon">👤</span>
+          <span class="pi-text">Playing as <span id="playerIdentityName">…</span></span>
+          <span class="pi-edit">✎</span>
         </button>
-        <button class="mode-card" data-mode="endless">
-          <span class="mode-emoji">∞</span>
-          <span class="mode-title">Endless</span>
-          <span class="mode-desc">No end. One life. How far can you go?</span>
+      </header>
+
+      <main class="menu-destinations" id="menuDestinations">
+        <section class="menu-hub active" id="menuHubPlay" data-menu-destination="play" aria-labelledby="menuHubPlayTitle">
+          <div class="menu-hub-heading">
+            <span class="menu-hub-kicker">LOCAL RUNS</span>
+            <h2 id="menuHubPlayTitle" tabindex="-1">PLAY</h2>
+          </div>
+
+          <div class="difficulty-row">
+            <span class="diff-title">DIFFICULTY</span>
+            <div class="difficulty-toggle" role="group" aria-label="Difficulty">
+              <button class="diff-opt selected" data-diff="easy" type="button">😌 NORMAL</button>
+              <button class="diff-opt" data-diff="hardcore" type="button">💀 HARDCORE <span class="diff-mult">2×</span></button>
+            </div>
+            <p class="diff-hint">Hardcore is faster, meaner, and relentlessly taunts you — but pays <strong>double points</strong>. (Zen ignores this.)</p>
+          </div>
+
+          <div class="menu-modes">
+            <button class="mode-card" data-mode="classic">
+              <span class="mode-emoji">⚡</span>
+              <span class="mode-title">Classic</span>
+              <span class="mode-desc">40 rounds, 3 lives, escalating mayhem</span>
+            </button>
+            <button class="mode-card" data-mode="endless">
+              <span class="mode-emoji">∞</span>
+              <span class="mode-title">Endless</span>
+              <span class="mode-desc">No end. One life. How far can you go?</span>
+            </button>
+            <button class="mode-card" data-mode="zen">
+              <span class="mode-emoji">🌀</span>
+              <span class="mode-title">Zen</span>
+              <span class="mode-desc">No lives, no rush. Practice your timing.</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="menu-hub" id="menuHubCompete" data-menu-destination="compete" aria-labelledby="menuHubCompeteTitle" hidden inert>
+          <div class="menu-hub-heading">
+            <span class="menu-hub-kicker">FRIENDS &amp; RIVALS</span>
+            <h2 id="menuHubCompeteTitle" tabindex="-1">COMPETE</h2>
+          </div>
+
+          <div class="daily-card" id="dailyCard" hidden>
+            <div class="daily-head">
+              <span class="daily-badge">🗓️ DAILY TIME RIFT</span>
+              <span class="daily-done" id="dailyDone" hidden>✓ CLEARED</span>
+              <span class="daily-countdown" id="dailyCountdown">—</span>
+            </div>
+            <div class="daily-name" id="dailyName">—</div>
+            <div class="daily-preview" id="dailyPreview">—</div>
+            <div class="daily-stats">
+              <span id="dailyBest">Best today: —</span>
+              <span id="dailyAttempts">Attempts: 0</span>
+              <span id="dailyGhost" hidden></span>
+            </div>
+            <div class="daily-cta">
+              <button class="daily-play" id="dailyPlayBtn" type="button">▶ PLAY TODAY'S RIFT</button>
+              <button class="daily-challenge" id="dailyChallengeBtn" type="button" hidden>🏁 Challenge a friend</button>
+            </div>
+            <p class="daily-note">Same seed for everyone · one fair challenge per day</p>
+
+            <div class="rival-row">
+              <input id="rivalInput" type="text" placeholder="Paste a Rival Code to race…" autocomplete="off" spellcheck="false">
+              <button id="rivalRaceBtn" type="button">RACE</button>
+            </div>
+            <div class="rival-error" id="rivalError" hidden></div>
+          </div>
+
+          <button class="menu-board-btn clash" id="clashOpenBtn" type="button">
+            <span class="mb-icon">⚔️</span>
+            <span class="mb-text">PLAY TOGETHER — LIVE CHRONO CLASH</span>
+            <span class="mb-arrow">→</span>
+          </button>
+
+          <button class="menu-board-btn" id="menuBoardBtn" type="button">
+            <span class="mb-icon">🏆</span>
+            <span class="mb-text">HALL OF TIME — TOP 20 BOARDS</span>
+            <span class="mb-arrow">→</span>
+          </button>
+        </section>
+
+        <section class="menu-hub" id="menuHubProgress" data-menu-destination="progress" aria-labelledby="menuHubProgressTitle" hidden inert>
+          <div class="menu-hub-heading">
+            <span class="menu-hub-kicker">YOUR CHRONICLE</span>
+            <h2 id="menuHubProgressTitle" tabindex="-1">PROGRESS</h2>
+          </div>
+
+          <div class="menu-stats">
+            <div class="stat-card">
+              <div class="stat-label">Best Score</div>
+              <div class="stat-value" id="menuBest">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Best Combo</div>
+              <div class="stat-value" id="menuCombo">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Round Reached</div>
+              <div class="stat-value" id="menuRound">0</div>
+            </div>
+          </div>
+
+          <button class="menu-board-btn ach" id="menuAchBtn" type="button">
+            <span class="mb-icon">🏅</span>
+            <span class="mb-text">ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
+            <span class="mb-arrow">→</span>
+          </button>
+
+          <button class="menu-board-btn cos" id="menuCosBtn" type="button">
+            <span class="mb-icon">🎨</span>
+            <span class="mb-text">CUSTOMIZE — UNLOCK WITH ACHIEVEMENTS</span>
+            <span class="mb-arrow">→</span>
+          </button>
+        </section>
+
+        <section class="menu-hub" id="menuHubSettings" data-menu-destination="settings" aria-labelledby="menuHubSettingsTitle" hidden inert>
+          <div class="menu-hub-heading">
+            <span class="menu-hub-kicker">COMFORT &amp; APP</span>
+            <h2 id="menuHubSettingsTitle" tabindex="-1">SETTINGS</h2>
+          </div>
+
+          <button class="menu-board-btn a11y" id="menuA11yBtn" type="button">
+            <span class="mb-icon">♿</span>
+            <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
+            <span class="mb-arrow">→</span>
+          </button>
+
+          <button class="menu-board-btn pwa-install" id="pwaInstallBtn" type="button" hidden>
+            <span class="mb-icon">↧</span>
+            <span class="mb-text">INSTALL CHRONOS STRIKE</span>
+            <span class="mb-arrow">→</span>
+          </button>
+
+          <button class="menu-board-btn pwa-connection" id="pwaConnectionBtn" type="button" hidden>
+            <span class="mb-icon" id="pwaConnectionIcon">○</span>
+            <span class="mb-text" id="pwaConnectionLabel">CHECKING CONNECTION</span>
+            <span class="mb-arrow">DETAILS</span>
+          </button>
+
+          <div class="menu-controls">
+            <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
+          </div>
+
+          <a href="../index.html" class="back-home">← Back to Clock Quest</a>
+        </section>
+      </main>
+
+      <nav class="menu-nav" aria-label="Main menu">
+        <button class="menu-nav-btn active" type="button" data-menu-nav="play" aria-controls="menuHubPlay" aria-current="page">
+          <span class="menu-nav-icon" aria-hidden="true">▶</span><span>PLAY</span>
         </button>
-        <button class="mode-card" data-mode="zen">
-          <span class="mode-emoji">🌀</span>
-          <span class="mode-title">Zen</span>
-          <span class="mode-desc">No lives, no rush. Practice your timing.</span>
+        <button class="menu-nav-btn" type="button" data-menu-nav="compete" aria-controls="menuHubCompete">
+          <span class="menu-nav-icon" aria-hidden="true">⚔</span><span>COMPETE</span>
         </button>
-      </div>
-
-      <button class="menu-board-btn clash" id="clashOpenBtn" type="button">
-        <span class="mb-icon">⚔️</span>
-        <span class="mb-text">PLAY TOGETHER — LIVE CHRONO CLASH</span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn" id="menuBoardBtn">
-        <span class="mb-icon">🏆</span>
-        <span class="mb-text">HALL OF TIME — TOP 20 BOARDS</span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn ach" id="menuAchBtn">
-        <span class="mb-icon">🏅</span>
-        <span class="mb-text">ACHIEVEMENTS — <span id="menuAchCount">0 / 0</span></span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn cos" id="menuCosBtn">
-        <span class="mb-icon">🎨</span>
-        <span class="mb-text">CUSTOMIZE — UNLOCK WITH ACHIEVEMENTS</span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn a11y" id="menuA11yBtn">
-        <span class="mb-icon">♿</span>
-        <span class="mb-text">ACCESSIBILITY &amp; DISPLAY</span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn pwa-install" id="pwaInstallBtn" type="button" hidden>
-        <span class="mb-icon">↧</span>
-        <span class="mb-text">INSTALL CHRONOS STRIKE</span>
-        <span class="mb-arrow">→</span>
-      </button>
-
-      <button class="menu-board-btn pwa-connection" id="pwaConnectionBtn" type="button" hidden>
-        <span class="mb-icon" id="pwaConnectionIcon">○</span>
-        <span class="mb-text" id="pwaConnectionLabel">CHECKING CONNECTION</span>
-        <span class="mb-arrow">DETAILS</span>
-      </button>
-
-      <div class="menu-controls">
-        <kbd>SPACE</kbd> or <kbd>CLICK</kbd> to strike · <kbd>P</kbd> pause · <kbd>ESC</kbd> menu
-      </div>
-
-      <a href="../index.html" class="back-home">← Back to Clock Quest</a>
+        <button class="menu-nav-btn" type="button" data-menu-nav="progress" aria-controls="menuHubProgress">
+          <span class="menu-nav-icon" aria-hidden="true">★</span><span>PROGRESS</span>
+        </button>
+        <button class="menu-nav-btn" type="button" data-menu-nav="settings" aria-controls="menuHubSettings">
+          <span class="menu-nav-icon" aria-hidden="true">⚙</span><span>SETTINGS</span>
+        </button>
+      </nav>
     </div>
   </section>
 

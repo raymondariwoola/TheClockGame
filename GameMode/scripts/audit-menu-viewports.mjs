@@ -1,0 +1,149 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const chromePath = process.env.CHRONOS_CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const gameUrl = process.env.CHRONOS_AUDIT_URL || 'http://127.0.0.1:8000/';
+const port = 9300 + (process.pid % 500);
+const profile = join(tmpdir(), `chronos-menu-audit-${process.pid}`);
+const outputDir = join(tmpdir(), 'chronos-menu-audit');
+
+const chrome = spawn(chromePath, [
+  '--headless=new',
+  '--disable-gpu',
+  '--hide-scrollbars',
+  `--remote-debugging-port=${port}`,
+  `--user-data-dir=${profile}`,
+  'about:blank',
+], { stdio: 'ignore', windowsHide: true });
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchJson(url, options) {
+  let lastError;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response.json();
+    } catch (error) { lastError = error; }
+    await wait(100);
+  }
+  throw lastError || new Error(`Timed out waiting for ${url}`);
+}
+
+let socket;
+let sequence = 0;
+const pending = new Map();
+
+function send(method, params = {}) {
+  const id = ++sequence;
+  socket.send(JSON.stringify({ id, method, params }));
+  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+}
+
+async function evaluate(expression) {
+  const response = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+  if (response.exceptionDetails) throw new Error(response.exceptionDetails.text || 'Runtime evaluation failed');
+  return response.result?.result?.value;
+}
+
+async function waitForGame() {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const ready = await evaluate("document.readyState === 'complete' && !!window.ChronosMenu && !!document.querySelector('.menu-nav')");
+    if (ready) return;
+    await wait(100);
+  }
+  throw new Error('Chronos menu did not become ready');
+}
+
+async function auditViewport(width, height) {
+  await send('Emulation.setDeviceMetricsOverride', {
+    width, height, deviceScaleFactor: 1, mobile: true,
+    screenWidth: width, screenHeight: height,
+  });
+  await send('Page.navigate', { url: `${gameUrl}?ui-audit=${width}x${height}` });
+  await waitForGame();
+
+  const snapshot = await evaluate(`(() => {
+    const rect = (element) => {
+      const r = element.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+    };
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      nav: rect(document.querySelector('.menu-nav')),
+      buttons: [...document.querySelectorAll('[data-menu-nav]')].map((button) => ({
+        name: button.dataset.menuNav, current: button.getAttribute('aria-current'), ...rect(button),
+      })),
+      panels: [...document.querySelectorAll('[data-menu-destination]')].map((panel) => ({
+        name: panel.dataset.menuDestination, hidden: panel.hidden, inert: panel.inert,
+      })),
+      active: window.ChronosMenu.active(),
+    };
+  })()`);
+
+  assert.deepEqual(snapshot.viewport, { width, height }, `${width}x${height} emulation must use the requested CSS viewport`);
+  assert.equal(snapshot.overflowX, false, `${width}x${height} must not overflow horizontally`);
+  assert.equal(snapshot.buttons.length, 4, 'all four destinations must remain visible');
+  assert.ok(snapshot.nav.left >= 0 && snapshot.nav.right <= width, 'navigation stays inside the viewport');
+  for (const button of snapshot.buttons) {
+    assert.ok(button.left >= 0 && button.right <= width, `${button.name} stays inside the viewport`);
+    assert.ok(button.height >= 44, `${button.name} keeps a 44px touch target`);
+  }
+  assert.equal(snapshot.active, 'play');
+  assert.equal(snapshot.panels.filter((panel) => !panel.hidden && !panel.inert).length, 1, 'one destination is exposed initially');
+
+  for (const name of ['compete', 'progress', 'settings', 'play']) {
+    const state = await evaluate(`(() => {
+      document.querySelector('[data-menu-nav="${name}"]').click();
+      return {
+        active: window.ChronosMenu.active(),
+        visible: [...document.querySelectorAll('[data-menu-destination]')]
+          .filter((panel) => !panel.hidden && !panel.inert).map((panel) => panel.dataset.menuDestination),
+        current: [...document.querySelectorAll('[data-menu-nav][aria-current="page"]')]
+          .map((button) => button.dataset.menuNav),
+      };
+    })()`);
+    assert.equal(state.active, name, `${name} becomes active`);
+    assert.deepEqual(state.visible, [name], `${name} is the only exposed panel`);
+    assert.deepEqual(state.current, [name], `${name} is the only current navigation item`);
+  }
+
+  const image = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  const output = join(outputDir, `menu-${width}x${height}.png`);
+  await writeFile(output, Buffer.from(image.result.data, 'base64'));
+  return { ...snapshot, screenshot: output };
+}
+
+try {
+  await mkdir(outputDir, { recursive: true });
+  const page = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(gameUrl)}`, { method: 'PUT' });
+  socket = new WebSocket(page.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true });
+    socket.addEventListener('error', reject, { once: true });
+  });
+  socket.addEventListener('message', (event) => {
+    const message = JSON.parse(event.data);
+    if (!message.id || !pending.has(message.id)) return;
+    const task = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) task.reject(new Error(message.error.message));
+    else task.resolve(message);
+  });
+  await send('Page.enable');
+  await send('Runtime.enable');
+  const results = [];
+  for (const viewport of [[320, 568], [390, 844]]) results.push(await auditViewport(...viewport));
+  console.log('✓ menu viewport audit passed');
+  for (const result of results) {
+    console.log(`  ${result.viewport.width}x${result.viewport.height}: four destinations, no horizontal overflow, screenshot ${result.screenshot}`);
+  }
+} finally {
+  try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}
+  try { socket?.close(); } catch {}
+  if (!chrome.killed) chrome.kill();
+}

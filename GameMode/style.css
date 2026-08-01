@@ -95,6 +95,7 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
            max(24px, env(safe-area-inset-bottom))
            max(24px, env(safe-area-inset-left));
 }
+#screen-menu.active { overflow-x: hidden; }
 
 /* =====================================================================
    MENU
@@ -317,6 +318,131 @@ button, .mode-card, .clock-stage, .arena { touch-action: manipulation; }
   margin-top: 8px;
 }
 .back-home:hover { color: var(--neon-cyan); }
+
+/* =====================================================================
+   MENU SHELL V2 — top-level information architecture
+   ===================================================================== */
+.menu-inner.menu-shell {
+  justify-content: flex-start;
+  gap: 22px;
+  max-width: min(980px, 100%);
+  min-width: 0;
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+}
+.menu-app-header {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.menu-app-header .logo-wrap { max-width: 100%; overflow: hidden; }
+.menu-destinations { width: 100%; min-width: 0; max-width: 860px; }
+.menu-hub {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: menuHubIn 180ms ease-out;
+}
+.menu-hub[hidden] { display: none !important; }
+.menu-hub-heading { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.menu-hub-heading h2 {
+  margin: 0;
+  font: 800 clamp(22px, 4vw, 30px)/1 'Orbitron', sans-serif;
+  letter-spacing: 6px;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(0,240,255,0.4);
+}
+.menu-hub-heading h2:focus-visible { outline: 2px solid var(--neon-cyan); outline-offset: 6px; }
+.menu-hub-kicker {
+  color: var(--neon-cyan);
+  font: 700 10px/1 'Orbitron', sans-serif;
+  letter-spacing: 3px;
+}
+.menu-hub > .menu-board-btn,
+.menu-hub > .daily-card,
+.menu-hub > .menu-stats,
+.menu-hub > .difficulty-row,
+.menu-hub > .menu-modes { width: 100%; }
+.menu-hub > .menu-board-btn { justify-content: center; }
+.menu-nav {
+  position: fixed;
+  z-index: 120;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: auto;
+  margin: 0 auto;
+  max-width: 720px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(0,240,255,0.24);
+  border-radius: 18px;
+  background: rgba(5,8,22,0.96);
+  box-shadow: 0 14px 48px rgba(0,0,0,0.65), 0 0 28px rgba(0,240,255,0.1);
+  backdrop-filter: blur(16px);
+}
+.menu-nav-btn {
+  min-width: 0;
+  min-height: 52px;
+  padding: 7px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: 700 clamp(8px, 2.4vw, 11px)/1 'Orbitron', sans-serif;
+  letter-spacing: clamp(0, 0.25vw, 1px);
+  cursor: pointer;
+}
+.menu-nav-btn:hover { color: #fff; background: rgba(0,240,255,0.06); }
+.menu-nav-btn.active {
+  color: var(--neon-cyan);
+  border-color: rgba(0,240,255,0.32);
+  background: linear-gradient(150deg, rgba(0,240,255,0.13), rgba(139,92,255,0.08));
+  box-shadow: inset 0 0 18px rgba(0,240,255,0.06);
+}
+.menu-nav-btn:focus-visible { outline: 2px solid var(--neon-yellow); outline-offset: 2px; }
+.menu-nav-icon { font-size: 17px; line-height: 1; }
+@keyframes menuHubIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 500px) {
+  #screen-menu.active {
+    padding: max(14px, env(safe-area-inset-top))
+             max(12px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom))
+             max(12px, env(safe-area-inset-left));
+  }
+  .menu-inner.menu-shell { padding: 8px 0 calc(96px + env(safe-area-inset-bottom)); gap: 18px; }
+  .menu-app-header .logo-wrap { padding-inline: 4px; }
+  .menu-app-header .title-glitch { font-size: clamp(36px, 12vw, 46px); letter-spacing: 5px; }
+  .menu-app-header .title-sub { letter-spacing: 11px; padding-left: 11px; }
+  .menu-app-header .player-identity { max-width: 100%; }
+  .menu-hub { gap: 16px; }
+  .menu-hub-heading h2 { font-size: 22px; letter-spacing: 4px; }
+  .menu-hub > .menu-board-btn { min-height: 52px; }
+  .menu-hub .difficulty-toggle { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .menu-hub .diff-opt { min-width: 0; justify-content: center; padding: 10px 6px; gap: 4px; font-size: 10px; letter-spacing: 0.6px; white-space: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-hub { animation: none; }
+}
 
 /* =====================================================================
    GAME SCREEN
