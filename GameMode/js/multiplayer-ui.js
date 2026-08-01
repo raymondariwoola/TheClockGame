@@ -35,6 +35,11 @@
   function actions(...buttons) { const row = document.createElement('div'); row.className = 'clash-actions'; row.append(...buttons); return row; }
   function status() { const value = document.createElement('div'); value.className = 'clash-status'; value.setAttribute('role', 'status'); return value; }
   function close() { modal?.remove(); modal = null; }
+  function clearInviteUrl() {
+    const clean = root.ChronosMultiplayerClient.removeCodeFromUrl(location.href);
+    if (clean !== location.href) history.replaceState(history.state, '', clean);
+  }
+  function returnToMenu() { close(); clearInviteUrl(); }
   function safeMessage(code) {
     return ({ offline: 'No connection. Single-player modes still work offline.', room_full: 'This room already has two players.',
       room_not_found: 'This Clash expired or was cancelled.', room_started: 'This Clash already started.',
@@ -199,7 +204,7 @@
     heading(host, 'LIVE INVITE', 'JOIN CHRONO CLASH', 'Claim the second seat, then both players press Ready.');
     const name = input('Your name', initialName); const handicap = handicapSelect(); handicap.value = root.ChronosMultiplayerClient.normalizeHandicap(initialHandicap);
     const state = status(); const join = button('JOIN CLASH', true); const cancel = button('CLOSE');
-    host.append(name, handicap, state, actions(join, cancel)); cancel.addEventListener('click', close);
+    host.append(name, handicap, state, actions(join, cancel)); cancel.addEventListener('click', returnToMenu);
     join.addEventListener('click', async () => {
       if (!name.value.trim()) { state.textContent = 'Enter your name first.'; return; }
       join.disabled = true; join.textContent = 'JOINING…';
@@ -230,7 +235,7 @@
       try { await cards.share({ blob: artifacts.portrait, title: 'Chrono Clash', text: inviteText(room, url), url, filename: `chronos-clash-${room.code}.png` }); }
       catch { connection.textContent = 'Share failed. Copy the invite instead.'; }
     });
-    leave.addEventListener('click', () => { try { client.forfeit(); } catch {} client.disconnect(); client.clearSession(room.code); active = null; hideHud(); close(); });
+    leave.addEventListener('click', () => { try { client.forfeit(); } catch {} client.disconnect(); client.clearSession(room.code); active = null; hideHud(); returnToMenu(); });
     host.append(reactionControls(), connection, actions(ready, copy, share, leave));
     if (room.state === 'countdown' || room.state === 'playing') startRoom(room);
     if (room.state === 'finished' || room.state === 'forfeit') showResult(room);
@@ -306,11 +311,11 @@
       try { const result = await cards.share({ blob, title: 'Chrono Clash Result', text, url, filename: `chronos-clash-result-${room.code}.png` }); if (result.action !== 'cancelled') cardState.textContent = 'Result shared.'; }
       catch { cardState.textContent = 'Share failed. Please try again.'; }
     });
-    done.addEventListener('click', () => { active = null; localObjectives = null; hideHud(); close(); });
+    done.addEventListener('click', () => { active = null; localObjectives = null; hideHud(); returnToMenu(); });
     const objectives = objectiveResult(); host.append(scores, story); if (objectives) host.appendChild(objectives); host.append(reactionControls(), cardState, actions(rematch, share, done));
   }
-  function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', close); host.appendChild(done); }
-  function forfeit() { if (!active) return; try { client.forfeit(); } catch {} active = null; hideHud(); }
+  function showError(title, note) { const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'CHRONO CLASH', title, note); const done = button('CLOSE', true); done.addEventListener('click', returnToMenu); host.appendChild(done); }
+  function forfeit() { if (active) { try { client.forfeit(); } catch {} active = null; hideHud(); } clearInviteUrl(); }
 
   client.on('snapshot', ({ room }) => { if (active) updateHud(room); else showLobby(room); });
   client.on('presence', ({ room }) => { if (room) { client.room = room; if (active) updateHud(room); else showLobby(room); } });

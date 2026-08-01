@@ -3039,12 +3039,16 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
   .clash-hud[hidden] { display: none; }
   .clash-chip { min-height: 26px; max-width: none; padding: 3px 6px; font-size: 7px; }
   .arena { justify-content: space-between; gap: 8px; min-height: 0; }
-  .clock-stack { gap: 5px; width: min(100%, 390px); }
-  .clock-stage { width: min(80vw, 38dvh, 380px); }
+  .clock-stack { flex: 0 1 auto; justify-content: flex-start; gap: 5px; width: min(100%, 390px); }
+  .clock-stage { width: min(80vw, 380px); }
   .powerups { position: static; display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: flex-start; gap: 4px; width: 100%; max-width: 390px; overflow-x: auto; }
   .powerups:empty { display: none; }
   .powerup { flex: 0 0 auto; padding: 4px 7px; font-size: 8px; letter-spacing: 1px; }
   .powerup .pw-bar { width: 36px; }
+}
+
+@media (max-width: 500px) and (max-height: 600px) {
+  .clock-stage { width: min(80vw, 46dvh, 380px); }
 }
 
 @media (max-width: 340px) {

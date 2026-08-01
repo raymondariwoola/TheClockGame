@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { MultiplayerClient, HANDICAPS, REACTIONS, SABOTAGES, buildUrl, codeFromUrl, rematchStory } = require('../js/multiplayer.js');
+const { MultiplayerClient, HANDICAPS, REACTIONS, SABOTAGES, buildUrl, codeFromUrl, rematchStory, removeCodeFromUrl } = require('../js/multiplayer.js');
 class Store { constructor() { this.map = new Map(); } getItem(k) { return this.map.get(k) || null; } setItem(k, v) { this.map.set(k, v); } removeItem(k) { this.map.delete(k); } }
 class Socket {
   static values = []; constructor(url, protocols) { this.url = url; this.protocols = protocols; this.readyState = 0; this.listeners = new Map(); this.sent = []; Socket.values.push(this); }
@@ -12,6 +12,7 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
 (async () => {
   assert.equal(buildUrl('https://game.test/GameMode/?old=1#x', 'abcd efgh'), 'https://game.test/GameMode/?duel=ABCD-EFGH');
   assert.equal(codeFromUrl('https://game.test/?duel=abcd-efgh&token=nope'), 'ABCD-EFGH');
+  assert.equal(removeCodeFromUrl('https://game.test/GameMode/?duel=ABCD-EFGH&utm=family#results'), 'https://game.test/GameMode/?utm=family#results');
   const requests = [];
   const fetchImpl = async (url, options = {}) => {
     requests.push({ url, options });

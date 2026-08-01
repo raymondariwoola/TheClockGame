@@ -15,7 +15,8 @@ assert.match(css, /@media \(max-height: 520px\) and \(orientation: landscape\)[\
 assert.match(css, /\.pwa-connection-toast\s*\{[\s\S]*?max-width:\s*min\(235px/, 'small-phone cloud notice is compact');
 assert.match(html, /class="clock-stack"[\s\S]*?id="objectiveHud"[\s\S]*?id="powerups"[\s\S]*?class="clock-stage"/, 'objectives and powers share responsive gameplay flow with the clock');
 assert.match(css, /\.objective-hud\s*\{\s*position:\s*static[\s\S]*?\.objective-hud\[hidden\]\s*\{\s*display:\s*none/, 'Objective Cards cannot float over the score HUD and honor their hidden state');
-assert.match(css, /@media \(max-width: 500px\)[\s\S]*?grid-template-areas:\s*'left right' 'center center'[\s\S]*?\.clock-stage\s*\{\s*width:\s*min\(80vw, 38dvh/, 'narrow gameplay uses explicit HUD rows and a height-aware clock');
+assert.match(css, /@media \(max-width: 500px\)[\s\S]*?grid-template-areas:\s*'left right' 'center center'[\s\S]*?\.clock-stack\s*\{[^}]*?flex:\s*0 1 auto;[^}]*?justify-content:\s*flex-start;[\s\S]*?\.clock-stage\s*\{\s*width:\s*min\(80vw, 380px\)/, 'narrow gameplay anchors objectives below the HUD and restores a width-led clock');
+assert.match(css, /@media \(max-width: 500px\) and \(max-height: 600px\)[\s\S]*?\.clock-stage\s*\{\s*width:\s*min\(80vw, 46dvh, 380px\)/, 'genuinely short phone viewports retain a height-aware clock safeguard');
 assert.match(css, /@media \(max-width: 500px\)[\s\S]*?\.powerups\s*\{\s*position:\s*static/, 'mobile powers remain in gameplay flow instead of covering the HUD');
 assert.match(game, /if \(window\.anime && A11y\.motion\(\)\)/, 'menu entrance motion respects the saved accessibility preference');
 assert.match(game, /classList\.toggle\('gameplay-active', id === 'game'\)/, 'screen transitions expose a gameplay-only layout state');

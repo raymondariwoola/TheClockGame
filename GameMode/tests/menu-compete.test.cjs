@@ -21,6 +21,8 @@ assert.match(compete, /id="rivalError" role="alert" hidden/, 'Rival errors are a
 assert.match(game, /params\.has\('ghost'\) \|\| params\.has\('duel'\)/, 'Ghost and Clash deep links select Compete behind their modal');
 assert.match(ghostUi, /ChronosGhostClient\.codeFromUrl\(location\.href\)/, 'Ghost module remains the challenge authority');
 assert.match(clashUi, /ChronosMultiplayerClient\.codeFromUrl\(location\.href\)/, 'Clash module remains the room authority');
+assert.match(clashUi, /function clearInviteUrl\(\)[\s\S]*?removeCodeFromUrl\(location\.href\)[\s\S]*?history\.replaceState/, 'leaving a Clash removes its stale duel query without reloading');
+assert.match(clashUi, /function returnToMenu\(\)[\s\S]*?clearInviteUrl\(\)[\s\S]*?showError\([\s\S]*?addEventListener\('click', returnToMenu\)/, 'closing an unavailable Clash returns to a clean menu URL');
 assert.match(clashUi, /getElementById\('clashOpenBtn'\)\?\.addEventListener\('click', openMenu\)/, 'Clash card calls its existing menu');
 assert.match(css, /#menuHubCompete\s*\{[\s\S]*?max-width:\s*680px;/, 'Compete remains a readable mobile-width stack');
 

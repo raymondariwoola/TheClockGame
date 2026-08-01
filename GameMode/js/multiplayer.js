@@ -45,6 +45,9 @@
     const normalized = normalizeCode(code); if (!normalized) throw new MultiplayerError('bad_code');
     const url = new URL(String(value)); url.search = ''; url.hash = ''; url.searchParams.set('duel', normalized); return url.toString();
   }
+  function removeCodeFromUrl(value) {
+    const url = new URL(String(value)); url.searchParams.delete('duel'); return url.toString();
+  }
   function rematchStory(room, viewer = null) {
     const result = room?.result || {}; const story = result.story || {};
     const winner = result.winner; const viewed = viewer === 'host' || viewer === 'guest'; const won = viewed && winner === viewer;
@@ -167,5 +170,5 @@
     scheduleHeartbeat() { this.stopHeartbeat(); if (!this.heartbeatMs || this.manualClose) return; this.heartbeatTimer = setTimeout(() => { this.heartbeatTimer = null; try { this.send('heartbeat'); } catch {} this.scheduleHeartbeat(); }, this.heartbeatMs); this.heartbeatTimer?.unref?.(); }
     stopHeartbeat() { if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer); this.heartbeatTimer = null; }
   }
-  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, HANDICAPS, rematchStory, normalizeCode, normalizeHandicap, cleanName, codeFromUrl, buildUrl };
+  return { MultiplayerClient, MultiplayerError, REACTIONS, SABOTAGES, HANDICAPS, rematchStory, normalizeCode, normalizeHandicap, cleanName, codeFromUrl, buildUrl, removeCodeFromUrl };
 });

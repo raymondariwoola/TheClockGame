@@ -2,11 +2,11 @@
 
 Last verified: **1 August 2026**
 
-## Current pending release: room code and mobile gameplay header correction
+## Current pending release: mobile clock scale and Clash URL cleanup
 
-UI-0 through UI-6, the five selected family-session enhancements, and the reaction/mobile-action correction are published. The current local follow-up restores a prominent voiceable Clash room code and rebuilds the narrow gameplay header so score, combo, round, Clash status, lives, audio, pause, Objective Cards, and powers cannot cover one another.
+UI-0 through UI-6, the five selected family-session enhancements, the reaction/mobile-action correction, and shell revision 23 are published. The current local follow-up fixes two revision-23 regressions: narrow browser viewports once again use the full width-led clock size with Objective Cards anchored directly below the HUD, and leaving or dismissing a Clash removes the stale `duel` query parameter.
 
-This client-only correction advances the static PWA shell from revision 22 to revision 23. It requires **no Worker deployment, new binding, secret, Durable Object change, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
+This client-only correction advances the static PWA shell from revision 23 to revision 24. It requires **no Worker deployment, new binding, secret, Durable Object change, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
 
 ### Cloudflare deployment screenshot review
 
@@ -29,9 +29,9 @@ git log --oneline origin/main..main
 git push origin main
 ```
 
-`npm run verify`, `npm run audit:menu`, `git status`, and `git log` are checks. `git push` publishes the static site through the existing GitHub Pages workflow. Confirm the Git output contains only the reviewed room-code/mobile-header correction before pushing. Do not redeploy or create a Worker for this release.
+`npm run verify`, `npm run audit:menu`, `git status`, and `git log` are checks. `git push` publishes the static site through the existing GitHub Pages workflow. Confirm the Git output contains only the reviewed mobile-clock/Clash-URL correction before pushing. Do not redeploy or create a Worker for this release.
 
-After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 23 can install cleanly.
+After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 24 can install cleanly.
 
 ### Required physical acceptance
 
@@ -52,17 +52,19 @@ Use at least one ordinary Android phone and, if available, one iPhone:
 - Clash play: send preset reactions in both directions; the sender must see `Sent to rival` and the recipient must see the named reaction. Then mute incoming reactions on one phone, earn a shard with three consecutive Perfects, and confirm a sabotage is announced before it affects the rival's next round.
 - Clash mobile layout: the reaction/shard dock must remain below STRIKE in normal page flow at portrait and landscape sizes; horizontally scroll its reaction row on a narrow phone and confirm STRIKE remains fully visible and tappable. The three sabotage choices must remain absent until a player with a shard opens them.
 - Gameplay header: on the affected iPhone browser and at 200% text if practical, confirm score, combo, lives, audio, pause, round, both Clash score chips, and both Objective Cards are simultaneously readable with no overlap. Activate a power and confirm its timer stays below the HUD.
+- Clock scale: on the affected iPhone browser, confirm the Objective Cards sit immediately below the HUD and the clock face again fills roughly 80% of the portrait viewport width. At very short heights, confirm it still shrinks enough to keep STRIKE tappable.
+- Clash exit URL: open an expired or cancelled `?duel=...` link, press `CLOSE`, and confirm the address bar no longer contains `duel`. Repeat with `LEAVE`, `DONE`, and the in-game quit-to-menu action when practical.
 - Clash result: confirm the compact margin/lead-change story appears beside Rematch and the local Objective Cards result remains visible while waiting.
 
 If all checks pass, no further production action is required.
 
 ### Forward-only rollback
 
-Do not touch Cloudflare or leaderboard data for this client-only issue. Revert only the smallest responsible client change, then advance every shell-version reference together from 23 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. The deployed Worker can remain unchanged.
+Do not touch Cloudflare or leaderboard data for this client-only issue. Revert only the smallest responsible client change, then advance every shell-version reference together from 24 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. The deployed Worker can remain unchanged.
 
 ## Current production remains live
 
-The existing production version remains live. Only the static revision-23 correction described above is pending publication.
+The existing production version remains live at shell revision 23. Only the static revision-24 correction described above is pending publication.
 
 | Component | Production location | Status |
 |---|---|---|
