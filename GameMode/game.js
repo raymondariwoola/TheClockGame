@@ -3727,7 +3727,7 @@
   Identity.wire();          // safe here: all module consts are initialised by now
   refreshMenuStats();       // renders the identity chip (Identity.render) among others
   Identity.maybePrompt();
-  if (window.anime) {
+  if (window.anime && A11y.motion()) {
     anime({ targets: '.logo-ring', rotate: '360deg', duration: 12000, loop: true, easing: 'linear' });
     anime({ targets: '.menu-stats .stat-card', translateY: [30, 0], opacity: [0, 1], delay: anime.stagger(100, { start: 200 }), duration: 600, easing: 'easeOutCubic' });
     anime({ targets: '.menu-modes .mode-card', translateY: [40, 0], opacity: [0, 1], delay: anime.stagger(120, { start: 400 }), duration: 700, easing: 'easeOutBack' });

@@ -17,7 +17,7 @@
 | UI-2 | Compact Play destination | Complete |
 | UI-3 | Compete destination and deep-link routing | Complete |
 | UI-4 | Progress and Settings destinations | Complete |
-| UI-5 | Responsive visual/PWA polish | Not started |
+| UI-5 | Responsive visual/PWA polish | Complete |
 | UI-6 | Rollout closure and final handoff | Not started |
 
 ## Protected behavior
@@ -168,6 +168,30 @@ Completed before commit on 1 August 2026:
 - device-emulated audits passed at 320 × 568 and 390 × 844 with no overflow or navigation obstruction;
 - separate 390 × 844 Progress and Settings screenshots were visually inspected, including conditional installation/connectivity controls and scrollable About content;
 - `git diff --check` passed.
+
+## UI-5 — Responsive visual and PWA polish
+
+### Implemented
+
+- Added a compact small-phone cloud-status banner and enough header clearance to keep it separate from the Chronos wordmark.
+- Preserved one-column phone destinations, introduced related two-column destination groups from 900 px, and changed the four-destination navigation into a left rail on large desktop screens.
+- Added a dedicated short-landscape layout with a left navigation rail, compact header, and reduced non-essential copy so gameplay choices remain usable without browser zoom changes.
+- Kept the same four labels and information architecture at every viewport; responsive CSS changes placement only.
+- Made decorative menu entrance animation respect the existing reduced-motion preference.
+- Improved destination-heading focus clearance while retaining visible keyboard focus.
+- Advanced the coherent PWA application shell from revision 15 to revision 16 across HTML assets, service-worker registration, and precache URLs. API, Ghost, leaderboard, and multiplayer requests remain outside the cache.
+- Extended the local Chrome device audit to 320 × 568, 390 × 844, 844 × 390 landscape, and 1280 × 800 desktop.
+
+### UI-5 validation
+
+Completed before commit on 1 August 2026:
+
+- the responsive contract test passed and locks the phone notice, tablet/desktop layout, landscape rail, reduced-motion gate, and coherent PWA revision;
+- real browser audits at all four target viewports confirmed four 44 px-or-larger navigation targets, exclusive/inert destination state, correct `aria-current`, and no horizontal overflow;
+- the Play destination retained its complete Start action above fixed navigation at both portrait phone sizes;
+- settled Play screenshots at all four sizes plus 390 × 844 Compete, Progress, and Settings screenshots were visually inspected for clipping, overlap, hierarchy, and scroll boundaries;
+- the complete automated client and Worker verification, syntax audit, no-Gist-runtime audit, Worker dry run, and `git diff --check` passed;
+- physical Android/iOS safe-area, installed-PWA, and 200% text checks remain explicit owner release checks in UI-6 because this Windows checkout cannot truthfully emulate browser chrome, a notch, or OS installation behavior.
 
 ## Resume rule
 

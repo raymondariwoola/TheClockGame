@@ -95,8 +95,10 @@ async function auditViewport(width, height) {
     assert.ok(button.left >= 0 && button.right <= width, `${button.name} stays inside the viewport`);
     assert.ok(button.height >= 44, `${button.name} keeps a 44px touch target`);
   }
-  assert.ok(snapshot.start.top >= 0 && snapshot.start.bottom <= snapshot.nav.top,
-    `${width}x${height} keeps the complete Start action above the fixed navigation`);
+  if (height >= width) {
+    assert.ok(snapshot.start.top >= 0 && snapshot.start.bottom <= snapshot.nav.top,
+      `${width}x${height} keeps the complete Start action above the fixed navigation`);
+  }
   assert.equal(snapshot.active, 'play');
   assert.equal(snapshot.panels.filter((panel) => !panel.hidden && !panel.inert).length, 1, 'one destination is exposed initially');
 
@@ -151,7 +153,7 @@ try {
     source: "try { localStorage.setItem('cs_identity_prompted', '1'); } catch {}",
   });
   const results = [];
-  for (const viewport of [[320, 568], [390, 844]]) results.push(await auditViewport(...viewport));
+  for (const viewport of [[320, 568], [390, 844], [844, 390], [1280, 800]]) results.push(await auditViewport(...viewport));
   console.log('✓ menu viewport audit passed');
   for (const result of results) {
     console.log(`  ${result.viewport.width}x${result.viewport.height}: four destinations, no horizontal overflow, screenshot ${result.screenshot}`);

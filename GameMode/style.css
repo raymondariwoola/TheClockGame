@@ -2853,3 +2853,95 @@ button.clash-chip.you { cursor: pointer; border-color: rgba(0,240,255,0.45); }
   .clash-room strong { font-size: 14px; }
   .clash-chip { font-size: 7px; }
 }
+
+/* =====================================================================
+   MENU V2 RELEASE POLISH — final responsive overrides
+   ===================================================================== */
+.menu-hub-heading { gap: 5px; }
+.menu-hub-heading h2:focus-visible { outline-offset: 6px; border-radius: 8px; }
+
+@media (max-width: 500px) {
+  .pwa-connection-toast {
+    top: max(5px, env(safe-area-inset-top));
+    max-width: min(235px, calc(100vw - 24px));
+    padding: 6px 10px;
+    font-size: 7px;
+    line-height: 1.2;
+    letter-spacing: 1px;
+  }
+  .menu-inner.menu-shell { padding-top: 38px; }
+  .menu-app-header .title-glitch { font-size: 27px; }
+  .menu-app-header .title-sub { font-size: 8px; }
+}
+
+@media (min-width: 900px) {
+  .menu-inner.menu-shell { max-width: 1100px; }
+  #menuHubCompete,
+  #menuHubProgress,
+  #menuHubSettings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+  #menuHubCompete > .menu-hub-heading,
+  #menuHubCompete > .daily-card,
+  #menuHubProgress > .menu-hub-heading,
+  #menuHubProgress > .menu-stats,
+  #menuHubSettings > .menu-hub-heading { grid-column: 1 / -1; }
+  #menuHubCompete .compete-feature,
+  #menuHubProgress .progress-feature,
+  #menuHubSettings .settings-group { height: 100%; }
+}
+
+@media (min-width: 1200px) {
+  .menu-inner.menu-shell { padding-left: 138px; }
+  .menu-nav {
+    top: 50%;
+    bottom: auto;
+    left: max(16px, calc(50vw - 620px));
+    right: auto;
+    width: 112px;
+    grid-template-columns: 1fr;
+    transform: translateY(-50%);
+  }
+  .menu-nav-btn { min-height: 62px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #screen-menu.active {
+    padding: max(8px, env(safe-area-inset-top))
+             max(10px, env(safe-area-inset-right))
+             max(8px, env(safe-area-inset-bottom))
+             max(10px, env(safe-area-inset-left));
+  }
+  .menu-inner.menu-shell {
+    max-width: 100%;
+    padding: 6px 8px 18px 116px;
+    gap: 10px;
+  }
+  .menu-nav {
+    top: max(8px, env(safe-area-inset-top));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
+    width: 98px;
+    grid-template-columns: 1fr;
+    transform: none;
+  }
+  .menu-nav-btn { min-height: 44px; flex-direction: row; gap: 6px; font-size: 7px; }
+  .menu-nav-icon { font-size: 13px; }
+  .menu-app-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .menu-app-header .logo-wrap { align-items: flex-start; padding: 0; }
+  .menu-app-header .logo-title { text-align: left; }
+  .menu-app-header .title-glitch { font-size: 24px; }
+  .menu-app-header .title-sub { font-size: 7px; letter-spacing: 7px; padding-left: 7px; }
+  .menu-app-header .menu-tagline { display: none; }
+  .menu-app-header .player-identity { margin: 0; }
+  #menuHubPlay { gap: 8px; }
+  #menuHubPlay .menu-hub-heading { display: none; }
+  .menu-hub .mode-card { min-height: 48px; }
+  .menu-mode-summary,
+  #menuHubPlay .diff-hint { display: none; }
+  .menu-start-btn { min-height: 48px; }
+  .pwa-connection-toast { display: none; }
+}
