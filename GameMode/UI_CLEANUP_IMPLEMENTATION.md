@@ -18,7 +18,7 @@
 | UI-3 | Compete destination and deep-link routing | Complete |
 | UI-4 | Progress and Settings destinations | Complete |
 | UI-5 | Responsive visual/PWA polish | Complete |
-| UI-6 | Rollout closure and final handoff | Not started |
+| UI-6 | Rollout closure and final handoff | Complete locally; owner device acceptance pending |
 
 ## Protected behavior
 
@@ -193,6 +193,29 @@ Completed before commit on 1 August 2026:
 - the complete automated client and Worker verification, syntax audit, no-Gist-runtime audit, Worker dry run, and `git diff --check` passed;
 - physical Android/iOS safe-area, installed-PWA, and 200% text checks remain explicit owner release checks in UI-6 because this Windows checkout cannot truthfully emulate browser chrome, a notch, or OS installation behavior.
 
-## Resume rule
+## UI-6 — Rollout closure and final handoff
 
-Begin the next incomplete phase only after the current phase status, validation evidence, and local commit are recorded here. If a phase crosses a protected boundary, stop that portion, document the decision needed, and continue only with independent safe work.
+### Implemented
+
+- Extended the real-browser audit from layout checks into the five release tasks defined in the roadmap: start Normal Classic, find Chrono Clash, open the Hall without publishing, open accessibility settings, and locate install/update controls.
+- Blocked `workers.dev` during that task audit. Hall behavior is therefore proven to open and fail gracefully without reading or mutating production, and Clash is opened without creating a room.
+- Confirmed that a menu-open modal prevents a waiting service worker from reloading the app, preserving the existing safe-update boundary.
+- Confirmed the Hall still exposes Classic, Endless, Daily, Normal, and Hardcore selectors immediately.
+- Confirmed there is exactly one live menu implementation. A duplicate legacy DOM and runtime rollback flag were deliberately never introduced: duplicating long-lived element IDs and state-owning controls would have increased regression risk. The independently tested phase commits are the rollback boundary.
+- Consolidated publication, physical-device acceptance, troubleshooting, and forward-only rollback in `OWNER_ACTIONS.md`.
+- Marked the UI roadmap complete locally. No Cloudflare Worker, binding, secret, Durable Object, leaderboard, or deployed data was changed.
+
+### UI-6 validation
+
+Completed before commit on 1 August 2026:
+
+- the task audit completed all five journeys at 390 × 844 without coaching or production network access;
+- the complete automated client and Worker suite passed, including 1,769 deterministic engine assertions and all 16 Worker tests;
+- syntax validation covered 67 files, the no-Gist-runtime audit passed, and the Worker deployment dry run passed;
+- responsive browser audits passed at 320 × 568, 390 × 844, 844 × 390, and 1280 × 800;
+- `git diff --check` passed;
+- the remaining checks require a human and real hardware: one Android phone, one iPhone if available, installed-PWA update behavior, 200% text scaling, and a short family/friend usability pass. They are release acceptance checks, not missing code, and are listed at the top of `OWNER_ACTIONS.md`.
+
+## Closure rule
+
+UI-0 through UI-6 are complete locally. Publish only through the owner checklist. If a device check exposes a regression, fix it forward from the smallest responsible phase commit; do not restore Gist, reset cloud data, or redeploy the Worker for a menu-only issue.

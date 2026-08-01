@@ -59,7 +59,7 @@ git log --oneline origin/main..main
 git push origin main
 ```
 
-Returning phones receive shell revision 15 through the existing run-safe PWA update notice.
+This behavior first shipped in shell revision 15. The completed menu UI release carries it forward unchanged in shell revision 16 through the existing run-safe PWA update notice.
 
 ## Physical acceptance check after publication
 

@@ -191,6 +191,8 @@ This preserves a coherent cache upgrade path and avoids stranding returning phon
 
 Gameplay-only browser zoom protection is implemented in shell revision 15. It deliberately preserves browser zoom on informational screens. See `MOBILE_GAMEPLAY_GESTURE_LOCK.md` for the behavior, accessibility decision, verification, publication, and rollback instructions.
 
+The mobile-first four-destination menu is release-ready locally in shell revision 16. It preserves all PWA update-safety rules in this document and carries the gameplay-only zoom behavior forward unchanged. See `UI_CLEANUP_IMPLEMENTATION.md` for phase evidence and `OWNER_ACTIONS.md` for the single current publication/device checklist.
+
 ## Phase PWA-3 — offline and cloud status
 
 Implemented:

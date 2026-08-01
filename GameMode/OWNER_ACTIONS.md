@@ -1,18 +1,51 @@
 # Chronos Strike production status and owner runbook
 
-Last verified: **31 July 2026**
+Last verified: **1 August 2026**
 
-## Pending mobile gameplay gesture-lock release
+## Current pending release: mobile-first GameMode UI
 
-The earlier PWA implementation commits are now present on GitHub `main`. The gameplay-only double-tap and pinch-zoom lock is complete in one newer local commit but has intentionally **not** been pushed or synced. The owner requested manual publication.
+UI-0 through UI-6 are complete, tested, documented, and committed locally. They replace the long scrolling root menu with four stable destinations—Play, Compete, Progress, and Settings—while preserving the existing gameplay, cheats, Daily, Ghost, Clash, leaderboard, result, sharing, persistence, and Cloudflare boundaries.
 
-Read [MOBILE_GAMEPLAY_GESTURE_LOCK.md](MOBILE_GAMEPLAY_GESTURE_LOCK.md) for the exact behavior, publish command, Android/iPhone acceptance checks, and forward-only rollback procedure. The update moves the static shell from revision 14 to revision 15.
+The release advances the static PWA shell from revision 15 to revision 16. It changes only files under `GameMode/` and requires **no Cloudflare Worker deployment, variable, secret, Durable Object migration, leaderboard reset, or `.dev.vars` change**. Codex has not pushed or synchronized it.
 
-This release changes only static files under `GameMode/`. It requires **no Cloudflare Worker deployment, variable, secret, Durable Object migration, leaderboard reset, or `.dev.vars` change**.
+### Your publication steps
+
+From PowerShell:
+
+```powershell
+cd D:\GitHub\TheClockGame
+git status --short --branch
+git log --oneline origin/main..main
+git push origin main
+```
+
+The first two commands are read-only. Confirm that the branch contains the UI phase commits and has no unexpected uncommitted files before running the final command. Publish only when you are ready; no separate Worker command is needed.
+
+After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 16 can install cleanly.
+
+### Required physical acceptance
+
+Use at least one ordinary Android phone and, if available, one iPhone:
+
+- Play: Classic + Normal is visible and starts; also spot-check Endless, Zen, and Hardcore.
+- Compete: Daily opens, Clash opens its create/join panel, Rival Code remains visible, and Hall opens without first publishing.
+- Hall: switch Classic/Endless/Daily and Normal/Hardcore; the chosen board name stays explicit.
+- Progress: achievements and cosmetics open and saved choices survive a reload.
+- Settings: change one accessibility preference, reopen Settings, and confirm it persisted.
+- PWA: install if offered; when an update is offered during a run, confirm it waits until returning safely to the menu.
+- Mobile layout: rotate once, scroll each destination to its final action, and confirm the navigation never covers that action permanently.
+- Zoom/accessibility: gameplay remains fixed against pinch/double-tap zoom, while Settings, Hall, and Results still allow browser zoom; spot-check 200% text scaling.
+- Family/friend check: without coaching, ask one person to start Normal Classic, find Clash, view the Hall, change accessibility, and find install/update guidance.
+
+If all checks pass, no further production action is required.
+
+### Forward-only rollback
+
+Do not redeploy shell revision 15 unchanged, and do not touch Cloudflare or leaderboard data for a menu issue. Revert only the smallest responsible UI phase, then advance every shell-version reference together from 16 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that new forward revision. This prevents an older service worker from keeping a mixed asset set.
 
 ## Current production remains live
 
-The existing production version remains live and healthy. The only pending publication is the static PWA release described above; no Worker-side action is pending.
+The existing production version remains live and healthy. The only pending publication is the static GameMode UI/PWA release described above; no Worker-side action is pending.
 
 | Component | Production location | Status |
 |---|---|---|

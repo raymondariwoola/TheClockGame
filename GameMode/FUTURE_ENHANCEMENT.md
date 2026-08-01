@@ -1,6 +1,6 @@
 # Chronos Strike future enhancements
 
-> **Status:** living roadmap — PWA polish is complete locally; menu/UI cleanup implementation is active, with UI-0 through UI-5 complete locally.
+> **Status:** living roadmap — PWA polish and menu/UI cleanup UI-0 through UI-6 are complete locally; owner publication and physical-device acceptance remain.
 >
 > **Scope:** `GameMode/` only.
 >
@@ -535,7 +535,7 @@ The following may sound impressive but are poor choices for this game now.
 
 > **Decision:** complete this work before adding another major gameplay enhancement.
 >
-> **Current state:** UI-0 characterization through UI-5 responsive/PWA polish are complete locally. UI-6 closure and owner handoff remain; see `UI_CLEANUP_IMPLEMENTATION.md`.
+> **Current state:** UI-0 through UI-6 are complete locally. The implementation uses four stable destinations, shell revision 16, and a tested mobile-first release handoff; see `UI_CLEANUP_IMPLEMENTATION.md` and `OWNER_ACTIONS.md`.
 >
 > **Scope:** the `GameMode/` menu and its navigation surfaces. The clock gameplay, scoring, powers, cheats, multiplayer protocols, Worker API, leaderboards, ghosts, sharing, and result flows are protected behavior and are not being redesigned in this phase.
 
@@ -806,6 +806,8 @@ Each phase is committed only after its automated and manual gates pass. Document
 
 **Gate:** representative players can complete the five tasks without coaching, no protected-behavior regression remains, and rollback instructions have been exercised before legacy removal.
 
+**Local completion note (1 August 2026):** the production-independent browser audit completes all five tasks at 390 × 844, and the owner checklist carries the remaining real-device/family acceptance. No duplicate legacy runtime was introduced, so there is no stale menu or flag to remove; commits UI-0 through UI-6 provide smaller, safer rollback boundaries.
+
 ### 13.11 Verification matrix
 
 | Area | Required checks |
@@ -995,7 +997,7 @@ Copy this table into a new implementation issue/plan and mark the desired items.
 
 | Select | Enhancement | Main reason | Suggested phase |
 |:---:|---|---|---|
-| [x] | Mobile menu and UI information architecture | **Implementation active; UI-0 through UI-5 complete locally** | UI-0 to UI-6 |
+| [x] | Mobile menu and UI information architecture | **UI-0 through UI-6 complete locally; owner publish/device acceptance pending** | UI-0 to UI-6 |
 | [ ] | Practice from mistakes | Skill improvement | FE-1 |
 | [ ] | Results coach / rival comparison | Meaningful results and rematches | FE-1 |
 | [ ] | QR invites / deep-link recovery | Easier mobile joining | FE-1 |

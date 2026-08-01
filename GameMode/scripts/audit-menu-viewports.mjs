@@ -131,6 +131,91 @@ async function auditViewport(width, height) {
   return { ...snapshot, screenshot: output };
 }
 
+async function navigateForTask(task) {
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 390, height: 844, deviceScaleFactor: 1, mobile: true,
+    screenWidth: 390, screenHeight: 844,
+  });
+  await send('Page.navigate', { url: `${gameUrl}?ui-task=${task}` });
+  await waitForGame();
+  await wait(180);
+}
+
+async function auditCriticalTasks() {
+  await navigateForTask('start-normal');
+  await evaluate(`(() => {
+    document.querySelector('[data-menu-nav="play"]').click();
+    document.querySelector('.mode-card[data-mode="classic"]').click();
+    document.querySelector('.diff-opt[data-diff="easy"]').click();
+    document.querySelector('#menuStartBtn').click();
+  })()`);
+  await wait(420);
+  const started = await evaluate(`(() => ({
+    gameVisible: document.querySelector('#screen-game').classList.contains('active'),
+    run: window.ChronosGame.getRunInfo(),
+  }))()`);
+  assert.equal(started.gameVisible, true, 'a player can start a game from Play');
+  assert.equal(started.run.mode, 'classic', 'the task starts Classic');
+  assert.equal(started.run.hardcore, false, 'the task starts Normal difficulty');
+
+  await navigateForTask('find-clash');
+  const clash = await evaluate(`(() => {
+    document.querySelector('[data-menu-nav="compete"]').click();
+    document.querySelector('#clashOpenBtn').click();
+    const dialog = document.querySelector('.clash-overlay [role="dialog"]');
+    return {
+      destination: window.ChronosMenu.active(),
+      dialog: !!dialog,
+      heading: dialog?.querySelector('h2')?.textContent || '',
+      inputs: dialog?.querySelectorAll('input, select').length || 0,
+    };
+  })()`);
+  assert.deepEqual(clash, { destination: 'compete', dialog: true, heading: 'CHRONO CLASH', inputs: 3 },
+    'Clash is discoverable from Compete without creating a room');
+
+  await navigateForTask('view-hall');
+  const hall = await evaluate(`(async () => {
+    document.querySelector('[data-menu-nav="compete"]').click();
+    document.querySelector('#menuBoardBtn').click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return {
+      boardVisible: document.querySelector('#screen-board').classList.contains('active'),
+      playlists: document.querySelectorAll('[data-board-mode]').length,
+      difficulties: document.querySelectorAll('[data-board-difficulty]').length,
+      context: document.querySelector('#boardContext').textContent.trim(),
+    };
+  })()`);
+  assert.equal(hall.boardVisible, true, 'Hall opens without publishing a score');
+  assert.equal(hall.playlists, 3, 'Hall exposes Classic, Endless, and Daily');
+  assert.equal(hall.difficulties, 2, 'Hall exposes Normal and Hardcore');
+  assert.match(hall.context, /CLASSIC.*NORMAL/, 'Hall states the selected board explicitly');
+
+  await navigateForTask('accessibility-and-app');
+  const settings = await evaluate(`(() => {
+    document.querySelector('[data-menu-nav="settings"]').click();
+    const app = document.querySelector('[aria-labelledby="settingsAppTitle"]');
+    document.querySelector('#menuA11yBtn').click();
+    return {
+      destination: window.ChronosMenu.active(),
+      accessibilityOpen: document.querySelector('#a11yOverlay').hidden === false,
+      accessibilityOptions: document.querySelectorAll('#a11yRows .a11y-row').length,
+      appDiscoverable: !!app && app.textContent.includes('Install') && app.textContent.includes('update'),
+      installControl: !!document.querySelector('#pwaInstallBtn'),
+      updateControl: !!document.querySelector('#pwaUpdateAction'),
+      updateSafety: window.ChronosGame.canApplyPwaUpdate() === false,
+    };
+  })()`);
+  assert.equal(settings.destination, 'settings', 'Settings is reachable from the stable navigation');
+  assert.equal(settings.accessibilityOpen, true, 'accessibility settings open from Settings');
+  assert.ok(settings.accessibilityOptions >= 6, 'accessibility options are populated');
+  assert.equal(settings.appDiscoverable, true, 'installation and update guidance has a labelled home');
+  assert.equal(settings.installControl, true, 'the conditional install control remains wired');
+  assert.equal(settings.updateControl, true, 'the safe update action remains wired');
+  assert.equal(settings.updateSafety, true, 'an open modal prevents a service-worker reload');
+
+  return ['start Normal Classic', 'find Clash', 'view Hall boards', 'open accessibility', 'locate install/update'];
+}
+
 try {
   await mkdir(outputDir, { recursive: true });
   const page = await fetchJson(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(gameUrl)}`, { method: 'PUT' });
@@ -149,11 +234,14 @@ try {
   });
   await send('Page.enable');
   await send('Runtime.enable');
+  await send('Network.enable');
+  await send('Network.setBlockedURLs', { urls: ['*://*.workers.dev/*'] });
   await send('Page.addScriptToEvaluateOnNewDocument', {
     source: "try { localStorage.setItem('cs_identity_prompted', '1'); } catch {}",
   });
   const results = [];
   for (const viewport of [[320, 568], [390, 844], [844, 390], [1280, 800]]) results.push(await auditViewport(...viewport));
+  const tasks = await auditCriticalTasks();
   console.log('✓ menu viewport audit passed');
   for (const result of results) {
     console.log(`  ${result.viewport.width}x${result.viewport.height}: four destinations, no horizontal overflow, screenshot ${result.screenshot}`);
@@ -161,6 +249,7 @@ try {
       if (result[`${name}Screenshot`]) console.log(`  ${name} screenshot: ${result[`${name}Screenshot`]}`);
     }
   }
+  console.log(`✓ menu task audit passed: ${tasks.join('; ')}`);
 } finally {
   try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}
   try { socket?.close(); } catch {}
