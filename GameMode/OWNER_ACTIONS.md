@@ -1,12 +1,12 @@
 # Chronos Strike production status and owner runbook
 
-Last verified: **1 August 2026**
+Last verified: **2 August 2026**
 
-## Current pending release: mid-game Private Menu access
+## Current pending release: full-length, reconnect-safe Chrono Clash
 
-UI-0 through UI-6, the five selected family-session enhancements, and the revision-24 mobile-clock/Clash-URL correction are published. The current local follow-up adds an explicit `PRIVATE MENU` action to the pause screen so the owner can unlock or reopen the existing private cheat controls during any active run.
+The repository base includes the revision-25 mid-game Private Menu correction. The current local follow-up fixes the two reported Clash-ending problems: new rooms now run the full 40 rounds, and live rooms no longer silently fail after a short network interruption or fixed 20-minute wall clock.
 
-This client-only correction advances the static PWA shell from revision 24 to revision 25. Cheat selections continue to use the existing private-code gate and browser-local storage; live changes apply immediately to the paused run. It requires **no Worker deployment, new binding, secret, Durable Object change, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
+This correction advances the coherent PWA shell to revision 26 and changes the existing Match Durable Object. It requires a **static GitHub Pages publication and one deployment of the existing `chronos-leaderboard` Worker**. It requires no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change. Analytics remains a documented proposal and is not enabled. See `CLASH_RELIABILITY_AND_ANALYTICS.md` for the diagnosis, acceptance gates, and data-retention decision.
 
 ### Cloudflare deployment screenshot review
 
@@ -16,7 +16,7 @@ Wrangler 4.118.0 being available is informational. The repository intentionally 
 
 ### Your publication steps
 
-Run the checks, then publish the static revision:
+Run the checks, publish the static revision first, wait for GitHub Pages to finish, then update the existing Worker:
 
 ```powershell
 cd D:\GitHub\TheClockGame\GameMode
@@ -27,11 +27,14 @@ cd ..
 git status --short --branch
 git log --oneline origin/main..main
 git push origin main
+
+cd GameMode
+npm --prefix worker run deploy
 ```
 
-`npm run verify`, `npm run audit:menu`, `git status`, and `git log` are checks. `git push` publishes the static site through the existing GitHub Pages workflow. Confirm the Git output contains only the reviewed mid-game Private Menu correction before pushing. Do not redeploy or create a Worker for this release.
+`npm run verify`, `npm run audit:menu`, `git status`, and `git log` are checks. `git push` publishes the revision-26 client through the existing GitHub Pages workflow. Deploy only the existing Worker after the static workflow succeeds; do not create a second Worker or any analytics resource. This order lets refreshed clients negotiate 40 rounds before the Worker starts creating full-length rooms.
 
-After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first so service-worker revision 25 can install cleanly.
+After GitHub Pages finishes updating, open <https://raymondariwoola.github.io/TheClockGame/GameMode/> online once on each test phone. Close any older GameMode tabs first and accept the update so service-worker revision 26 can install cleanly. Then perform the Worker deployment and the Clash checks below.
 
 ### Required physical acceptance
 
@@ -50,6 +53,10 @@ Use at least one ordinary Android phone and, if available, one iPhone:
 - Clash setup: create a room on one phone, join on the other, select different voluntary handicaps, and confirm both labels are visible before each player accepts and readies.
 - Clash room code: confirm the lobby shows a large eight-character code grouped four-and-four; read it aloud to the second player and confirm `COPY CODE` copies only those eight characters.
 - Clash play: send preset reactions in both directions; the sender must see `Sent to rival` and the recipient must see the named reaction. Then mute incoming reactions on one phone, earn a shard with three consecutive Perfects, and confirm a sabotage is announced before it affects the rival's next round.
+- Clash length: create a new room after both phones report revision 26, confirm the lobby says `40 ROUNDS`, and play beyond round 10. A rematch must also use 40 rounds; an exact tie may still enter a one-round sudden death.
+- Clash reconnect: temporarily disable one phone's network for 60-90 seconds while continuing its run. The HUD must say the run continues with a two-minute grace. Restore the network and confirm buffered progress reaches the rival without an early result.
+- Clash buffered finish: finish a test run while briefly disconnected, restore the network inside two minutes, and confirm the final result is submitted. In a separate disposable room, exceed two minutes and confirm the result explicitly names the missed reconnect window.
+- Clash lifetime: for a slow test, keep both phones connected beyond the old 20-minute boundary and confirm the room remains active. Heartbeats now maintain a rolling 45-minute inactivity window.
 - Clash mobile layout: the reaction/shard dock must remain below STRIKE in normal page flow at portrait and landscape sizes; horizontally scroll its reaction row on a narrow phone and confirm STRIKE remains fully visible and tappable. The three sabotage choices must remain absent until a player with a shard opens them.
 - Gameplay header: on the affected iPhone browser and at 200% text if practical, confirm score, combo, lives, audio, pause, round, both Clash score chips, and both Objective Cards are simultaneously readable with no overlap. Activate a power and confirm its timer stays below the HUD.
 - Clock scale: on the affected iPhone browser, confirm the Objective Cards sit immediately below the HUD and the clock face again fills roughly 80% of the portrait viewport width. At very short heights, confirm it still shrinks enough to keep STRIKE tappable.
@@ -61,11 +68,11 @@ If all checks pass, no further production action is required.
 
 ### Forward-only rollback
 
-Do not touch Cloudflare or leaderboard data for this client-only issue. Revert only the smallest responsible client change, then advance every shell-version reference together from 25 to a new revision, run `npm run verify` and `npm run audit:menu`, commit, and push that forward revision. The deployed Worker can remain unchanged.
+Do not delete or reset Cloudflare or leaderboard data. Revert only the smallest responsible client/Match Worker change, advance every shell-version reference together from 26 to a new revision, run `npm run verify` and `npm run audit:menu`, and publish that forward revision. If the server behavior is responsible, deploy the preceding reviewed Worker commit to the same existing Worker; do not create a replacement service.
 
 ## Current production remains live
 
-The existing production version remains live at shell revision 24. Only the static revision-25 correction described above is pending publication.
+The existing deployed version remains live until revision 26 and its matching Worker are published. Confirm the live shell revision and Worker version during the publication steps rather than assuming the repository commit has already reached both platforms.
 
 | Component | Production location | Status |
 |---|---|---|

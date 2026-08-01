@@ -14,5 +14,7 @@ assert.equal(rematchStory({ result: { winner: null, reason: 'draw', story: {} } 
 assert.match(room, /function trackStory[\s\S]*?leadChanges\+\+[\s\S]*?closestGap/, 'Worker retains bounded counters instead of a timeline');
 assert.match(room, /story: resultStory\(room, result\)/, 'final result freezes its compact story');
 assert.match(ui, /clash-rematch-story[\s\S]*?storyModel\.headline[\s\S]*?REMATCH/, 'story is paired with the existing rematch action');
+assert.match(ui, /RECONNECTING · RUN CONTINUES[\s\S]*?MINUTE GRACE/, 'live HUD explains that play continues during the reconnect grace');
+assert.match(ui, /Your live connection did not return within/, 'disconnect results explain why a local player lost');
 
 console.log('✓ compact rematch stories are perspective-aware, bounded, and paired with rematch');

@@ -14,6 +14,7 @@ assert.match(room, /function awardShard[\s\S]*?perfectStreak < 3[\s\S]*?maxShard
 assert.match(room, /message\.type === 'sabotage'[\s\S]*?maxSabotages[\s\S]*?targetRound[\s\S]*?broadcast\('sabotage'/, 'server caps, records, schedules, and telegraphs sabotage');
 assert.match(game, /State\.clashRun\?\.sabotages[\s\S]*?ChronosEngine\.applySabotageRound/, 'game applies the tested transform only from Clash state');
 assert.match(game, /queueSabotage:[\s\S]*?State\.round \+ 1/, 'late sabotage cannot alter the active round');
+assert.match(game, /roundLimit:\s*Math\.max\(1, Math\.min\(CLASSIC_ROUNDS/, 'browser accepts a full Classic-length Clash limit');
 assert.match(ui, /Time Shard earned[\s\S]*?queueSabotage/, 'UI announces earning and queues a telegraphed opponent effect');
 assert.match(css, /\.clash-sabotage-choices\[hidden\]\s*\{\s*display:\s*none/, 'closed sabotage choices cannot be forced visible by their flex layout');
 assert.doesNotMatch(game, /score\s*[+*]=.*sabotage|sabotage.*score\s*[+*]=/i, 'sabotage does not multiply or award score');

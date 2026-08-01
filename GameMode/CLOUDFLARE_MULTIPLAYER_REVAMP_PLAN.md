@@ -18,7 +18,7 @@ Revamp Chronos Strike in place as a static, no-build web game with one Cloudflar
 
 The current GitHub Gist path should be removed completely from active code and operations. The final browser must have no direct-Gist fallback, no Gist ID, no token fragments, and no GitHub API calls. Existing leaderboard data may be imported once from a manually exported JSON file and labelled `legacy_unverified`; the game must not retain a runtime dependency on that file or on GitHub Gist.
 
-The default live mode should be a short **Chrono Clash**: two players, the same server-issued seed and difficulty, ten rounds, score-based victory, and synchronized sudden death for an exact tie. The existing 40-round Classic, Endless, Zen/Precision Lab, Daily Rift, personal ghosts, achievements, cosmetics, and offline play remain available.
+The default live mode is a full **Chrono Clash**: two players, the same server-issued seed and difficulty, 40 rounds, score-based victory, and synchronized sudden death for an exact tie. Endless, Zen/Precision Lab, Daily Rift, personal ghosts, achievements, cosmetics, and offline play remain available.
 
 Cheat mode is an intentional private trolling feature for the owner's inner group, not a competitive-integrity category. It must behave as follows:
 

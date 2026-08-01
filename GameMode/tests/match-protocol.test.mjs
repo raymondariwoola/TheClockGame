@@ -18,6 +18,8 @@ assert.deepEqual(Object.keys(MATCH_SABOTAGES), ['reverse', 'narrow', 'haste']);
 assert.deepEqual(Object.keys(MATCH_HANDICAPS), ['none', 'headstart', 'extra_life', 'wider']);
 assert.equal(normalizeMatchHandicap('wider'), 'wider'); assert.equal(normalizeMatchHandicap('unknown'), 'none');
 assert.equal(MATCH_LIMITS.reactionCooldownMs, 1200);
+assert.equal(MATCH_LIMITS.rounds, 40);
+assert.equal(MATCH_LIMITS.legacyRounds, 10);
 assert.equal(MATCH_LIMITS.maxShards, 2);
 assert.equal(validateMatchEnvelope({ v: 1, type: 'sabotage', seq: 4, payload: { effect: 'reverse' } }).type, 'sabotage');
 assert.equal(validateMatchEnvelope({ v: 1, type: 'hack', seq: 2, payload: {} }), null);

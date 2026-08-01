@@ -34,7 +34,7 @@ export const MATCH_HANDICAPS = Object.freeze({
 });
 export const MATCH_LIMITS = Object.freeze({
   maxName: 24, maxMessageBytes: 4096, maxSequence: 1_000_000, codeLength: 8,
-  rounds: 10, suddenDeathRounds: 1, maxSuddenDeath: 3, reactionCooldownMs: 1200,
+  rounds: 40, legacyRounds: 10, suddenDeathRounds: 1, maxSuddenDeath: 3, reactionCooldownMs: 1200,
   maxShards: 2, maxSabotages: 2,
 });
 

@@ -44,6 +44,7 @@
     return ({ offline: 'No connection. Single-player modes still work offline.', room_full: 'This room already has two players.',
       room_not_found: 'This Clash expired or was cancelled.', room_started: 'This Clash already started.',
       multiplayer_disabled: 'Live Clash is temporarily disabled.', multiplayer_unconfigured: 'Live Clash is not configured yet.',
+      client_update_required: 'This is a 40-round Clash. Update Chronos Strike, then join again.',
       origin_forbidden: 'This game address is not allowed by the Worker.', rate_limited: 'Too many attempts. Wait a moment and retry.',
       reaction_rate_limited: 'Reactions need a short breather.', invalid_reaction: 'That reaction is unavailable.',
       invalid_message: 'Live server update required. Reactions are not available yet.',
@@ -139,7 +140,7 @@
       value.textContent = seat ? `${seat.name} · ${handicap.label}${seat.ready ? ' · ACCEPTED' : ''}` : 'Waiting…'; row.append(key, value); box.appendChild(row);
     }
     const meta = document.createElement('div'); const key = document.createElement('span'); key.textContent = 'FORMAT';
-    const value = document.createElement('strong'); value.textContent = `${room.roundLimit || 10} ROUNDS · ${room.difficulty.toUpperCase()}`; meta.append(key, value); box.appendChild(meta);
+    const value = document.createElement('strong'); value.textContent = `${room.roundLimit || 40} ROUNDS · ${room.difficulty.toUpperCase()}`; meta.append(key, value); box.appendChild(meta);
     host.appendChild(box);
   }
   function roomCodePanel(code) {
@@ -173,12 +174,12 @@
     inviteCards.set(room.code, pending); return pending;
   }
   function inviteText(room, url) {
-    return `${room.seats.host.name} challenged you to a live ${room.difficulty} Chrono Clash: ${room.roundLimit || 10} rounds on the same clock.\n\n${url}`;
+    return `${room.seats.host.name} challenged you to a live ${room.difficulty} Chrono Clash: ${room.roundLimit || 40} rounds on the same clock.\n\n${url}`;
   }
 
   function openMenu() {
     const view = overlay(); const host = view.querySelector('.clash-body');
-    heading(host, 'TWO PLAYERS · LIVE', 'CHRONO CLASH', 'Race the same ten rounds. Only resolved progress crosses the network.');
+    heading(host, 'TWO PLAYERS · LIVE', 'CHRONO CLASH', 'Race the full 40-round timeline. Only resolved progress crosses the network.');
     const name = input('Your name', playerName()); const code = input('Room code'); code.autocapitalize = 'characters';
     const difficulty = document.createElement('select'); difficulty.className = 'clash-input'; difficulty.innerHTML = '<option value="normal">Normal</option><option value="hardcore">Hardcore · 2×</option>';
     const handicap = handicapSelect();
@@ -269,7 +270,13 @@
     const mine = document.createElement('button'); mine.type = 'button'; mine.className = 'clash-chip you'; mine.textContent = `YOU · ${you?.progress?.score ?? 0}`; mine.title = 'Open private options'; mine.addEventListener('click', () => root.ChronosGame?.openCheats());
     const rival = document.createElement('div'); rival.className = 'clash-chip rival'; rival.textContent = `${opponent?.name || 'RIVAL'} · ${remote.score ?? 0} · R${remote.round ?? 0}`;
     const dot = document.createElement('span'); dot.className = `clash-dot ${opponent?.connected ? 'online' : ''}`; rival.prepend(dot);
-    value.append(mine, rival); value.hidden = false; updateSabotageDock(room);
+    value.append(mine, rival);
+    if (client.connection === 'reconnecting') {
+      const notice = document.createElement('div'); notice.className = 'clash-connection-notice'; notice.setAttribute('role', 'status');
+      const graceMinutes = Math.max(1, Math.ceil((Number(room?.disconnectGraceMs) || 120000) / 60000));
+      notice.textContent = `RECONNECTING · RUN CONTINUES · ${graceMinutes}-MINUTE GRACE`; value.appendChild(notice);
+    }
+    value.hidden = false; updateSabotageDock(room);
   }
   function hideHud() {
     const value = document.getElementById('clashHud'); if (value) value.hidden = true;
@@ -295,7 +302,11 @@
   function showResult(room) {
     const view = overlay(); const host = view.querySelector('.clash-body'); const seatId = client.session(room.code)?.seat; const won = room.result?.winner === seatId;
     const title = room.result?.winner == null ? 'TIMELINE DRAW' : won ? 'YOU WON THE CLASH' : 'RIVAL WON THE CLASH';
-    heading(host, room.suddenDeath ? `SUDDEN DEATH ${room.suddenDeath}` : `MATCH ${room.matchNumber}`, title, room.result?.reason === 'disconnect' ? 'The other timeline disconnected.' : 'Final ordinary scores—no labels, no callouts.');
+    const graceMinutes = Math.max(1, Math.ceil((Number(room.disconnectGraceMs) || 120000) / 60000));
+    const resultNote = room.result?.reason === 'both_disconnected' ? 'Both live connections missed the reconnect window.'
+      : room.result?.reason === 'disconnect' ? (won ? `Your rival did not reconnect within ${graceMinutes} minutes.` : `Your live connection did not return within ${graceMinutes} minutes.`)
+      : 'Final ordinary scores—no labels, no callouts.';
+    heading(host, room.suddenDeath ? `SUDDEN DEATH ${room.suddenDeath}` : `MATCH ${room.matchNumber}`, title, resultNote);
     roomRows(host, room); const scores = document.createElement('div'); scores.className = 'clash-final';
     scores.textContent = `${room.seats.host.name}: ${room.seats.host.progress.score.toLocaleString()} · ${room.seats.guest?.name || 'Guest'}: ${(room.seats.guest?.progress.score || 0).toLocaleString()}`;
     const storyModel = root.ChronosMultiplayerClient.rematchStory(room, seatId); const story = document.createElement('div'); story.className = 'clash-rematch-story';
@@ -350,7 +361,12 @@
   });
   client.on('result', ({ room }) => { client.room = room; active = null; hideHud(); showResult(room); });
   client.on('expired', () => { active = null; hideHud(); showError('ROOM EXPIRED', 'Create a fresh Clash to play again.'); });
-  client.on('connection', ({ connection }) => { document.body.classList.toggle('clash-reconnecting', connection === 'reconnecting'); });
+  client.on('connection', ({ connection, flushed }) => {
+    const wasReconnecting = document.body.classList.contains('clash-reconnecting');
+    document.body.classList.toggle('clash-reconnecting', connection === 'reconnecting');
+    if (active) updateHud(client.room);
+    if (connection === 'connected' && wasReconnecting) reactionToast(flushed ? '✓ Live link restored · buffered progress sent' : '✓ Live link restored');
+  });
 
   root.ChronosClash = { open: openMenu, onProgress, onGameEnd, forfeit };
   reactionDock(); sabotageDock(); hideHud();

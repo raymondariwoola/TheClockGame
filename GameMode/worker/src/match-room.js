@@ -10,8 +10,8 @@ const ROOM_KEY = 'room';
 const CARD_KEY = 'share-card';
 const TICKET_PREFIX = 'ticket:';
 export const MATCH_TIMES = Object.freeze({
-  waiting: 2 * 60 * 60 * 1000, countdown: 3000, active: 20 * 60 * 1000,
-  disconnect: 30 * 1000, finished: 15 * 60 * 1000, ticket: 60 * 1000,
+  waiting: 2 * 60 * 60 * 1000, countdown: 3000, active: 45 * 60 * 1000,
+  disconnect: 2 * 60 * 1000, finished: 15 * 60 * 1000, ticket: 60 * 1000,
 });
 const MESSAGE_WINDOW = 10_000;
 const MESSAGE_LIMIT = 80;
@@ -27,7 +27,8 @@ function seat(id, name, tokenHash, at, handicap = 'none') {
 function createRoom(value, at) {
   return {
     v: MATCH_PROTOCOL_VERSION, code: value.code, state: MATCH_STATES.WAITING, difficulty: value.difficulty,
-    rulesetVersion: 1, matchNumber: 1, suddenDeath: 0, roundLimit: MATCH_LIMITS.rounds,
+    rulesetVersion: 1, matchNumber: 1, suddenDeath: 0,
+    roundLimit: Number(value.roundLimit) === MATCH_LIMITS.rounds ? MATCH_LIMITS.rounds : MATCH_LIMITS.legacyRounds,
     seed: null, startAt: null, createdAt: at, updatedAt: at, expiresAt: at + MATCH_TIMES.waiting,
     seats: { host: seat('host', value.name, value.hostTokenHash, at, value.handicap), guest: null }, sabotages: [],
     story: { leader: null, leadChanges: 0, closestGap: null }, result: null,
@@ -44,7 +45,7 @@ export function publicMatch(room, you = null) {
     v: room.v, code: room.code, state: room.state, difficulty: room.difficulty,
     rulesetVersion: room.rulesetVersion, matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
     roundLimit: room.roundLimit, seed: room.seed, startAt: room.startAt, createdAt: room.createdAt,
-    updatedAt: room.updatedAt, expiresAt: room.expiresAt, you,
+    updatedAt: room.updatedAt, expiresAt: room.expiresAt, disconnectGraceMs: MATCH_TIMES.disconnect, you,
     seats: { host: publicSeat(room.seats.host), guest: publicSeat(room.seats.guest) },
     sabotages: Array.isArray(room.sabotages) ? room.sabotages.map((value) => ({ ...value })) : [],
     story: room.story ? { ...room.story } : { leader: null, leadChanges: 0, closestGap: null },
@@ -81,7 +82,8 @@ function countdown(room, at, { rematch = false, suddenDeath = false } = {}) {
   room.state = MATCH_STATES.COUNTDOWN;
   room.matchNumber += rematch ? 1 : 0;
   room.suddenDeath = suddenDeath ? room.suddenDeath + 1 : 0;
-  room.roundLimit = suddenDeath ? MATCH_LIMITS.suddenDeathRounds : MATCH_LIMITS.rounds;
+  room.roundLimit = suddenDeath ? MATCH_LIMITS.suddenDeathRounds
+    : room.roundLimit === MATCH_LIMITS.legacyRounds ? MATCH_LIMITS.legacyRounds : MATCH_LIMITS.rounds;
   room.seed = `clash|${room.rulesetVersion}|${room.code}|${room.matchNumber}|${room.suddenDeath}|${random[0].toString(36)}${random[1].toString(36)}`;
   room.startAt = at + MATCH_TIMES.countdown; room.updatedAt = at;
   const continuingLeadChanges = suddenDeath ? Math.max(0, Number(room.story?.leadChanges) || 0) : 0;
@@ -124,6 +126,9 @@ function forfeit(room, loser, at, reason) {
   const outcome = { winner: loser === 'host' ? 'guest' : 'host', reason, loser, finishedAt: at };
   room.result = { ...outcome, story: resultStory(room, outcome) };
   return room;
+}
+function keepAlive(room, at) {
+  if ([MATCH_STATES.COUNTDOWN, MATCH_STATES.PLAYING].includes(room.state)) room.expiresAt = at + MATCH_TIMES.active;
 }
 function deadline(room) {
   const values = [room.expiresAt];
@@ -181,7 +186,10 @@ export class MatchRoom {
     if (request.method === 'POST' && url.pathname === '/join') {
       if (room.state !== MATCH_STATES.WAITING) return json({ ok: false, error: 'room_started' }, 409);
       if (room.seats.guest) return json({ ok: false, error: 'room_full' }, 409);
-      const value = await request.json(); room.seats.guest = seat('guest', value.name, value.tokenHash, at, value.handicap); room.updatedAt = at;
+      const value = await request.json();
+      const clientRoundLimit = Number(value.maxRoundLimit) === MATCH_LIMITS.rounds ? MATCH_LIMITS.rounds : MATCH_LIMITS.legacyRounds;
+      if (clientRoundLimit < room.roundLimit) return json({ ok: false, error: 'client_update_required' }, 409);
+      room.seats.guest = seat('guest', value.name, value.tokenHash, at, value.handicap); room.updatedAt = at;
       await this.save(room); await this.broadcast('presence', { room: publicMatch(room) });
       return json({ ok: true, room: publicMatch(room, 'guest') });
     }
@@ -204,7 +212,7 @@ export class MatchRoom {
       }
       const pair = new WebSocketPair(); const [client, server] = Object.values(pair);
       this.ctx.acceptWebSocket(server, [`seat:${seatValue.id}`]); server.serializeAttachment({ seat: seatValue.id, windowAt: at, messages: 0 });
-      seatValue.connected = true; seatValue.disconnectedAt = null; seatValue.lastSeenAt = at; room.updatedAt = at;
+      seatValue.connected = true; seatValue.disconnectedAt = null; seatValue.lastSeenAt = at; room.updatedAt = at; keepAlive(room, at);
       await this.save(room); await this.broadcast('presence', { room: publicMatch(room) });
       server.send(JSON.stringify(this.message('snapshot', { room: publicMatch(room, seatValue.id) })));
       return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': MATCH_SOCKET_PROTOCOL } });
@@ -237,7 +245,7 @@ export class MatchRoom {
         if (room.state !== MATCH_STATES.PLAYING) return this.error(ws, 'not_playing');
         const finished = message.type === 'finish'; const next = sanitizeProgress(message.payload, player.progress, finished);
         if (!next) return this.error(ws, 'invalid_progress');
-        const shardAwarded = !finished && awardShard(player, next); player.progress = next; trackStory(room); room.updatedAt = at;
+        const shardAwarded = !finished && awardShard(player, next); player.progress = next; trackStory(room); room.updatedAt = at; keepAlive(room, at);
         if (!finished) {
           await this.save(room); await this.others(player.id, 'opponent_progress', { seat: player.id, progress: next });
           if (shardAwarded) await this.broadcast('shard_state', { room: publicMatch(room) });
@@ -252,7 +260,7 @@ export class MatchRoom {
         room.state = MATCH_STATES.FINISHED; room.result = { ...result, finishedAt: at, story: resultStory(room, result) }; room.expiresAt = at + MATCH_TIMES.finished;
         await this.save(room); await this.broadcast('result', { room: publicMatch(room) }); return;
       }
-      if (message.type === 'heartbeat') { await this.save(room); ws.send(JSON.stringify(this.message('presence', { serverTime: at }))); return; }
+      if (message.type === 'heartbeat') { keepAlive(room, at); await this.save(room); ws.send(JSON.stringify(this.message('presence', { serverTime: at }))); return; }
       if (message.type === 'reaction') {
         const id = String(message.payload.id || '');
         if (!Object.prototype.hasOwnProperty.call(MATCH_REACTIONS, id)) return this.error(ws, 'invalid_reaction');

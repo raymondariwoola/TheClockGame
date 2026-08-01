@@ -8,6 +8,7 @@
   const SOCKET_PROTOCOL = 'chronos-clash.v1';
   const TICKET_PREFIX = 'chronos-ticket.';
   const PREFIX = 'cs_match_';
+  const FULL_ROUNDS = 40;
   const RECONNECT = [500, 1000, 2000, 4000, 8000, 10000];
   const REACTIONS = Object.freeze({
     nice: Object.freeze({ emoji: '👏', label: 'Nice!' }),
@@ -73,7 +74,7 @@
       this.WebSocketImpl = WebSocketImpl || root?.WebSocket; this.store = sessionStore || root?.sessionStorage;
       this.heartbeatMs = heartbeatMs; this.memory = new Map(); this.listeners = new Map(); this.socket = null;
       this.room = null; this.code = null; this.connection = 'idle'; this.manualClose = false; this.reconnectAttempt = 0;
-      this.reconnectTimer = null; this.heartbeatTimer = null; this.generation = 0;
+      this.reconnectTimer = null; this.heartbeatTimer = null; this.generation = 0; this.pendingProgress = null; this.pendingFinish = null;
     }
     on(type, fn) { if (!this.listeners.has(type)) this.listeners.set(type, new Set()); this.listeners.get(type).add(fn); return () => this.listeners.get(type)?.delete(fn); }
     emit(type, value = {}) { for (const fn of this.listeners.get(type) || []) fn(value); }
@@ -105,13 +106,13 @@
     }
     async create({ name, difficulty, handicap = 'none' }) {
       const player = cleanName(name); if (!player) throw new MultiplayerError('bad_name');
-      const data = await this.request('/v1/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, difficulty, handicap: normalizeHandicap(handicap) }) });
+      const data = await this.request('/v1/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, difficulty, roundLimit: FULL_ROUNDS, handicap: normalizeHandicap(handicap) }) });
       const session = this.saveSession({ code: data.code, seat: 'host', token: data.hostToken, nextSeq: 0 });
       this.code = session.code; this.room = data.room; return { room: data.room, session };
     }
     async join({ code, name, handicap = 'none' }) {
       const normalized = normalizeCode(code); const player = cleanName(name); if (!normalized) throw new MultiplayerError('bad_code'); if (!player) throw new MultiplayerError('bad_name');
-      const data = await this.request(`/v1/matches/${normalized}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, handicap: normalizeHandicap(handicap) }) });
+      const data = await this.request(`/v1/matches/${normalized}/join`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: player, maxRoundLimit: FULL_ROUNDS, handicap: normalizeHandicap(handicap) }) });
       const session = this.saveSession({ code: normalized, seat: 'guest', token: data.playerToken, nextSeq: 0 });
       this.code = normalized; this.room = data.room; return { room: data.room, session };
     }
@@ -130,7 +131,7 @@
       const socket = new this.WebSocketImpl(socketUrl(this.baseUrl, session.code), [SOCKET_PROTOCOL, TICKET_PREFIX + ticket.ticket]); this.socket = socket;
       return new Promise((resolve, reject) => {
         let settled = false;
-        socket.addEventListener('open', () => { if (socket !== this.socket || generation !== this.generation) return; settled = true; this.reconnectAttempt = 0; this.setConnection('connected'); this.scheduleHeartbeat(); resolve(socket); }, { once: true });
+        socket.addEventListener('open', () => { if (socket !== this.socket || generation !== this.generation) return; settled = true; this.reconnectAttempt = 0; const flushed = this.flushPending(); this.setConnection('connected', { flushed }); this.scheduleHeartbeat(); resolve(socket); }, { once: true });
         socket.addEventListener('message', (event) => this.handleMessage(socket, event.data));
         socket.addEventListener('close', (event) => { if (socket !== this.socket || generation !== this.generation) return; this.stopHeartbeat(); this.socket = null; if (!settled) { settled = true; reject(new MultiplayerError('socket_failed')); } if (!this.manualClose) this.scheduleReconnect(); this.emit('close', event); });
         socket.addEventListener('error', () => { if (!settled) { settled = true; reject(new MultiplayerError('socket_failed')); } }, { once: true });
@@ -150,8 +151,23 @@
       this.socket.send(JSON.stringify({ v: 1, type, seq, payload })); this.saveSession({ ...session, nextSeq: seq + 1 }); return seq;
     }
     ready() { return this.send('ready'); }
-    progress(value) { return this.send('progress', value); }
-    finish(value) { return this.send('finish', value); }
+    progress(value) {
+      if (this.pendingFinish) return null;
+      if (!this.socket || this.socket.readyState !== 1) { this.pendingProgress = value; return null; }
+      return this.send('progress', value);
+    }
+    finish(value) {
+      if (!this.socket || this.socket.readyState !== 1) { this.pendingProgress = null; this.pendingFinish = value; return null; }
+      return this.send('finish', value);
+    }
+    flushPending() {
+      const type = this.pendingFinish ? 'finish' : this.pendingProgress ? 'progress' : null;
+      const payload = this.pendingFinish || this.pendingProgress;
+      if (!type) return false;
+      this.pendingFinish = null; this.pendingProgress = null;
+      try { this.send(type, payload); return true; }
+      catch { if (type === 'finish') this.pendingFinish = payload; else this.pendingProgress = payload; return false; }
+    }
     rematch() { return this.send('rematch_vote'); }
     reaction(id) {
       const value = String(id || '');
@@ -164,7 +180,7 @@
       return this.send('sabotage', { effect: value });
     }
     forfeit() { return this.send('forfeit'); }
-    disconnect() { this.manualClose = true; this.generation++; this.cancelReconnect(); this.stopHeartbeat(); const socket = this.socket; this.socket = null; try { if (socket && socket.readyState < 2) socket.close(1000, 'client closed'); } catch {} this.setConnection('idle'); }
+    disconnect() { this.manualClose = true; this.generation++; this.cancelReconnect(); this.stopHeartbeat(); this.pendingProgress = null; this.pendingFinish = null; const socket = this.socket; this.socket = null; try { if (socket && socket.readyState < 2) socket.close(1000, 'client closed'); } catch {} this.setConnection('idle'); }
     scheduleReconnect() { if (this.manualClose || !this.code || !this.session(this.code) || this.reconnectTimer) return; const delay = RECONNECT[Math.min(this.reconnectAttempt++, RECONNECT.length - 1)]; this.setConnection('reconnecting', { delay }); this.reconnectTimer = setTimeout(() => { this.reconnectTimer = null; this.connect().catch(() => this.scheduleReconnect()); }, delay); }
     cancelReconnect() { if (this.reconnectTimer) clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     scheduleHeartbeat() { this.stopHeartbeat(); if (!this.heartbeatMs || this.manualClose) return; this.heartbeatTimer = setTimeout(() => { this.heartbeatTimer = null; try { this.send('heartbeat'); } catch {} this.scheduleHeartbeat(); }, this.heartbeatMs); this.heartbeatTimer?.unref?.(); }

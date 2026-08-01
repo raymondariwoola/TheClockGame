@@ -1,5 +1,5 @@
 import { normalizeRoomCode } from '../../shared/protocol.mjs';
-import { formatMatchCode, validMatchCode } from '../../shared/match-protocol.mjs';
+import { formatMatchCode, MATCH_LIMITS, validMatchCode } from '../../shared/match-protocol.mjs';
 
 export function isSharePath(pathname) { return /^\/s\/(ghost|clash)\/[^/]+(?:\/card\.png)?$/.test(pathname); }
 
@@ -24,7 +24,7 @@ function pageModel(kind, state) {
   const room = state.room;
   return {
     title: `${room.seats.host.name} challenged you to a Chrono Clash`,
-    description: `Live ${titleCase(room.difficulty)} race across ${room.roundLimit || 10} identical rounds. Join room ${room.code}.`,
+    description: `Live ${titleCase(room.difficulty)} race across ${room.roundLimit || MATCH_LIMITS.rounds} identical rounds. Join room ${room.code}.`,
     eyebrow: 'LIVE TWO-PLAYER CHALLENGE', heading: 'CHRONO CLASH', code: room.code,
   };
 }

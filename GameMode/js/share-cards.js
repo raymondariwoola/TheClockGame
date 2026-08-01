@@ -75,12 +75,12 @@
     return {
       kind: 'clash-invite', accent: COLORS.cyan,
       eyebrow: 'LIVE TWO-PLAYER CHALLENGE', title: 'CHRONO CLASH',
-      subtitle: 'SAME TEN ROUNDS. LIVE SCORES. ONE WINNER.',
+      subtitle: `SAME ${number(room?.roundLimit) || 40} ROUNDS. LIVE SCORES. ONE WINNER.`,
       heroLabel: 'ROOM CODE', hero: upper(room?.code), heroNote: 'JOIN WHILE THE ROOM IS OPEN',
       code: upper(room?.code),
       rows: [
         ['CHALLENGER', upper(room?.seats?.host?.name, 'ANONYMOUS')],
-        ['FORMAT', `${number(room?.roundLimit) || 10} ROUNDS · ${difficulty(room?.difficulty)}`],
+        ['FORMAT', `${number(room?.roundLimit) || 40} ROUNDS · ${difficulty(room?.difficulty)}`],
         ['PARTY RULES', handicaps.length ? 'VOLUNTARY HANDICAPS ON' : 'STANDARD · EVEN START'],
       ],
       cta: 'ENTER THE CLASH',

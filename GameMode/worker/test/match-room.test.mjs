@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MatchRoom } from '../src/match-room.js';
+import { MatchRoom, MATCH_TIMES } from '../src/match-room.js';
 import { MATCH_LIMITS, MATCH_PROTOCOL_VERSION } from '../../shared/match-protocol.mjs';
 
 class Storage {
@@ -34,9 +34,9 @@ const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0
 test('match room runs a tie through sudden death and accepts cheat-altered ordinary progress', async () => {
   const ctx = new Context(); const env = { __TEST_NOW: 1_000_000, MULTIPLAYER_ENABLED: 'true' };
   const room = new MatchRoom(ctx, env);
-  let response = await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  let response = await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', roundLimit: MATCH_LIMITS.rounds, hostTokenHash: 'a'.repeat(64) }));
   assert.equal(response.status, 201);
-  response = await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  response = await room.fetch(request('/join', { name: 'Guest', maxRoundLimit: MATCH_LIMITS.rounds, tokenHash: 'b'.repeat(64) }));
   assert.equal(response.status, 200);
   response = await room.fetch(new Request('https://match.internal/share-card', { method: 'PUT', headers: { 'Content-Type': 'image/png', 'X-Host-Token-Hash': 'a'.repeat(64) }, body: png }));
   assert.equal(response.status, 201);
@@ -75,18 +75,79 @@ test('match room runs a tie through sudden death and accepts cheat-altered ordin
   assert.equal(JSON.stringify(publicState).toLowerCase().includes('cheat'), false);
 });
 
-test('match room creates a fresh ten-round seed after both rematch votes', async () => {
+test('match room creates a fresh full-length seed after both rematch votes', async () => {
   const ctx = new Context(); const env = { __TEST_NOW: 2_000_000, MULTIPLAYER_ENABLED: 'true' };
   const room = new MatchRoom(ctx, env);
-  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'hardcore', hostTokenHash: 'a'.repeat(64) }));
-  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'hardcore', roundLimit: MATCH_LIMITS.rounds, hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', maxRoundLimit: MATCH_LIMITS.rounds, tokenHash: 'b'.repeat(64) }));
   const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
   await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
   let stored = await ctx.storage.get('room'); const firstSeed = stored.seed; env.__TEST_NOW = stored.startAt + 1;
   await room.webSocketMessage(host, envelope('finish', 1, result(1000))); await room.webSocketMessage(guest, envelope('finish', 1, result(900)));
   await room.webSocketMessage(host, envelope('rematch_vote', 2)); await room.webSocketMessage(guest, envelope('rematch_vote', 2));
   stored = await ctx.storage.get('room');
-  assert.equal(stored.matchNumber, 2); assert.equal(stored.roundLimit, 10); assert.notEqual(stored.seed, firstSeed);
+  assert.equal(stored.matchNumber, 2); assert.equal(stored.roundLimit, MATCH_LIMITS.rounds); assert.notEqual(stored.seed, firstSeed);
+});
+
+test('full-length rooms reject an outdated guest while legacy rooms remain playable', async () => {
+  const modernContext = new Context(); const env = { __TEST_NOW: 2_250_000, MULTIPLAYER_ENABLED: 'true' };
+  const modern = new MatchRoom(modernContext, env);
+  await modern.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', roundLimit: MATCH_LIMITS.rounds, hostTokenHash: 'a'.repeat(64) }));
+  let response = await modern.fetch(request('/join', { name: 'Old Guest', tokenHash: 'b'.repeat(64) }));
+  assert.equal(response.status, 409); assert.equal((await response.json()).error, 'client_update_required');
+  response = await modern.fetch(request('/join', { name: 'New Guest', maxRoundLimit: MATCH_LIMITS.rounds, tokenHash: 'c'.repeat(64) }));
+  assert.equal(response.status, 200);
+
+  const legacyContext = new Context(); const legacy = new MatchRoom(legacyContext, env);
+  await legacy.fetch(request('/init', { code: 'JKLM-NPQR', name: 'Old Host', difficulty: 'normal', hostTokenHash: 'd'.repeat(64) }));
+  response = await legacy.fetch(request('/join', { name: 'Old Guest', tokenHash: 'e'.repeat(64) }));
+  assert.equal(response.status, 200);
+  assert.equal((await legacyContext.storage.get('room')).roundLimit, MATCH_LIMITS.legacyRounds);
+});
+
+test('active heartbeats extend a 45-minute inactivity window', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 2_500_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  let stored = await ctx.storage.get('room'); env.__TEST_NOW = stored.startAt + 1;
+  await room.webSocketMessage(host, envelope('heartbeat', 1));
+  stored = await ctx.storage.get('room');
+  assert.equal(MATCH_TIMES.active, 45 * 60 * 1000);
+  assert.equal(stored.expiresAt, env.__TEST_NOW + MATCH_TIMES.active);
+
+  env.__TEST_NOW += 25 * 60 * 1000;
+  await room.webSocketMessage(guest, envelope('heartbeat', 1));
+  stored = await ctx.storage.get('room');
+  assert.equal(stored.state, 'playing');
+  assert.equal(stored.expiresAt, env.__TEST_NOW + MATCH_TIMES.active);
+});
+
+test('a dropped live connection gets the full two-minute grace before forfeit', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 2_750_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  let stored = await ctx.storage.get('room'); env.__TEST_NOW = stored.startAt + 1;
+  await room.webSocketMessage(guest, envelope('progress', 1, result(100)));
+  host.readyState = 3; await room.webSocketClose(host, 1006, 'network changed');
+  stored = await ctx.storage.get('room'); const disconnectedAt = stored.seats.host.disconnectedAt;
+  assert.equal(MATCH_TIMES.disconnect, 2 * 60 * 1000);
+  assert.equal(stored.state, 'playing');
+
+  env.__TEST_NOW = disconnectedAt + MATCH_TIMES.disconnect - 1;
+  await room.alarm();
+  assert.equal((await ctx.storage.get('room')).state, 'playing');
+
+  env.__TEST_NOW = disconnectedAt + MATCH_TIMES.disconnect;
+  await room.alarm(); stored = await ctx.storage.get('room');
+  assert.equal(stored.state, 'forfeit');
+  assert.equal(stored.result.reason, 'disconnect');
+  assert.equal(stored.result.loser, 'host');
 });
 
 test('preset reactions are allowlisted, ephemeral, opponent-only, and throttled', async () => {

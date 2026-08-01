@@ -17,6 +17,7 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
   const fetchImpl = async (url, options = {}) => {
     requests.push({ url, options });
     if (url.endsWith('/v1/matches')) return response(201, { ok: true, code: 'ABCD-EFGH', hostToken: 'a'.repeat(48), room: { state: 'waiting' } });
+    if (url.endsWith('/v1/matches/ABCD-EFGH/join')) return response(200, { ok: true, playerToken: 'c'.repeat(48), room: { state: 'waiting' } });
     if (url.endsWith('/ticket')) return response(201, { ok: true, ticket: 'b'.repeat(48) });
     if (url.endsWith('/share-card')) return response(201, { ok: true });
     throw new Error('unexpected');
@@ -24,6 +25,7 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
   const client = new MultiplayerClient({ baseUrl: 'https://worker.test', fetchImpl, WebSocketImpl: Socket, sessionStore: new Store(), heartbeatMs: 0 });
   await client.create({ name: 'Host', difficulty: 'normal', handicap: 'wider' });
   assert.equal(JSON.parse(requests[0].options.body).handicap, 'wider');
+  assert.equal(JSON.parse(requests[0].options.body).roundLimit, 40);
   await client.uploadShareCard(new Blob(['png'], { type: 'image/png' }), client.code);
   const connecting = client.connect();
   for (let i = 0; i < 10 && !Socket.values.length; i++) await new Promise((resolve) => setTimeout(resolve, 0));
@@ -45,6 +47,19 @@ const response = (status, value) => ({ ok: status >= 200 && status < 300, status
     { headline: 'LOST BY 28', details: ['3 LEAD CHANGES'] });
   assert.equal(rematchStory({ suddenDeath: 1, result: { winner: 'guest', story: { suddenDeath: 1 } } }, 'guest').headline, 'SUDDEN-DEATH WIN');
   assert.equal(buildUrl('https://game.test/', client.code).includes('token'), false);
+
+  socket.readyState = 3; client.socket = null; client.reconnectAttempt = 1;
+  assert.doesNotThrow(() => client.progress({ score: 20, round: 20 }));
+  assert.doesNotThrow(() => client.finish({ score: 40, round: 40 }));
+  const reconnecting = client.connect();
+  for (let i = 0; i < 10 && Socket.values.length < 2; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  const replacement = Socket.values[1]; replacement.emit('open'); await reconnecting;
+  assert.deepEqual(replacement.sent.map((value) => value.type), ['finish']);
+  assert.deepEqual(replacement.sent[0].payload, { score: 40, round: 40 });
   client.disconnect();
+
+  const joiningClient = new MultiplayerClient({ baseUrl: 'https://worker.test', fetchImpl, WebSocketImpl: Socket, sessionStore: new Store(), heartbeatMs: 0 });
+  await joiningClient.join({ code: 'ABCD-EFGH', name: 'Guest' });
+  assert.equal(JSON.parse(requests.at(-1).options.body).maxRoundLimit, 40);
   console.log('✓ multiplayer client tests passed');
 })().catch((error) => { console.error(error); process.exit(1); });

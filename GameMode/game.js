@@ -3786,7 +3786,7 @@
       State.clashRun = {
         code: String(config.code), seat: config.seat === 'guest' ? 'guest' : 'host', seed: String(config.seed),
         identity: String(config.seed), difficulty: config.difficulty === 'hardcore' ? 'hardcore' : 'normal',
-        roundLimit: Math.max(1, Math.min(10, Number(config.roundLimit) || 10)),
+        roundLimit: Math.max(1, Math.min(CLASSIC_ROUNDS, Number(config.roundLimit) || CLASSIC_ROUNDS)),
         matchNumber: Number(config.matchNumber) || 1, suddenDeath: Number(config.suddenDeath) || 0,
         sabotages: Array.isArray(config.sabotages) ? config.sabotages.map((value) => ({ ...value, applied: false })) : [],
         handicap: ['headstart', 'extra_life', 'wider'].includes(config.handicap) ? config.handicap : 'none',
