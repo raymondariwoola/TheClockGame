@@ -1164,6 +1164,19 @@
       }
     }
 
+    const sabotage = State.clashRun?.sabotages?.find((value) => !value.applied && value.round === State.round);
+    if (sabotage) {
+      sabotage.applied = true;
+      const adjusted = ChronosEngine.applySabotageRound({ speed: State.handSpeed, dir: State.handDir, zones: State.zones }, sabotage.effect);
+      State.handSpeed = adjusted.speed; State.handDir = adjusted.dir; State.zones = adjusted.zones;
+      const labels = { reverse: '↺ REVERSE TIME', narrow: '🎯 TIGHT WINDOW', haste: '⚡ TIME RUSH' };
+      const label = labels[sabotage.effect] || 'TIME SABOTAGE';
+      elModifierTag.textContent = `${elModifierTag.hidden ? '' : `${elModifierTag.textContent} · `}SABOTAGE: ${label}`;
+      elModifierTag.hidden = false;
+      flashJudgment(`SABOTAGE · ${label}`, 'miss');
+      announce(`${label} affects round ${State.round}`);
+    }
+
     // Precision Lab: Zen rounds use fixed, player-chosen parameters (the random
     // zone centre is kept for variety). No modifiers/bosses ever run in Zen.
     if (State.mode === 'zen' && Lab.isActive()) {
@@ -1446,6 +1459,7 @@
     }
     if (State.clashRun && window.ChronosClash) window.ChronosClash.onProgress({
       score: State.score, round: State.round, perfect: State.perfectHits, combo: State.bestCombo,
+      perfectStreak: State.perfectStreak,
       acc: State.totalAttempts ? Math.round(State.totalHits / State.totalAttempts * 100) : 0,
       attempts: State.totalAttempts,
     });
@@ -3673,8 +3687,16 @@
         identity: String(config.seed), difficulty: config.difficulty === 'hardcore' ? 'hardcore' : 'normal',
         roundLimit: Math.max(1, Math.min(10, Number(config.roundLimit) || 10)),
         matchNumber: Number(config.matchNumber) || 1, suddenDeath: Number(config.suddenDeath) || 0,
+        sabotages: Array.isArray(config.sabotages) ? config.sabotages.map((value) => ({ ...value, applied: false })) : [],
       };
       startMode('classic');
+      return true;
+    },
+    queueSabotage: (value) => {
+      if (!State.clashRun || !value || !['reverse', 'narrow', 'haste'].includes(value.effect)) return false;
+      const round = Math.max(State.round + 1, Number(value.round) || 0);
+      if (round > State.clashRun.roundLimit || State.clashRun.sabotages.some((item) => item.id === value.id)) return false;
+      State.clashRun.sabotages.push({ id: String(value.id || `${value.effect}-${round}`), effect: value.effect, round, applied: false });
       return true;
     },
     openCheats: () => Cheat.isUnlocked() ? Cheat.openPanel() : Cheat.promptCode(),

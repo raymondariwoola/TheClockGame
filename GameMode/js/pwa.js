@@ -238,7 +238,7 @@
       });
       const registerWorker = async () => {
         try {
-          registration = await root.navigator.serviceWorker.register('sw.js?v=17', { updateViaCache: 'none' });
+          registration = await root.navigator.serviceWorker.register('sw.js?v=18', { updateViaCache: 'none' });
           if (registration.waiting && root.navigator.serviceWorker.controller) offerUpdate(registration.waiting);
           registration.addEventListener('updatefound', () => {
             const installing = registration.installing;

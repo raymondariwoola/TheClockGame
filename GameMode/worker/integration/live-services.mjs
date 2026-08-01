@@ -38,7 +38,7 @@ async function open(code, ticket) {
     socket.once('open', () => resolve(new Inbox(socket))); socket.once('error', reject);
   });
 }
-const score = (value) => ({ score: value, round: 10, perfect: 4, combo: 3, acc: 80, attempts: 10, cheated: true, cheatMenu: 'must-not-persist' });
+const score = (value) => ({ score: value, round: 10, perfect: 4, perfectStreak: 0, combo: 3, acc: 80, attempts: 10, cheated: true, cheatMenu: 'must-not-persist' });
 
 let host; let guest;
 try {

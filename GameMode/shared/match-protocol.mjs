@@ -8,11 +8,11 @@ export const MATCH_STATES = Object.freeze({
 });
 
 export const MATCH_CLIENT_TYPES = Object.freeze([
-  'ready', 'progress', 'finish', 'heartbeat', 'rematch_vote', 'forfeit', 'reaction',
+  'ready', 'progress', 'finish', 'heartbeat', 'rematch_vote', 'forfeit', 'reaction', 'sabotage',
 ]);
 export const MATCH_SERVER_TYPES = Object.freeze([
   'snapshot', 'presence', 'countdown', 'opponent_progress', 'opponent_finished',
-  'result', 'rematch_state', 'expired', 'error', 'reaction',
+  'result', 'rematch_state', 'expired', 'error', 'reaction', 'shard_state', 'sabotage',
 ]);
 export const MATCH_REACTIONS = Object.freeze({
   nice: Object.freeze({ emoji: '👏', label: 'Nice!' }),
@@ -21,9 +21,15 @@ export const MATCH_REACTIONS = Object.freeze({
   again: Object.freeze({ emoji: '🔁', label: 'Again!' }),
   gg: Object.freeze({ emoji: '🤝', label: 'Good game!' }),
 });
+export const MATCH_SABOTAGES = Object.freeze({
+  reverse: Object.freeze({ emoji: '↺', label: 'Reverse Time', description: 'Reverse the next round.' }),
+  narrow: Object.freeze({ emoji: '🎯', label: 'Tight Window', description: 'Narrow the next target.' }),
+  haste: Object.freeze({ emoji: '⚡', label: 'Time Rush', description: 'Speed up the next round.' }),
+});
 export const MATCH_LIMITS = Object.freeze({
   maxName: 24, maxMessageBytes: 4096, maxSequence: 1_000_000, codeLength: 8,
   rounds: 10, suddenDeathRounds: 1, maxSuddenDeath: 3, reactionCooldownMs: 1200,
+  maxShards: 2, maxSabotages: 2,
 });
 
 const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';

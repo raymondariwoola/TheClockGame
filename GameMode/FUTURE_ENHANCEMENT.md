@@ -1,6 +1,6 @@
 # Chronos Strike future enhancements
 
-> **Status:** living roadmap — PWA/menu cleanup is complete; the selected family enhancement sequence is active, with Preset Reactions complete locally.
+> **Status:** living roadmap — PWA/menu cleanup is complete; the selected family enhancement sequence is active, with Preset Reactions and Time Shards / Secret Sabotage complete locally.
 >
 > **Scope:** `GameMode/` only.
 >
@@ -1010,6 +1010,10 @@ Copy this table into a new implementation issue/plan and mark the desired items.
 | [ ] | Pass-the-phone Relay | Same-room group fun | FE-3 |
 | [ ] | Local tournament bracket | Family event structure | FE-3 |
 | [x] | Preset reactions | **Complete locally; fixed, ephemeral, throttled Clash reactions with local mute** | FE-6A |
+| [x] | Time Shards / Secret Sabotage | **Complete locally; two capped skill-earned, server-telegraphed Clash effects** | FE-6B |
+| [ ] | Compact rematch stories | Memorable rivalry summaries | FE-6C |
+| [ ] | Skill handicap presets | Fairer mixed-skill family matches | FE-6D |
+| [ ] | Objective Cards | Optional deterministic goals without score multipliers | FE-6E |
 | [ ] | Weekly Family Rift | Asynchronous recurring event | FE-4 |
 | [ ] | Ghost Gauntlet | Private group competition | FE-4 |
 | [ ] | Mechanic mastery / Chronicle | Long-term local goals | FE-5 |

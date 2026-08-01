@@ -11,7 +11,7 @@
 | Phase | Enhancement | Status |
 |---|---|---|
 | FE-6A | Preset reactions | Complete |
-| FE-6B | Time Shards / Secret Sabotage | Not started |
+| FE-6B | Time Shards / Secret Sabotage | Complete |
 | FE-6C | Compact rematch stories | Not started |
 | FE-6D | Skill handicap presets | Not started |
 | FE-6E | Objective Cards | Not started |
@@ -36,6 +36,29 @@
 - Durable Object tests prove opponent-only delivery, invalid-value rejection, rate limiting, and absence from stored room state.
 - Static UI tests prove the mute preference, compact live dock, and absence of a free-text surface.
 - Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, and `git diff --check` pass before commit.
+
+## FE-6B — Time Shards / Secret Sabotage
+
+### Implementation
+
+- Limited the mechanic to live Chrono Clash. Ordinary Classic, Endless, Zen, Daily, Ghost, leaderboard, and share flows do not read sabotage state.
+- A fresh streak of three Perfect hits earns one Time Shard. A player must drop below that threshold before another streak can earn the second shard.
+- Capped every match at two earned shards and two spends per player. Rematches and sudden death reset the shard economy rather than carrying an advantage forward.
+- Added three fixed effects: Reverse Time reverses the next round, Tight Window narrows its real target by 20%, and Time Rush raises its hand speed by 15%.
+- A spend is validated, deducted, assigned to a future round, stored in the bounded room record, and broadcast by the Match Durable Object before it can affect play.
+- Prevented stacking multiple pending sabotages onto the same rival round.
+- Added an accessible shard/sabotage dock with 44 px controls, descriptive labels, disabled-state explanations, safe-area positioning, and immediate sender/target announcements.
+- The game applies the effect only from server-frozen Clash state and marks it consumed locally. It never awards or multiplies score.
+- Included `perfectStreak` in bounded Clash progress so the server can derive the reward without receiving tap-by-tap replay data.
+- Advanced the coherent PWA shell to revision 18.
+
+### Validation
+
+- Protocol/client tests lock the fixed effect allowlist and reject arbitrary values.
+- Durable Object tests prove the three-Perfect award, shard deduction, two-use bounds, future-round assignment, opponent telegraph, and invalid/no-shard rejection.
+- Static integration tests prove the effects are Clash-only, future-round-only, announced, and disconnected from scoring.
+- Existing private-cheat tests remain unchanged and pass; cheats are neither disabled nor remotely labelled by this mechanic.
+- Full engine/client/Worker verification, syntax, no-Gist scan, Worker dry run, PWA revision checks, mobile menu audit, and `git diff --check` pass before commit.
 
 ## Resume rule
 

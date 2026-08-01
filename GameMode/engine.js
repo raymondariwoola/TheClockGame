@@ -495,11 +495,25 @@
     };
   }
 
+  // Clash-only next-round sabotage transform. It is pure and consumes no RNG,
+  // so both the generated round and every ordinary mode remain unchanged.
+  function applySabotageRound(round, effect) {
+    const value = {
+      speed: Number(round?.speed) || 0,
+      dir: round?.dir === -1 ? -1 : 1,
+      zones: Array.isArray(round?.zones) ? round.zones.map((zone) => ({ ...zone })) : [],
+    };
+    if (effect === 'reverse') value.dir *= -1;
+    if (effect === 'narrow') value.zones.forEach((zone) => { if (zone.type !== 'decoy') zone.size = Math.max(8, Number(zone.size) * 0.8); });
+    if (effect === 'haste') value.speed *= 1.15;
+    return value;
+  }
+
   return {
     xmur3, mulberry32, wrap, makeRNG,
     angularDistance, classify, resolveStrikeKind, scoreFor, computeHitScore, SCORE_RULES, computeRank,
     MODIFIER_IDS, MODIFIER_APPLY_DRAWS, roundParams, pickModifier, isBossRound, bossTypeIndex,
-    simulateRun, riftPreview, strikeError, passedCenter, indexReplay,
+    simulateRun, riftPreview, applySabotageRound, strikeError, passedCenter, indexReplay,
     encodeRival, decodeRival, RIVAL_LIMITS, ACHIEVEMENTS, evaluateAchievements,
     COSMETICS, resolveCosmetics, cosmeticsFor,
   };

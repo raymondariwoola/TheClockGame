@@ -5,6 +5,7 @@
   const client = new root.ChronosMultiplayerClient.MultiplayerClient({ baseUrl: apiBase });
   const cards = root.ChronosShareCards;
   const reactions = root.ChronosMultiplayerClient.REACTIONS || {};
+  const sabotages = root.ChronosMultiplayerClient.SABOTAGES || {};
   const REACTION_MUTE_KEY = 'cs_clash_reactions_muted';
   const inviteCards = new Map();
   let modal = null; let active = null; let lastSeed = null; let progressFloor = 0;
@@ -34,6 +35,9 @@
       multiplayer_disabled: 'Live Clash is temporarily disabled.', multiplayer_unconfigured: 'Live Clash is not configured yet.',
       origin_forbidden: 'This game address is not allowed by the Worker.', rate_limited: 'Too many attempts. Wait a moment and retry.',
       reaction_rate_limited: 'Reactions need a short breather.', invalid_reaction: 'That reaction is unavailable.',
+      invalid_sabotage: 'That sabotage is unavailable.', sabotage_unavailable: 'Sabotage is available only during a live Clash.',
+      no_shards: 'Land three Perfects in a row to earn a Time Shard.', sabotage_limit: 'Both Time Shards have already been spent.',
+      sabotage_pending: 'Your rival already has a sabotage queued for their next round.', sabotage_too_late: 'The final round is already in motion. Save the shard for the rematch.',
       socket_failed: 'The live connection failed. Please retry.' })[code] || 'The timeline slipped. Please retry.';
   }
   function reactionsMuted() { try { return localStorage.getItem(REACTION_MUTE_KEY) === '1'; } catch { return false; } }
@@ -69,6 +73,32 @@
     let value = document.getElementById('clashReactionDock');
     if (!value) { value = reactionControls(true); value.id = 'clashReactionDock'; value.hidden = true; document.body.appendChild(value); }
     return value;
+  }
+  function sabotageDock() {
+    let value = document.getElementById('clashSabotageDock');
+    if (value) return value;
+    value = document.createElement('div'); value.id = 'clashSabotageDock'; value.className = 'clash-sabotage-dock'; value.hidden = true;
+    const summary = document.createElement('button'); summary.type = 'button'; summary.className = 'clash-shard-summary'; summary.setAttribute('aria-expanded', 'false');
+    const choices = document.createElement('div'); choices.className = 'clash-sabotage-choices'; choices.hidden = true;
+    for (const [effect, item] of Object.entries(sabotages)) {
+      const control = document.createElement('button'); control.type = 'button'; control.dataset.clashSabotage = effect;
+      control.textContent = item.emoji; control.title = `${item.label}: ${item.description}`; control.setAttribute('aria-label', `${item.label}. ${item.description}`);
+      control.addEventListener('click', () => { try { client.sabotage(effect); choices.hidden = true; summary.setAttribute('aria-expanded', 'false'); } catch (error) { reactionToast(safeMessage(error.code)); } });
+      choices.appendChild(control);
+    }
+    summary.addEventListener('click', () => { choices.hidden = !choices.hidden; summary.setAttribute('aria-expanded', choices.hidden ? 'false' : 'true'); });
+    value.append(summary, choices); document.body.appendChild(value); return value;
+  }
+  function updateSabotageDock(room = client.room) {
+    const value = sabotageDock(); if (!active) { value.hidden = true; return; }
+    const own = room?.seats?.[active.seat]; const opponent = active.seat === 'host' ? 'guest' : 'host';
+    const pending = (room?.sabotages || []).some((item) => item.by === active.seat && item.target === opponent && item.round > (own?.progress?.round || 0));
+    const summary = value.querySelector('.clash-shard-summary'); const count = Math.max(0, Number(own?.shards) || 0);
+    summary.textContent = `💠 ${count} · SABOTAGE`; summary.disabled = count < 1 || pending;
+    summary.title = pending ? 'A sabotage is already queued.' : count < 1 ? 'Land three Perfects in a row to earn a shard.' : 'Spend one shard on the rival’s next round.';
+    for (const control of value.querySelectorAll('[data-clash-sabotage]')) control.disabled = count < 1 || pending;
+    if (summary.disabled) { value.querySelector('.clash-sabotage-choices').hidden = true; summary.setAttribute('aria-expanded', 'false'); }
+    value.hidden = false;
   }
   function roomRows(host, room) {
     const box = document.createElement('div'); box.className = 'clash-room';
@@ -173,6 +203,7 @@
     close(); reactionDock().hidden = false; updateHud(room); root.ChronosGame?.startClash({
       code: room.code, seat, seed: room.seed, difficulty: room.difficulty, roundLimit: room.roundLimit,
       matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
+      sabotages: (room.sabotages || []).filter((value) => value.target === seat),
     });
   }
 
@@ -191,9 +222,13 @@
     const mine = document.createElement('button'); mine.type = 'button'; mine.className = 'clash-chip you'; mine.textContent = `YOU · ${you?.progress?.score ?? 0}`; mine.title = 'Open private options'; mine.addEventListener('click', () => root.ChronosGame?.openCheats());
     const rival = document.createElement('div'); rival.className = 'clash-chip rival'; rival.textContent = `${opponent?.name || 'RIVAL'} · ${remote.score ?? 0} · R${remote.round ?? 0}`;
     const dot = document.createElement('span'); dot.className = `clash-dot ${opponent?.connected ? 'online' : ''}`; rival.prepend(dot);
-    value.append(mine, rival); value.hidden = false;
+    value.append(mine, rival); value.hidden = false; updateSabotageDock(room);
   }
-  function hideHud() { const value = document.getElementById('clashHud'); if (value) value.hidden = true; const dock = document.getElementById('clashReactionDock'); if (dock) dock.hidden = true; }
+  function hideHud() {
+    const value = document.getElementById('clashHud'); if (value) value.hidden = true;
+    const reaction = document.getElementById('clashReactionDock'); if (reaction) reaction.hidden = true;
+    const sabotage = document.getElementById('clashSabotageDock'); if (sabotage) sabotage.hidden = true;
+  }
 
   function onProgress(value) {
     if (!active || value.attempts <= progressFloor) return;
@@ -203,7 +238,7 @@
   }
   function onGameEnd(stats) {
     if (!active || !stats?.clash || stats.clashMeta?.code !== active.code) return;
-    const value = { score: stats.score, round: stats.round, perfect: stats.perfect, combo: stats.combo, acc: stats.acc, attempts: Math.max(progressFloor, stats.round) };
+    const value = { score: stats.score, round: stats.round, perfect: stats.perfect, perfectStreak: 0, combo: stats.combo, acc: stats.acc, attempts: Math.max(progressFloor, stats.round) };
     progressFloor = value.attempts; try { client.finish(value); } catch (error) { return showError('RESULT NOT SENT', safeMessage(error.code)); }
     const view = overlay(); const host = view.querySelector('.clash-body'); heading(host, 'LIVE CLASH', 'WAITING FOR RIVAL', 'Your result is locked in. The room stays private.');
     const state = status(); state.textContent = client.connection === 'connected' ? '● Connected' : 'Reconnecting…'; host.appendChild(state);
@@ -239,7 +274,19 @@
     if (reactionsMuted() || !reactions[id]) return;
     const name = client.room?.seats?.[seat]?.name || 'Rival'; const reaction = reactions[id]; reactionToast(`${name} · ${reaction.emoji} ${reaction.label}`);
   });
-  client.on('error', ({ code }) => { if (code === 'reaction_rate_limited' || code === 'invalid_reaction') reactionToast(safeMessage(code)); });
+  client.on('shard_state', ({ room }) => { if (room) { client.room = room; updateSabotageDock(room); const own = room.seats?.[active?.seat]; if (own?.shards) reactionToast(`💠 Time Shard earned · ${own.shards}/2 ready`); } });
+  client.on('sabotage', ({ sabotage, room }) => {
+    if (room) client.room = room; updateSabotageDock(room);
+    if (!active || !sabotage || !sabotages[sabotage.effect]) return;
+    const item = sabotages[sabotage.effect];
+    if (sabotage.target === active.seat) {
+      root.ChronosGame?.queueSabotage(sabotage);
+      reactionToast(`⚠ Rival queued ${item.label} for round ${sabotage.round}`);
+    } else if (sabotage.by === active.seat) reactionToast(`💠 ${item.label} queued for rival round ${sabotage.round}`);
+  });
+  client.on('error', ({ code }) => {
+    if (['reaction_rate_limited', 'invalid_reaction', 'invalid_sabotage', 'sabotage_unavailable', 'no_shards', 'sabotage_limit', 'sabotage_pending', 'sabotage_too_late'].includes(code)) reactionToast(safeMessage(code));
+  });
   client.on('result', ({ room }) => { client.room = room; active = null; hideHud(); showResult(room); });
   client.on('expired', () => { active = null; hideHud(); showError('ROOM EXPIRED', 'Create a fresh Clash to play again.'); });
   client.on('connection', ({ connection }) => { document.body.classList.toggle('clash-reconnecting', connection === 'reconnecting'); });

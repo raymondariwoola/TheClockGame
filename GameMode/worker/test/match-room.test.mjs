@@ -28,7 +28,7 @@ const request = (path, value, method = value == null ? 'GET' : 'POST') => new Re
   method, headers: value == null ? undefined : { 'Content-Type': 'application/json' }, body: value == null ? undefined : JSON.stringify(value),
 });
 const envelope = (type, seq, payload = {}) => JSON.stringify({ v: MATCH_PROTOCOL_VERSION, type, seq, payload });
-const result = (score) => ({ score, round: 1, perfect: 1, combo: 2, acc: 100, attempts: 1, cheated: true, cheats: ['hidden'] });
+const result = (score) => ({ score, round: 1, perfect: 1, perfectStreak: 1, combo: 2, acc: 100, attempts: 1, cheated: true, cheats: ['hidden'] });
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1]);
 
 test('match room runs a tie through sudden death and accepts cheat-altered ordinary progress', async () => {
@@ -108,4 +108,46 @@ test('preset reactions are allowlisted, ephemeral, opponent-only, and throttled'
   env.__TEST_NOW += 1200;
   await room.webSocketMessage(host, envelope('reaction', 3, { id: 'gg' }));
   assert.equal(guest.sent.at(-1).payload.id, 'gg');
+});
+
+test('three-Perfect streaks earn capped Time Shards and sabotage one telegraphed next round', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 4_000_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  let stored = await ctx.storage.get('room'); env.__TEST_NOW = stored.startAt + 1;
+  const streak = (round, seq) => room.webSocketMessage(host, envelope('progress', seq, {
+    score: round * 100, round, perfect: round, perfectStreak: round, combo: 1 + Math.floor(round / 3), acc: 100, attempts: round,
+  }));
+  await streak(1, 1); await streak(2, 2); await streak(3, 3);
+  stored = await ctx.storage.get('room');
+  assert.equal(stored.seats.host.shards, 1); assert.equal(stored.seats.host.shardsEarned, 1);
+  assert.equal(host.sent.some((message) => message.type === 'shard_state'), true);
+
+  await room.webSocketMessage(host, envelope('sabotage', 4, { effect: 'reverse' }));
+  stored = await ctx.storage.get('room');
+  assert.equal(stored.seats.host.shards, 0); assert.equal(stored.seats.host.sabotagesUsed, 1);
+  assert.deepEqual(stored.sabotages[0], { id: '1-host-1', by: 'host', target: 'guest', effect: 'reverse', round: 4, at: env.__TEST_NOW });
+  const telegraph = guest.sent.findLast((message) => message.type === 'sabotage');
+  assert.equal(telegraph.payload.sabotage.round, 4); assert.equal(telegraph.payload.sabotage.effect, 'reverse');
+
+  await room.webSocketMessage(host, envelope('sabotage', 5, { effect: 'haste' }));
+  assert.equal(host.sent.at(-1).payload.code, 'no_shards');
+  await room.webSocketMessage(guest, envelope('sabotage', 1, { effect: 'not-real' }));
+  assert.equal(guest.sent.at(-1).payload.code, 'invalid_sabotage');
+});
+
+test('legacy Clash progress without perfectStreak remains valid during a rolling deployment', async () => {
+  const ctx = new Context(); const env = { __TEST_NOW: 4_500_000, MULTIPLAYER_ENABLED: 'true' };
+  const room = new MatchRoom(ctx, env);
+  await room.fetch(request('/init', { code: 'ABCD-EFGH', name: 'Host', difficulty: 'normal', hostTokenHash: 'a'.repeat(64) }));
+  await room.fetch(request('/join', { name: 'Guest', tokenHash: 'b'.repeat(64) }));
+  const host = new Socket('host'); const guest = new Socket('guest'); ctx.sockets.push(host, guest);
+  await room.webSocketMessage(host, envelope('ready', 0)); await room.webSocketMessage(guest, envelope('ready', 0));
+  const stored = await ctx.storage.get('room'); env.__TEST_NOW = stored.startAt + 1;
+  await room.webSocketMessage(host, envelope('progress', 1, { score: 100, round: 1, perfect: 1, combo: 1, acc: 100, attempts: 1 }));
+  assert.equal(host.sent.some((message) => message.type === 'error' && message.payload.code === 'invalid_progress'), false);
+  assert.equal((await ctx.storage.get('room')).seats.host.progress.perfectStreak, 0);
 });

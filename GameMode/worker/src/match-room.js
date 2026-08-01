@@ -1,5 +1,5 @@
 import {
-  MATCH_LIMITS, MATCH_PROTOCOL_VERSION, MATCH_REACTIONS, MATCH_SOCKET_PROTOCOL, MATCH_STATES,
+  MATCH_LIMITS, MATCH_PROTOCOL_VERSION, MATCH_REACTIONS, MATCH_SABOTAGES, MATCH_SOCKET_PROTOCOL, MATCH_STATES,
   ticketFromProtocols, validateMatchEnvelope,
 } from '../../shared/match-protocol.mjs';
 import { sha256hex } from './security.js';
@@ -17,22 +17,24 @@ const MESSAGE_LIMIT = 80;
 
 function now(env) { const value = Number(env?.__TEST_NOW); return Number.isFinite(value) ? value : Date.now(); }
 function json(value, status = 200) { return Response.json(value, { status }); }
-function progress() { return { score: 0, round: 0, perfect: 0, combo: 1, acc: 0, attempts: 0 }; }
+function progress() { return { score: 0, round: 0, perfect: 0, perfectStreak: 0, combo: 1, acc: 0, attempts: 0 }; }
 function seat(id, name, tokenHash, at) {
   return { id, name, tokenHash, ready: false, connected: false, disconnectedAt: null, lastSeenAt: at,
-    lastSeq: -1, progress: progress(), finished: false, forfeited: false, rematch: false };
+    lastSeq: -1, progress: progress(), finished: false, forfeited: false, rematch: false,
+    shards: 0, shardsEarned: 0, sabotagesUsed: 0, shardStreakReady: true };
 }
 function createRoom(value, at) {
   return {
     v: MATCH_PROTOCOL_VERSION, code: value.code, state: MATCH_STATES.WAITING, difficulty: value.difficulty,
     rulesetVersion: 1, matchNumber: 1, suddenDeath: 0, roundLimit: MATCH_LIMITS.rounds,
     seed: null, startAt: null, createdAt: at, updatedAt: at, expiresAt: at + MATCH_TIMES.waiting,
-    seats: { host: seat('host', value.name, value.hostTokenHash, at), guest: null }, result: null,
+    seats: { host: seat('host', value.name, value.hostTokenHash, at), guest: null }, sabotages: [], result: null,
   };
 }
 function publicSeat(value) {
   return value ? { id: value.id, name: value.name, ready: value.ready, connected: value.connected,
-    progress: { ...value.progress }, finished: value.finished, forfeited: value.forfeited, rematch: value.rematch } : null;
+    progress: { ...value.progress }, finished: value.finished, forfeited: value.forfeited, rematch: value.rematch,
+    shards: value.shards || 0, shardsEarned: value.shardsEarned || 0, sabotagesUsed: value.sabotagesUsed || 0 } : null;
 }
 export function publicMatch(room, you = null) {
   return {
@@ -41,19 +43,22 @@ export function publicMatch(room, you = null) {
     roundLimit: room.roundLimit, seed: room.seed, startAt: room.startAt, createdAt: room.createdAt,
     updatedAt: room.updatedAt, expiresAt: room.expiresAt, you,
     seats: { host: publicSeat(room.seats.host), guest: publicSeat(room.seats.guest) },
+    sabotages: Array.isArray(room.sabotages) ? room.sabotages.map((value) => ({ ...value })) : [],
     result: room.result ? { ...room.result } : null,
   };
 }
 function sanitizeProgress(value, previous, finish = false) {
   if (!value || typeof value !== 'object') return null;
-  const keys = ['score', 'round', 'perfect', 'combo', 'acc', 'attempts'];
-  if (keys.some((key) => !Number.isSafeInteger(value[key]))) return null;
-  if (value.score < 0 || value.score > 100_000_000 || value.round < 0 || value.round > 100 ||
-      value.perfect < 0 || value.perfect > 1000 || value.combo < 0 || value.combo > 1000 ||
-      value.acc < 0 || value.acc > 100 || value.attempts < 0 || value.attempts > 4000 ||
-      value.perfect > value.attempts || value.round < previous.round || value.attempts < previous.attempts ||
-      (!finish && value.round === previous.round && value.attempts === previous.attempts)) return null;
-  return Object.fromEntries(keys.map((key) => [key, value[key]]));
+  const normalized = { ...value, perfectStreak: Number.isSafeInteger(value.perfectStreak) ? value.perfectStreak : 0 };
+  const keys = ['score', 'round', 'perfect', 'perfectStreak', 'combo', 'acc', 'attempts'];
+  if (keys.some((key) => !Number.isSafeInteger(normalized[key]))) return null;
+  if (normalized.score < 0 || normalized.score > 100_000_000 || normalized.round < 0 || normalized.round > 100 ||
+      normalized.perfect < 0 || normalized.perfect > 1000 || normalized.combo < 0 || normalized.combo > 1000 ||
+      normalized.perfectStreak < 0 || normalized.perfectStreak > 1000 || normalized.perfectStreak > normalized.perfect ||
+      normalized.acc < 0 || normalized.acc > 100 || normalized.attempts < 0 || normalized.attempts > 4000 ||
+      normalized.perfect > normalized.attempts || normalized.round < previous.round || normalized.attempts < previous.attempts ||
+      (!finish && normalized.round === previous.round && normalized.attempts === previous.attempts)) return null;
+  return Object.fromEntries(keys.map((key) => [key, normalized[key]]));
 }
 export function compareMatch(host, guest) {
   for (const [field, reason] of [['score', 'score'], ['perfect', 'perfects'], ['combo', 'combo'], ['acc', 'accuracy']]) {
@@ -63,7 +68,8 @@ export function compareMatch(host, guest) {
 }
 function resetSeat(value, at) {
   if (!value) return; value.ready = true; value.progress = progress(); value.finished = false;
-  value.forfeited = false; value.rematch = false; value.lastSeenAt = at;
+  value.forfeited = false; value.rematch = false; value.lastSeenAt = at; value.shards = 0;
+  value.shardsEarned = 0; value.sabotagesUsed = 0; value.shardStreakReady = true;
 }
 function countdown(room, at, { rematch = false, suddenDeath = false } = {}) {
   resetSeat(room.seats.host, at); resetSeat(room.seats.guest, at);
@@ -74,8 +80,17 @@ function countdown(room, at, { rematch = false, suddenDeath = false } = {}) {
   room.roundLimit = suddenDeath ? MATCH_LIMITS.suddenDeathRounds : MATCH_LIMITS.rounds;
   room.seed = `clash|${room.rulesetVersion}|${room.code}|${room.matchNumber}|${room.suddenDeath}|${random[0].toString(36)}${random[1].toString(36)}`;
   room.startAt = at + MATCH_TIMES.countdown; room.updatedAt = at;
-  room.expiresAt = room.startAt + MATCH_TIMES.active; room.result = null;
+  room.expiresAt = room.startAt + MATCH_TIMES.active; room.sabotages = []; room.result = null;
   return room;
+}
+function awardShard(player, next) {
+  player.shards = Math.max(0, Number(player.shards) || 0);
+  player.shardsEarned = Math.max(0, Number(player.shardsEarned) || 0);
+  player.sabotagesUsed = Math.max(0, Number(player.sabotagesUsed) || 0);
+  if (typeof player.shardStreakReady !== 'boolean') player.shardStreakReady = next.perfectStreak < 3;
+  if (next.perfectStreak < 3) player.shardStreakReady = true;
+  if (!player.shardStreakReady || next.perfectStreak < 3 || player.shardsEarned >= MATCH_LIMITS.maxShards) return false;
+  player.shardStreakReady = false; player.shards++; player.shardsEarned++; return true;
 }
 function forfeit(room, loser, at, reason) {
   const seatValue = room.seats[loser]; if (seatValue) { seatValue.forfeited = true; seatValue.finished = true; }
@@ -192,8 +207,12 @@ export class MatchRoom {
         if (room.state !== MATCH_STATES.PLAYING) return this.error(ws, 'not_playing');
         const finished = message.type === 'finish'; const next = sanitizeProgress(message.payload, player.progress, finished);
         if (!next) return this.error(ws, 'invalid_progress');
-        player.progress = next; room.updatedAt = at;
-        if (!finished) { await this.save(room); await this.others(player.id, 'opponent_progress', { seat: player.id, progress: next }); return; }
+        const shardAwarded = !finished && awardShard(player, next); player.progress = next; room.updatedAt = at;
+        if (!finished) {
+          await this.save(room); await this.others(player.id, 'opponent_progress', { seat: player.id, progress: next });
+          if (shardAwarded) await this.broadcast('shard_state', { room: publicMatch(room) });
+          return;
+        }
         player.finished = true;
         if (!room.seats.host.finished || !room.seats.guest.finished) { await this.save(room); await this.others(player.id, 'opponent_finished', { seat: player.id, progress: next }); return; }
         const result = compareMatch(room.seats.host, room.seats.guest);
@@ -211,6 +230,21 @@ export class MatchRoom {
         info.reactionAt = at; ws.serializeAttachment(info);
         await this.others(player.id, 'reaction', { seat: player.id, id });
         return;
+      }
+      if (message.type === 'sabotage') {
+        if (room.state !== MATCH_STATES.PLAYING) return this.error(ws, 'sabotage_unavailable');
+        const effect = String(message.payload.effect || '');
+        if (!Object.prototype.hasOwnProperty.call(MATCH_SABOTAGES, effect)) return this.error(ws, 'invalid_sabotage');
+        player.shards = Math.max(0, Number(player.shards) || 0); player.sabotagesUsed = Math.max(0, Number(player.sabotagesUsed) || 0);
+        if (player.shards < 1) return this.error(ws, 'no_shards');
+        if (player.sabotagesUsed >= MATCH_LIMITS.maxSabotages) return this.error(ws, 'sabotage_limit');
+        const target = player.id === 'host' ? 'guest' : 'host'; const opponent = room.seats[target];
+        const targetRound = Math.max(player.progress.round, opponent?.progress.round || 0) + 1;
+        if (targetRound > room.roundLimit) return this.error(ws, 'sabotage_too_late');
+        if ((room.sabotages || []).some((value) => value.target === target && value.round >= targetRound)) return this.error(ws, 'sabotage_pending');
+        const sabotage = { id: `${room.matchNumber}-${player.id}-${player.sabotagesUsed + 1}`, by: player.id, target, effect, round: targetRound, at };
+        player.shards--; player.sabotagesUsed++; room.sabotages = [...(room.sabotages || []), sabotage]; room.updatedAt = at;
+        await this.save(room); await this.broadcast('sabotage', { sabotage, room: publicMatch(room) }); return;
       }
       if (message.type === 'rematch_vote') {
         if (![MATCH_STATES.FINISHED, MATCH_STATES.FORFEIT].includes(room.state)) return this.error(ws, 'rematch_unavailable');

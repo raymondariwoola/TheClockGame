@@ -4,9 +4,9 @@ Last verified: **1 August 2026**
 
 ## Current pending release: mobile-first GameMode UI and family enhancements
 
-UI-0 through UI-6 are complete and published. The next local release sequence now adds family-session enhancements; Preset Reactions is the first completed phase. It provides five fixed, ephemeral Clash reactions with a local mute toggle and no free text or stored message history.
+UI-0 through UI-6 are complete and published. The next local release sequence adds family-session enhancements. Preset Reactions and Time Shards / Secret Sabotage are complete: five fixed ephemeral reactions plus two skill-earned, server-recorded sabotage opportunities per Clash player.
 
-The current local enhancement phase advances the static PWA shell from revision 16 to revision 17 and updates the existing Match Durable Object code. Once the full selected sequence is complete, publication will require both the ordinary Git push and one existing Worker deployment. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
+The current local enhancement sequence advances the static PWA shell from revision 16 to revision 18 and updates the existing Match Durable Object code. Once the full selected sequence is complete, publication will require both the ordinary Git push and one existing Worker deployment. It requires **no new binding, secret, Durable Object class, migration, leaderboard reset, paid service, or `.dev.vars` change**. Codex has not pushed or synchronized it.
 
 ### Your publication steps
 

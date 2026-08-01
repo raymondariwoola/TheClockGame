@@ -423,6 +423,23 @@ const simulateRun = E.simulateRun;
   ok(JSON.stringify(p1) !== JSON.stringify(other), 'different day → different rift');
 })();
 
+// ---------- Clash-only sabotage transforms ----------
+(() => {
+  const base = { speed: 200, dir: 1, zones: [{ size: 40 }, { size: 10, type: 'decoy' }] };
+  const reverse = E.applySabotageRound(base, 'reverse');
+  eq(reverse.dir, -1, 'Reverse Time flips direction');
+  eq(reverse.speed, 200, 'Reverse Time preserves speed');
+  const narrow = E.applySabotageRound(base, 'narrow');
+  eq(narrow.zones[0].size, 32, 'Tight Window narrows a real target by 20%');
+  eq(narrow.zones[1].size, 10, 'Tight Window leaves decoys unchanged');
+  const haste = E.applySabotageRound(base, 'haste');
+  approx(haste.speed, 230, 0.0001, 'Time Rush raises speed by 15%');
+  eq(base.speed, 200, 'sabotage transform does not mutate its input speed');
+  eq(base.zones[0].size, 40, 'sabotage transform does not mutate input zones');
+  const unknown = E.applySabotageRound(base, 'unknown');
+  ok(JSON.stringify(unknown) === JSON.stringify(base), 'unknown sabotage is a no-op');
+})();
+
 // ---------- report ----------
 console.log(`\nChronos Strike engine tests: ${passed} passed, ${failed} failed`);
 if (failed) {
