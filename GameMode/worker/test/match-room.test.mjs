@@ -98,7 +98,7 @@ test('preset reactions are allowlisted, ephemeral, opponent-only, and throttled'
 
   await room.webSocketMessage(host, envelope('reaction', 0, { id: 'nice' }));
   assert.deepEqual(guest.sent.at(-1), { v: MATCH_PROTOCOL_VERSION, type: 'reaction', payload: { seat: 'host', id: 'nice' } });
-  assert.equal(host.sent.length, 0);
+  assert.deepEqual(host.sent.at(-1), { v: MATCH_PROTOCOL_VERSION, type: 'reaction_ack', payload: { id: 'nice', delivered: true } });
   let stored = await ctx.storage.get('room');
   assert.equal(JSON.stringify(stored).includes('reaction'), false, 'reactions are not stored in room history');
 
@@ -110,6 +110,7 @@ test('preset reactions are allowlisted, ephemeral, opponent-only, and throttled'
   env.__TEST_NOW += 1200;
   await room.webSocketMessage(host, envelope('reaction', 3, { id: 'gg' }));
   assert.equal(guest.sent.at(-1).payload.id, 'gg');
+  assert.equal(host.sent.at(-1).payload.delivered, true);
 });
 
 test('three-Perfect streaks earn capped Time Shards and sabotage one telegraphed next round', async () => {

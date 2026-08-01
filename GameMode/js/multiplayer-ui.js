@@ -9,7 +9,7 @@
   const handicaps = root.ChronosMultiplayerClient.HANDICAPS || { none: { label: 'Standard', description: 'No assistance.' } };
   const REACTION_MUTE_KEY = 'cs_clash_reactions_muted';
   const inviteCards = new Map();
-  let modal = null; let active = null; let lastSeed = null; let progressFloor = 0; let localObjectives = null;
+  let modal = null; let active = null; let lastSeed = null; let progressFloor = 0; let localObjectives = null; let pendingReaction = null;
 
   function playerName() {
     try { const value = JSON.parse(localStorage.getItem('cs_player_name') || 'null'); return value?.first ? `${value.first} ${value.last || ''}`.trim() : ''; }
@@ -41,6 +41,7 @@
       multiplayer_disabled: 'Live Clash is temporarily disabled.', multiplayer_unconfigured: 'Live Clash is not configured yet.',
       origin_forbidden: 'This game address is not allowed by the Worker.', rate_limited: 'Too many attempts. Wait a moment and retry.',
       reaction_rate_limited: 'Reactions need a short breather.', invalid_reaction: 'That reaction is unavailable.',
+      invalid_message: 'Live server update required. Reactions are not available yet.',
       invalid_sabotage: 'That sabotage is unavailable.', sabotage_unavailable: 'Sabotage is available only during a live Clash.',
       no_shards: 'Land three Perfects in a row to earn a Time Shard.', sabotage_limit: 'Both Time Shards have already been spent.',
       sabotage_pending: 'Your rival already has a sabotage queued for their next round.', sabotage_too_late: 'The final round is already in motion. Save the shard for the rematch.',
@@ -57,7 +58,7 @@
   function sendReaction(id, controls) {
     const reaction = reactions[id]; if (!reaction) return;
     try {
-      client.reaction(id); reactionToast(`You · ${reaction.emoji} ${reaction.label}`);
+      client.reaction(id); pendingReaction = id; reactionToast(`Sending ${reaction.emoji} ${reaction.label}`);
       for (const control of controls.querySelectorAll('[data-clash-reaction]')) control.disabled = true;
       setTimeout(() => { for (const control of controls.querySelectorAll('[data-clash-reaction]')) control.disabled = false; }, 1250);
     } catch (error) { reactionToast(safeMessage(error.code)); }
@@ -77,7 +78,16 @@
   }
   function reactionDock() {
     let value = document.getElementById('clashReactionDock');
-    if (!value) { value = reactionControls(true); value.id = 'clashReactionDock'; value.hidden = true; document.body.appendChild(value); }
+    if (!value) { value = reactionControls(true); value.id = 'clashReactionDock'; value.hidden = true; actionDock().appendChild(value); }
+    return value;
+  }
+  function actionDock() {
+    let value = document.getElementById('clashActionDock');
+    if (!value) {
+      value = document.createElement('div'); value.id = 'clashActionDock'; value.className = 'clash-action-dock'; value.hidden = true;
+      value.setAttribute('aria-label', 'Clash reactions and sabotage'); value.addEventListener('click', (event) => event.stopPropagation());
+      const strike = document.getElementById('strikeBtn'); strike?.insertAdjacentElement('afterend', value);
+    }
     return value;
   }
   function objectiveResult(snapshot = localObjectives) {
@@ -101,14 +111,15 @@
       choices.appendChild(control);
     }
     summary.addEventListener('click', () => { choices.hidden = !choices.hidden; summary.setAttribute('aria-expanded', choices.hidden ? 'false' : 'true'); });
-    value.append(summary, choices); document.body.appendChild(value); return value;
+    value.append(summary, choices); actionDock().appendChild(value); return value;
   }
   function updateSabotageDock(room = client.room) {
     const value = sabotageDock(); if (!active) { value.hidden = true; return; }
     const own = room?.seats?.[active.seat]; const opponent = active.seat === 'host' ? 'guest' : 'host';
     const pending = (room?.sabotages || []).some((item) => item.by === active.seat && item.target === opponent && item.round > (own?.progress?.round || 0));
     const summary = value.querySelector('.clash-shard-summary'); const count = Math.max(0, Number(own?.shards) || 0);
-    summary.textContent = `💠 ${count} · SABOTAGE`; summary.disabled = count < 1 || pending;
+    summary.textContent = `◆ ${count}`; summary.disabled = count < 1 || pending;
+    summary.setAttribute('aria-label', `${count} Time Shards. ${pending ? 'A sabotage is already queued.' : count < 1 ? 'Land three Perfects in a row to earn a shard.' : 'Open sabotage choices.'}`);
     summary.title = pending ? 'A sabotage is already queued.' : count < 1 ? 'Land three Perfects in a row to earn a shard.' : 'Spend one shard on the rival’s next round.';
     for (const control of value.querySelectorAll('[data-clash-sabotage]')) control.disabled = count < 1 || pending;
     if (summary.disabled) { value.querySelector('.clash-sabotage-choices').hidden = true; summary.setAttribute('aria-expanded', 'false'); }
@@ -217,7 +228,7 @@
     const seat = room.you || client.session(room.code)?.seat; if (!seat) return;
     const own = room.seats[seat]; progressFloor = own?.progress?.attempts || 0;
     active = { code: room.code, seat, matchNumber: room.matchNumber, suddenDeath: room.suddenDeath, seed: room.seed }; localObjectives = null;
-    close(); reactionDock().hidden = false; updateHud(room); root.ChronosGame?.startClash({
+    close(); actionDock().hidden = false; reactionDock().hidden = false; updateHud(room); root.ChronosGame?.startClash({
       code: room.code, seat, seed: room.seed, difficulty: room.difficulty, roundLimit: room.roundLimit,
       matchNumber: room.matchNumber, suddenDeath: room.suddenDeath,
       sabotages: (room.sabotages || []).filter((value) => value.target === seat),
@@ -244,6 +255,7 @@
   }
   function hideHud() {
     const value = document.getElementById('clashHud'); if (value) value.hidden = true;
+    const actions = document.getElementById('clashActionDock'); if (actions) actions.hidden = true;
     const reaction = document.getElementById('clashReactionDock'); if (reaction) reaction.hidden = true;
     const sabotage = document.getElementById('clashSabotageDock'); if (sabotage) sabotage.hidden = true;
   }
@@ -297,6 +309,10 @@
     if (reactionsMuted() || !reactions[id]) return;
     const name = client.room?.seats?.[seat]?.name || 'Rival'; const reaction = reactions[id]; reactionToast(`${name} · ${reaction.emoji} ${reaction.label}`);
   });
+  client.on('reaction_ack', ({ id, delivered }) => {
+    if (pendingReaction !== id || !reactions[id]) return; pendingReaction = null;
+    const reaction = reactions[id]; reactionToast(delivered ? `Sent to rival · ${reaction.emoji} ${reaction.label}` : 'Rival is reconnecting · reaction not delivered');
+  });
   client.on('shard_state', ({ room }) => { if (room) { client.room = room; updateSabotageDock(room); const own = room.seats?.[active?.seat]; if (own?.shards) reactionToast(`💠 Time Shard earned · ${own.shards}/2 ready`); } });
   client.on('sabotage', ({ sabotage, room }) => {
     if (room) client.room = room; updateSabotageDock(room);
@@ -308,13 +324,18 @@
     } else if (sabotage.by === active.seat) reactionToast(`💠 ${item.label} queued for rival round ${sabotage.round}`);
   });
   client.on('error', ({ code }) => {
-    if (['reaction_rate_limited', 'invalid_reaction', 'invalid_sabotage', 'sabotage_unavailable', 'no_shards', 'sabotage_limit', 'sabotage_pending', 'sabotage_too_late'].includes(code)) reactionToast(safeMessage(code));
+    if (code === 'invalid_message' && !pendingReaction) return;
+    if (['reaction_rate_limited', 'invalid_reaction', 'invalid_message', 'invalid_sabotage', 'sabotage_unavailable', 'no_shards', 'sabotage_limit', 'sabotage_pending', 'sabotage_too_late'].includes(code)) {
+      if (code === 'invalid_message') pendingReaction = null;
+      reactionToast(safeMessage(code));
+    }
   });
   client.on('result', ({ room }) => { client.room = room; active = null; hideHud(); showResult(room); });
   client.on('expired', () => { active = null; hideHud(); showError('ROOM EXPIRED', 'Create a fresh Clash to play again.'); });
   client.on('connection', ({ connection }) => { document.body.classList.toggle('clash-reconnecting', connection === 'reconnecting'); });
 
   root.ChronosClash = { open: openMenu, onProgress, onGameEnd, forfeit };
+  reactionDock(); sabotageDock(); hideHud();
   document.getElementById('clashOpenBtn')?.addEventListener('click', openMenu);
   const incoming = root.ChronosMultiplayerClient.codeFromUrl(location.href);
   if (incoming) setTimeout(async () => {

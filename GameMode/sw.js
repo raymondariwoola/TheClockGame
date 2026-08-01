@@ -3,16 +3,16 @@
 // one coherent game revision. API, ghost, and multiplayer requests are never
 // cached; offline play simply falls back to the local game shell.
 
-const CACHE_VERSION = 21;
+const CACHE_VERSION = 22;
 const APP_CACHE = `cs-app-v${CACHE_VERSION}`;
 const TRACK_CACHE = `cs-soundtrack-v${CACHE_VERSION}`;
 const APP_SHELL = [
-  './', './index.html', './manifest.webmanifest', './style.css?v=21', './engine.js?v=21', './game.js?v=21',
-  './local-reset-config.js?v=21', './leaderboard-config.js?v=21', './leaderboard.js?v=21', './share.js?v=21',
-  './js/storage.js?v=21', './js/run-context.js?v=21', './js/cheat-state.js?v=21', './js/pwa.js?v=21',
-  './js/gameplay-gestures.js?v=21', './js/ghost-client.js?v=21', './js/ghost-ui.js?v=21', './js/multiplayer.js?v=21',
-  './js/multiplayer-ui.js?v=21', './js/share-cards.js?v=21', './vendor/anime.min.js?v=21', './vendor/fonts/fonts.css?v=21',
-  './js/objectives.js?v=21',
+  './', './index.html', './manifest.webmanifest', './style.css?v=22', './engine.js?v=22', './game.js?v=22',
+  './local-reset-config.js?v=22', './leaderboard-config.js?v=22', './leaderboard.js?v=22', './share.js?v=22',
+  './js/storage.js?v=22', './js/run-context.js?v=22', './js/cheat-state.js?v=22', './js/pwa.js?v=22',
+  './js/gameplay-gestures.js?v=22', './js/ghost-client.js?v=22', './js/ghost-ui.js?v=22', './js/multiplayer.js?v=22',
+  './js/multiplayer-ui.js?v=22', './js/share-cards.js?v=22', './vendor/anime.min.js?v=22', './vendor/fonts/fonts.css?v=22',
+  './js/objectives.js?v=22',
   './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
 ];
 const TRACK_RE = /\/soundtrack\/.+\.(wav|mp3|ogg|m4a|aac|flac)$/i;

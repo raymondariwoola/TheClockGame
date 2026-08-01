@@ -129,4 +129,17 @@
 
 ## Resume rule
 
-The owner-selected five-phase sequence is complete. Publish the existing Match Worker first and the static PWA second by following `OWNER_ACTIONS.md`; no new Cloudflare resource or secret is required.
+## Follow-up reliability correction — reactions and mobile controls
+
+- Confirmed the production mismatch on 1 August 2026: GitHub Pages was serving shell revision 21, while Cloudflare's newest Worker upload was still `34373023-619f-4a74-bc7d-7b3c934cf850` from 30 July, before the five family phases. The old Worker rejects reaction messages and cannot provide the newer Clash server behavior.
+- Replaced optimistic sender feedback with a Worker `reaction_ack` containing the preset ID and whether a live rival socket received it.
+- Added explicit feedback when the rival is reconnecting and the reaction was not delivered.
+- Added a clear `Live server update required` warning when a revision-21-or-newer client reaches the older Worker, instead of falsely showing a successful local send.
+- Moved reactions and Time Shards into a bounded gameplay-flow dock immediately below STRIKE. The dock uses 44 px controls, horizontal scrolling on narrow phones, and cannot cover the Strike button.
+- Corrected the sabotage panel's CSS so its flex layout cannot override the native `hidden` state; its three choices now appear only after an available shard control is opened.
+- Kept sabotage choices above the clock/strike action area while deliberately expanded and left reactions ephemeral, unlabelled, and absent from room storage.
+- Wrapped STRIKE and the Clash dock into one responsive action stack so portrait and side-by-side landscape layouts keep their relationship intact.
+- Extended the browser audit to prove the real action dock remains below STRIKE, within the viewport, and free of horizontal page overflow at 390 × 844, 320 × 568, and 844 × 390.
+- Advanced the coherent PWA shell to revision 22.
+
+The owner-selected five-phase sequence and its reliability correction are complete locally. Publish the existing Match Worker first and the static PWA second by following `OWNER_ACTIONS.md`; no new Cloudflare resource or secret is required.

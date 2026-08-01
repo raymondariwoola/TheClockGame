@@ -258,7 +258,8 @@ export class MatchRoom {
         if (!Object.prototype.hasOwnProperty.call(MATCH_REACTIONS, id)) return this.error(ws, 'invalid_reaction');
         if (Number.isFinite(info.reactionAt) && at - info.reactionAt < MATCH_LIMITS.reactionCooldownMs) return this.error(ws, 'reaction_rate_limited');
         info.reactionAt = at; ws.serializeAttachment(info);
-        await this.others(player.id, 'reaction', { seat: player.id, id });
+        const delivered = await this.others(player.id, 'reaction', { seat: player.id, id });
+        ws.send(JSON.stringify(this.message('reaction_ack', { id, delivered: delivered > 0 })));
         return;
       }
       if (message.type === 'sabotage') {
@@ -319,6 +320,13 @@ export class MatchRoom {
   message(type, payload) { return { v: MATCH_PROTOCOL_VERSION, type, payload }; }
   error(ws, code) { try { ws.send(JSON.stringify(this.message('error', { code }))); } catch {} }
   async broadcast(type, payload) { const value = JSON.stringify(this.message(type, payload)); for (const ws of this.ctx.getWebSockets()) if (!(ws.deserializeAttachment() || {}).replaced) try { ws.send(value); } catch {} }
-  async others(seatId, type, payload) { const value = JSON.stringify(this.message(type, payload)); for (const ws of this.ctx.getWebSockets()) { const info = ws.deserializeAttachment() || {}; if (!info.replaced && info.seat !== seatId) try { ws.send(value); } catch {} } }
+  async others(seatId, type, payload) {
+    const value = JSON.stringify(this.message(type, payload)); let delivered = 0;
+    for (const ws of this.ctx.getWebSockets()) {
+      const info = ws.deserializeAttachment() || {};
+      if (!info.replaced && info.seat !== seatId && ws.readyState === 1) try { ws.send(value); delivered++; } catch {}
+    }
+    return delivered;
+  }
   async broadcastCountdown(room, at) { await this.broadcast('countdown', { room: publicMatch(room), seed: room.seed, startAt: room.startAt, serverTime: at, difficulty: room.difficulty, rulesetVersion: room.rulesetVersion, roundLimit: room.roundLimit, suddenDeath: room.suddenDeath }); }
 }

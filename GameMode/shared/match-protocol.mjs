@@ -12,7 +12,7 @@ export const MATCH_CLIENT_TYPES = Object.freeze([
 ]);
 export const MATCH_SERVER_TYPES = Object.freeze([
   'snapshot', 'presence', 'countdown', 'opponent_progress', 'opponent_finished',
-  'result', 'rematch_state', 'expired', 'error', 'reaction', 'shard_state', 'sabotage',
+  'result', 'rematch_state', 'expired', 'error', 'reaction', 'reaction_ack', 'shard_state', 'sabotage',
 ]);
 export const MATCH_REACTIONS = Object.freeze({
   nice: Object.freeze({ emoji: '👏', label: 'Nice!' }),

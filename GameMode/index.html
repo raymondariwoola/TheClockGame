@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png" />
 <!-- Fonts are self-hosted (vendor/fonts) so the game renders correctly offline. -->
-<link rel="stylesheet" href="vendor/fonts/fonts.css?v=21">
-<link rel="stylesheet" href="style.css?v=21" />
+<link rel="stylesheet" href="vendor/fonts/fonts.css?v=22">
+<link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
   <!-- Screen-reader live region (visually hidden) -->
@@ -395,10 +395,12 @@
         <div class="lab-readout" id="labReadout" aria-live="polite"></div>
       </div>
 
-      <button id="strikeBtn" class="strike-btn">
-        <span class="strike-label">STRIKE</span>
-        <span class="strike-sub">SPACE / CLICK</span>
-      </button>
+      <div class="clash-strike-stack">
+        <button id="strikeBtn" class="strike-btn">
+          <span class="strike-label">STRIKE</span>
+          <span class="strike-sub">SPACE / CLICK</span>
+        </button>
+      </div>
 
       <div class="powerups" id="powerups"></div>
 
@@ -672,24 +674,24 @@
   </aside>
 
   <!-- anime.js vendored locally (vendor/anime.min.js) for offline reliability. -->
-  <script src="vendor/anime.min.js?v=21"></script>
+  <script src="vendor/anime.min.js?v=22"></script>
   <!-- Pure deterministic game core — must load before game.js. -->
-  <script src="engine.js?v=21"></script>
-  <script src="js/storage.js?v=21"></script>
-  <script src="js/run-context.js?v=21"></script>
-  <script src="js/cheat-state.js?v=21"></script>
-  <script src="js/ghost-client.js?v=21"></script>
-  <script src="js/multiplayer.js?v=21"></script>
-  <script src="js/share-cards.js?v=21"></script>
-  <script src="js/objectives.js?v=21"></script>
-  <script src="local-reset-config.js?v=21"></script>
-  <script src="leaderboard-config.js?v=21"></script>
-  <script src="js/pwa.js?v=21"></script>
-  <script src="js/gameplay-gestures.js?v=21"></script>
-  <script src="game.js?v=21"></script>
-  <script src="leaderboard.js?v=21"></script>
-  <script src="js/ghost-ui.js?v=21"></script>
-  <script src="js/multiplayer-ui.js?v=21"></script>
-  <script src="share.js?v=21"></script>
+  <script src="engine.js?v=22"></script>
+  <script src="js/storage.js?v=22"></script>
+  <script src="js/run-context.js?v=22"></script>
+  <script src="js/cheat-state.js?v=22"></script>
+  <script src="js/ghost-client.js?v=22"></script>
+  <script src="js/multiplayer.js?v=22"></script>
+  <script src="js/share-cards.js?v=22"></script>
+  <script src="js/objectives.js?v=22"></script>
+  <script src="local-reset-config.js?v=22"></script>
+  <script src="leaderboard-config.js?v=22"></script>
+  <script src="js/pwa.js?v=22"></script>
+  <script src="js/gameplay-gestures.js?v=22"></script>
+  <script src="game.js?v=22"></script>
+  <script src="leaderboard.js?v=22"></script>
+  <script src="js/ghost-ui.js?v=22"></script>
+  <script src="js/multiplayer-ui.js?v=22"></script>
+  <script src="share.js?v=22"></script>
 </body>
 </html>

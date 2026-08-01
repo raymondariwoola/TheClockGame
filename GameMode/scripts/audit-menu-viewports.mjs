@@ -162,9 +162,52 @@ async function auditCriticalTasks() {
   assert.equal(started.objectives, 2, 'a run starts with exactly two optional Objective Cards');
   assert.ok(started.objectiveBounds.left >= 0 && started.objectiveBounds.right <= 390 && started.objectiveBounds.top >= 0 && started.objectiveBounds.bottom <= 844,
     'Objective Cards stay inside the mobile gameplay viewport');
+  const clashControls = await evaluate(`(() => {
+    const dock = document.querySelector('#clashActionDock'); const reaction = document.querySelector('#clashReactionDock');
+    const sabotage = document.querySelector('#clashSabotageDock'); dock.hidden = false; reaction.hidden = false; sabotage.hidden = false;
+    const strike = document.querySelector('#strikeBtn').getBoundingClientRect(); const actions = dock.getBoundingClientRect();
+    return { strikeBottom: strike.bottom, actionsTop: actions.top, actionsLeft: actions.left, actionsRight: actions.right, viewportWidth: innerWidth, overflow: document.documentElement.scrollWidth - innerWidth };
+  })()`);
+  assert.ok(clashControls.actionsTop >= clashControls.strikeBottom, 'Clash controls are in flow below STRIKE and cannot cover it');
+  assert.ok(clashControls.actionsLeft >= 0 && clashControls.actionsRight <= clashControls.viewportWidth, 'Clash controls remain inside the mobile viewport');
+  assert.ok(clashControls.overflow <= 1, 'Clash controls create no horizontal page overflow');
   const objectiveImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const objectiveScreenshot = join(outputDir, 'objective-cards-390x844.png');
   await writeFile(objectiveScreenshot, Buffer.from(objectiveImage.result.data, 'base64'));
+
+  await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 568, deviceScaleFactor: 1, mobile: true, screenWidth: 320, screenHeight: 568 });
+  await send('Page.navigate', { url: `${gameUrl}?ui-task=clash-controls-small` }); await waitForGame(); await wait(180);
+  await evaluate(`(() => { document.querySelector('[data-menu-nav="play"]').click(); document.querySelector('.mode-card[data-mode="classic"]').click(); document.querySelector('#menuStartBtn').click(); })()`);
+  await wait(420);
+  const smallControls = await evaluate(`(() => {
+    const dock = document.querySelector('#clashActionDock'); dock.hidden = false; document.querySelector('#clashReactionDock').hidden = false; document.querySelector('#clashSabotageDock').hidden = false;
+    const strike = document.querySelector('#strikeBtn').getBoundingClientRect(); const actions = dock.getBoundingClientRect();
+    return { strikeBottom: strike.bottom, actionsTop: actions.top, actionsLeft: actions.left, actionsRight: actions.right, viewportWidth: innerWidth, viewportHeight: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth };
+  })()`);
+  assert.ok(smallControls.actionsTop >= smallControls.strikeBottom, 'Clash controls stay below STRIKE at 320 × 568');
+  assert.ok(smallControls.actionsLeft >= 0 && smallControls.actionsRight <= smallControls.viewportWidth && smallControls.actionsTop < smallControls.viewportHeight,
+    'Clash controls remain visible inside a small mobile viewport');
+  assert.ok(smallControls.overflow <= 1, 'small Clash controls create no horizontal page overflow');
+  const smallImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  const smallControlsScreenshot = join(outputDir, 'clash-controls-320x568.png');
+  await writeFile(smallControlsScreenshot, Buffer.from(smallImage.result.data, 'base64'));
+
+  await send('Emulation.setDeviceMetricsOverride', { width: 844, height: 390, deviceScaleFactor: 1, mobile: true, screenWidth: 844, screenHeight: 390 });
+  await send('Page.navigate', { url: `${gameUrl}?ui-task=clash-controls-landscape` }); await waitForGame(); await wait(180);
+  await evaluate(`(() => { document.querySelector('[data-menu-nav="play"]').click(); document.querySelector('.mode-card[data-mode="classic"]').click(); document.querySelector('#menuStartBtn').click(); })()`);
+  await wait(420);
+  const landscapeControls = await evaluate(`(() => {
+    const dock = document.querySelector('#clashActionDock'); dock.hidden = false; document.querySelector('#clashReactionDock').hidden = false; document.querySelector('#clashSabotageDock').hidden = false;
+    const strike = document.querySelector('#strikeBtn').getBoundingClientRect(); const actions = dock.getBoundingClientRect(); const stack = document.querySelector('.clash-strike-stack').getBoundingClientRect();
+    return { strikeBottom: strike.bottom, actionsTop: actions.top, actionsRight: actions.right, stackRight: stack.right, viewportWidth: innerWidth, viewportHeight: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth };
+  })()`);
+  assert.ok(landscapeControls.actionsTop >= landscapeControls.strikeBottom, 'landscape keeps Clash controls below STRIKE inside one stack');
+  assert.ok(landscapeControls.actionsRight <= landscapeControls.viewportWidth && landscapeControls.stackRight <= landscapeControls.viewportWidth && landscapeControls.actionsTop < landscapeControls.viewportHeight,
+    'landscape Clash controls remain visible inside the viewport');
+  assert.ok(landscapeControls.overflow <= 1, 'landscape Clash controls create no horizontal page overflow');
+  const landscapeImage = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  const landscapeControlsScreenshot = join(outputDir, 'clash-controls-844x390.png');
+  await writeFile(landscapeControlsScreenshot, Buffer.from(landscapeImage.result.data, 'base64'));
 
   await navigateForTask('find-clash');
   const clash = await evaluate(`(() => {
@@ -224,7 +267,7 @@ async function auditCriticalTasks() {
 
   return {
     tasks: ['start Normal Classic', 'find Clash', 'view Hall boards', 'open accessibility', 'locate install/update'],
-    objectiveScreenshot,
+    objectiveScreenshot, smallControlsScreenshot, landscapeControlsScreenshot,
   };
 }
 
@@ -262,6 +305,8 @@ try {
     }
   }
   console.log(`  objective cards screenshot: ${taskAudit.objectiveScreenshot}`);
+  console.log(`  small Clash controls screenshot: ${taskAudit.smallControlsScreenshot}`);
+  console.log(`  landscape Clash controls screenshot: ${taskAudit.landscapeControlsScreenshot}`);
   console.log(`✓ menu task audit passed: ${taskAudit.tasks.join('; ')}`);
 } finally {
   try { if (socket?.readyState === WebSocket.OPEN) await send('Browser.close'); } catch {}
